@@ -1,0 +1,678 @@
+/* ============================================================
+   PROFILE THEME
+   Цветовую схему НЕ переопределяем — профиль использует общую
+   палитру сайта (primary/accent из index.css).
+   Здесь только декоративные классы и акценты.
+   ============================================================ */
+
+/* Токены применяются и к скоупу профиля, и к любому элементу с .rxp-dark
+   (например, содержимому портальных диалогов) */
+.rxp-scope,
+.rxp-dark {
+  /* Декоративные акценты = цвета сайта (ультрафиолет/персик) */
+  --rxp-grid-line: 256 45% 60%;
+  --rxp-glow-cyan: 256 45% 55%;
+  --rxp-glow-pink: 25 100% 74%;
+}
+
+/* Тонкая сетка на фоне всей страницы профиля */
+.rxp-scope::before {  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(hsl(var(--rxp-grid-line) / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--rxp-grid-line) / 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 75%);
+}
+.rxp-scope > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Скроллбар в стиле темы */
+.rxp-scope *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.rxp-scope *::-webkit-scrollbar-track {
+  background: hsl(var(--card));
+}
+.rxp-scope *::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.2);
+  border-radius: 999px;
+}
+.rxp-scope *::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.6);
+}
+
+/* ---- Хиро ---- */
+.rxp-hero {
+  border-bottom: 1px solid hsl(var(--primary) / 0.3);
+  box-shadow:
+    inset 0 -80px 120px -60px hsl(var(--background)),
+    0 1px 0 hsl(var(--accent) / 0.25);
+}
+.rxp-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(hsl(var(--rxp-glow-cyan) / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--rxp-glow-cyan) / 0.06) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(to bottom, black 40%, transparent);
+}
+
+.rxp-name {
+  font-family: "Soyuz Grotesk", "Space Grotesk", ui-sans-serif, sans-serif;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-shadow: 0 1px 2px hsl(0 0% 0% / 0.12);
+}
+
+.rxp-neon-handle {
+  font-family: "Pixel 4.0", "Press Start 2P", monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: hsl(var(--primary));
+  text-shadow: 0 0 8px hsl(var(--rxp-glow-cyan) / 0.25);
+}
+
+/* Аватар: скошенный «квадрат будущего» */
+.rxp-avatar-frame {
+  position: relative;
+  padding: 3px;
+  border-radius: 22px;
+  background: linear-gradient(140deg, hsl(var(--primary)), hsl(var(--accent)));
+  box-shadow:
+    0 0 22px hsl(var(--rxp-glow-cyan) / 0.25),
+    0 0 50px hsl(var(--rxp-glow-pink) / 0.2);
+}
+.rxp-avatar-frame::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 26px;
+  border: 1px dashed hsl(var(--primary) / 0.4);
+  animation: rxp-dash 24s linear infinite;
+  pointer-events: none;
+}
+@keyframes rxp-dash {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.rxp-avatar-frame [data-radix-avatar],
+.rxp-avatar-frame .avatar-wrap {
+  border-radius: 19px;
+  overflow: hidden;
+  display: block;
+}
+
+/* Статус-точка */
+.rxp-status {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 4px solid hsl(var(--background));
+  box-shadow: 0 0 14px currentColor;
+}
+
+/* Кнопки героя */
+.rxp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rxp-btn-ghost {
+  background: hsl(var(--card) / 0.6);
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  backdrop-filter: blur(10px);
+}
+.rxp-btn-ghost:hover:not(:disabled) {
+  border-color: hsl(var(--primary) / 0.7);
+  box-shadow: 0 0 18px hsl(var(--rxp-glow-cyan) / 0.25);
+  transform: translateY(-1px);
+}
+.rxp-btn-neon {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  box-shadow: 0 0 26px hsl(var(--rxp-glow-cyan) / 0.2);
+}
+.rxp-btn-neon:hover:not(:disabled) {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  box-shadow: 0 0 40px hsl(var(--rxp-glow-pink) / 0.25);
+}
+.rxp-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Плашка уровня */
+.rxp-lv-chip {
+  font-family: "Pixel 4.0", "Press Start 2P", monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 7px 11px;
+  border-radius: 8px;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--primary) / 0.5);
+  box-shadow:
+    inset 0 0 14px hsl(var(--rxp-glow-cyan) / 0.12),
+    0 0 12px hsl(var(--rxp-glow-cyan) / 0.2);
+}
+
+.rxp-xp-track {
+  width: 170px;
+  height: 8px;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  overflow: hidden;
+}
+.rxp-xp-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+  box-shadow: 0 0 14px hsl(var(--rxp-glow-cyan) / 0.8);
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---- Панели ---- */
+.rxp-panel {
+  background: linear-gradient(
+    165deg,
+    hsl(var(--card) / 0.85),
+    hsl(var(--card) / 0.55)
+  );
+  backdrop-filter: blur(16px);
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.25rem;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.rxp-panel:hover {
+  border-color: hsl(var(--primary) / 0.25);
+  box-shadow: 0 0 32px hsl(var(--rxp-glow-cyan) / 0.08);
+}
+
+/* Заголовок секции */
+.rxp-section-title {
+  font-family: "Soyuz Grotesk", "Space Grotesk", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rxp-section-title::before {
+  content: "";
+  width: 4px;
+  height: 1.1em;
+  border-radius: 4px;
+  background: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--accent)));
+  box-shadow: 0 0 10px hsl(var(--rxp-glow-cyan) / 0.6);
+}
+
+/* ---- Статистика: горизонтальная лента ---- */
+.rxp-stat-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 1rem;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.09),
+    hsl(var(--accent) / 0.06) 55%,
+    transparent
+  ),
+  hsl(var(--card) / 0.75);
+  border: 1px solid hsl(var(--border));
+  backdrop-filter: blur(12px);
+  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rxp-stat-tile:hover {
+  transform: translateY(-3px);
+  border-color: hsl(var(--primary) / 0.65);
+  box-shadow:
+    0 10px 34px hsl(var(--rxp-glow-cyan) / 0.14),
+    inset 0 0 24px hsl(var(--rxp-glow-cyan) / 0.05);
+}
+.rxp-stat-value {
+  font-family: "Soyuz Grotesk", "Space Grotesk", sans-serif;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: hsl(var(--foreground));
+}
+.rxp-stat-label {
+  font-family: "Pixel 4.0", "Press Start 2P", monospace;
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+/* Иконка-чип */
+.rxp-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 13px;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+  border: 1px solid hsl(var(--primary) / 0.2);
+  box-shadow: inset 0 0 16px hsl(var(--rxp-glow-cyan) / 0.1);
+}
+.rxp-chip-solid {
+  color: hsl(var(--primary-foreground));
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  border-color: transparent;
+  box-shadow: 0 0 20px hsl(var(--rxp-glow-cyan) / 0.2);
+}
+
+/* ---- Табы ---- */
+.rxp-tabs-shell {
+  background: hsl(var(--card) / 0.6);
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.1rem;
+  padding: 6px;
+  backdrop-filter: blur(12px);
+}
+.rxp-tab-trigger {
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  height: auto;
+  padding: 11px 6px;
+  border-radius: 0.8rem;
+  color: hsl(var(--muted-foreground));
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rxp-tab-trigger:hover {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.06);
+}
+.rxp-tab-trigger[data-state="active"] {
+  color: hsl(var(--primary-foreground));
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  box-shadow:
+    0 0 22px hsl(var(--rxp-glow-cyan) / 0.2),
+    inset 0 1px 0 hsl(0 0% 100% / 0.25);
+}
+.rxp-tab-label {
+  font-family: "Pixel 4.0", "Press Start 2P", monospace;
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---- Био ---- */
+.rxp-bio-quote {
+  position: relative;
+}
+.rxp-bio-quote::before {
+  content: "\00AB";
+  font-family: "Monplesir Script", "Segoe Script", cursive;
+  font-size: 4.4rem;
+  line-height: 1;
+  position: absolute;
+  top: -0.7rem;
+  left: -0.3rem;
+  opacity: 0.3;
+  pointer-events: none;
+  color: hsl(var(--accent));
+}
+.rxp-bio-text {
+  font-family: "Monplesir Script", "Segoe Script", cursive;
+  font-size: 1.35rem;
+  line-height: 1.7;
+  color: hsl(var(--foreground) / 0.88);
+}
+
+/* Локация */
+.rxp-location {
+  font-family: "Monplesir Script", "Segoe Script", cursive;
+  font-size: 1.05rem;
+  color: hsl(var(--primary));
+}
+
+/* ---- Комментарии: таймлайн ---- */
+.rxp-comments-list {
+  position: relative;
+  padding-left: 26px;
+}
+.rxp-comments-list::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    hsl(var(--primary) / 0.6),
+    hsl(var(--accent) / 0.4),
+    transparent
+  );
+}
+.rxp-comment-card {
+  position: relative;
+  border-radius: 1rem;
+  background: hsl(var(--card) / 0.65);
+  border: 1px solid hsl(var(--border));
+  backdrop-filter: blur(10px);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rxp-comment-card::before {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 22px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 10px hsl(var(--rxp-glow-cyan) / 0.9);
+}
+.rxp-comment-card:hover {
+  border-color: hsl(var(--primary) / 0.55);
+  box-shadow: 0 0 24px hsl(var(--rxp-glow-cyan) / 0.1);
+}
+.rxp-comment-date {
+  font-family: "Pixel 4.0", "Press Start 2P", monospace;
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+}
+.rxp-comment-name {
+  font-family: "Soyuz Grotesk", "Space Grotesk", sans-serif;
+  font-weight: 500;
+}
+.rxp-comment-avatar {
+  padding: 2px;
+  border-radius: 999px;
+  background: linear-gradient(140deg, hsl(var(--primary)), hsl(var(--accent)));
+  display: block;
+  box-shadow: 0 0 12px hsl(var(--rxp-glow-cyan) / 0.3);
+}
+.rxp-comment-avatar .avatar-wrap {
+  border-radius: 999px;
+  overflow: hidden;
+  display: block;
+  border: 2px solid hsl(var(--background));
+}
+
+/* Поле ввода комментария */
+.rxp-input-shell {
+  background: hsl(var(--card) / 0.7);
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  transition: all 0.25s ease;
+}
+.rxp-input-shell:focus-within {
+  border-color: hsl(var(--primary) / 0.7);
+  box-shadow: 0 0 24px hsl(var(--rxp-glow-cyan) / 0.12);
+}
+
+/* Постеры в строках Top 50 */
+.rxp-poster-row {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.25),
+    0 6px 18px hsl(0 0% 0% / 0.5),
+    0 0 16px hsl(var(--rxp-glow-cyan) / 0.12);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rxp-poster-row:hover {
+  transform: scale(1.07) rotate(-1.5deg);
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.6),
+    0 10px 26px hsl(0 0% 0% / 0.55),
+    0 0 26px hsl(var(--rxp-glow-cyan) / 0.3);
+}
+.rxp-rank-num {
+  font-family: "Pixel 4.0", "Press Start 2P", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: hsl(var(--primary));
+  text-shadow: 0 0 10px hsl(var(--rxp-glow-cyan) / 0.6);
+}
+
+/* ===== My Top 50 — главный акцент профиля ===== */
+
+/* Гигантская контурная цифра на фоне */
+.rxp-top50-watermark {
+  font-family: "Soyuz Grotesk", "Space Grotesk", sans-serif;
+  font-weight: 700;
+  line-height: 0.8;
+  color: transparent;
+  -webkit-text-stroke: 2px hsl(var(--primary) / 0.22);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Переливающийся градиентный текст */
+.rxp-shine {
+  background: linear-gradient(
+    100deg,
+    hsl(var(--primary)) 20%,
+    hsl(var(--accent)) 45%,
+    hsl(var(--primary)) 70%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rxp-shine-move 5s linear infinite;
+}
+@keyframes rxp-shine-move {
+  to {
+    background-position: 220% center;
+  }
+}
+
+/* Прогресс заполнения топа */
+.rxp-fill-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  overflow: hidden;
+}
+.rxp-fill-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+  box-shadow: 0 0 14px hsl(var(--primary) / 0.6);
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rxp-spinner {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto;
+  border-radius: 999px;
+  border: 3px solid hsl(var(--primary) / 0.2);
+  border-top-color: hsl(var(--primary));
+  border-right-color: hsl(var(--accent));
+  animation: rxp-spin 0.9s linear infinite;
+}
+@keyframes rxp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Мигающий курсор рядом с ником (pixel-вайб) */
+.rxp-caret {
+  display: inline-block;
+  width: 8px;
+  height: 12px;
+  margin-left: 4px;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 10px hsl(var(--rxp-glow-cyan) / 0.9);
+  animation: rxp-blink 1.1s steps(1) infinite;
+  vertical-align: middle;
+}
+@keyframes rxp-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Уважаем prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .rxp-scope *,
+  .rxp-scope *::before,
+  .rxp-scope *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   АДАПТИВ · ПЛАНШЕТЫ (≤ 1024px)
+   ============================================================ */
+@media (max-width: 1024px) {
+  /* Водяная цифра компактнее */
+  .rxp-top50-watermark {
+    font-size: 12rem;
+    -webkit-text-stroke-width: 1.5px;
+  }
+
+  /* Хиро: баннер пониже */
+  .rxp-hero {
+    min-height: 300px;
+  }
+
+  /* Сайдбар больше не липкий — колонки складываются в стек */
+  .rxp-scope aside .lg\:sticky {
+    position: static;
+  }
+}
+
+/* ============================================================
+   АДАПТИВ · ТЕЛЕФОНЫ (≤ 640px)
+   ============================================================ */
+@media (max-width: 640px) {
+  /* Хиро */
+  .rxp-hero {
+    min-height: 260px;
+  }
+  .rxp-avatar-frame {
+    border-radius: 18px;
+  }
+  .rxp-name {
+    font-size: 2rem;
+  }
+  .rxp-xp-track {
+    width: 110px;
+  }
+  .rxp-lv-chip {
+    font-size: 8px;
+    padding: 6px 9px;
+  }
+
+  /* Панели и статистика */
+  .rxp-panel {
+    border-radius: 1rem;
+  }
+  .rxp-stat-tile {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .rxp-stat-value {
+    font-size: 1.35rem;
+  }
+  .rxp-stat-label {
+    font-size: 6px;
+  }
+  .rxp-chip {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+  }
+
+  /* My Top 50 */
+  .rxp-top50-watermark {
+    font-size: 8rem;
+    right: -1.5rem;
+    top: -3rem;
+    -webkit-text-stroke-width: 1.5px;
+  }
+  .rxp-fill-track {
+    height: 6px;
+  }
+
+  /* Комментарии-таймлайн */
+  .rxp-comments-list {
+    padding-left: 20px;
+  }
+  .rxp-comments-list::before {
+    left: 9px;
+  }
+  .rxp-comment-card::before {
+    left: -17px;
+    width: 8px;
+    height: 8px;
+    top: 18px;
+  }
+  .rxp-comment-card {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  /* Био */
+  .rxp-bio-quote::before {
+    font-size: 3.4rem;
+  }
+  .rxp-bio-text {
+    font-size: 1.15rem;
+  }
+}
+
+/* ============================================================
+   АДАПТИВ · МАЛЕНЬКИЕ ТЕЛЕФОНЫ (≤ 400px)
+   ============================================================ */
+@media (max-width: 400px) {
+  /* В табах остаются только иконки — подписи не влезают */
+  .rxp-tab-label {
+    display: none;
+  }
+  .rxp-tab-trigger {
+    padding: 12px 6px;
+  }
+
+  /* Кнопки героя — компактнее */
+  .rxp-btn {
+    padding: 8px 13px;
+    font-size: 12px;
+  }
+
+  .rxp-top50-watermark {
+    font-size: 6.5rem;
+  }
+}

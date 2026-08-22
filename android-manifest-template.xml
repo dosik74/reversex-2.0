@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.reversex.app">
+
+    <!-- Интернет -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- Геолокация -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
+    <!-- Камера -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- Микрофон -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    
+    <!-- Хранилище -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    
+    <!-- NFC (если требуется) -->
+    <uses-permission android:name="android.permission.NFC" />
+
+    <application>
+    </application>
+
+</manifest>

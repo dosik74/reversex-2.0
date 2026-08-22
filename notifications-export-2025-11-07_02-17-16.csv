@@ -1,0 +1,5 @@
+id;user_id;type;content;related_user_id;related_item_id;read;created_at
+0796bedc-f368-4ab7-ac42-d10d0c0e8263;c79e4012-286f-4f96-ab68-fac865024e05;friend_request;sent you a friend request;b2fe374f-703a-43bf-8a4c-eec206fecebc;354cc054-4b73-44c5-bca5-59f9160dd9e4;true;2025-10-20 14:58:52.55618+00
+90fdc674-571a-4aa7-b233-088239147b9e;b2fe374f-703a-43bf-8a4c-eec206fecebc;friend_accept;accepted your friend request;c79e4012-286f-4f96-ab68-fac865024e05;354cc054-4b73-44c5-bca5-59f9160dd9e4;false;2025-10-21 17:55:36.837243+00
+a9fc25a5-19ee-447a-9581-cac957278c3d;c79e4012-286f-4f96-ab68-fac865024e05;friend_request;sent you a friend request;b2fe374f-703a-43bf-8a4c-eec206fecebc;191d6c44-f140-4418-8f74-980fe0638bf3;true;2025-10-24 17:05:12.747986+00
+41f6b8d6-da91-4450-b25c-318f82e1b993;b2fe374f-703a-43bf-8a4c-eec206fecebc;friend_accept;accepted your friend request;c79e4012-286f-4f96-ab68-fac865024e05;191d6c44-f140-4418-8f74-980fe0638bf3;true;2025-10-24 17:05:22.520718+00

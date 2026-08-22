@@ -1,0 +1,300 @@
+import React, { useState, useEffect } from 'react';
+import { ChevronRight, MapPin, Clock, Gamepad2, Shield, Star, TrendingUp, Menu, X, Check } from 'lucide-react';
+
+const JasApp = () => {
+  const [currentPage, setCurrentPage] = useState('home');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [selectedConsole, setSelectedConsole] = useState(null);
+  const [orderModal, setOrderModal] = useState(false);
+  const [userProfile, setUserProfile] = useState({
+    name: 'Александр К.',
+    rating: 4.8,
+    status: 'Привилегированный',
+    totalRentals: 12,
+    bonusPoints: 2450
+  });
+
+  const consoles = [
+    {
+      id: 1,
+      name: 'PlayStation 5',
+      model: 'PS5 с диском',
+      price: 7000,
+      image: '🎮',
+      specs: ['SSD хранилище', '4K@120fps', 'Ray Tracing', 'Комплект 2 геймпада'],
+      status: 'В наличии: 5 шт',
+      available: true
+    },
+    {
+      id: 2,
+      name: 'PlayStation 4',
+      model: 'PS4 Pro',
+      price: 5000,
+      image: '🕹️',
+      specs: ['1TB хранилище', '4K видео', 'Комплект 1 геймпад', 'Популярные игры'],
+      status: 'В наличии: 8 шт',
+      available: true
+    }
+  ];
+
+  const tariffs = [
+    { name: 'Тестовый день', days: 1, discount: 0 },
+    { name: 'Выходные', days: 2, discount: 5 },
+    { name: 'Марафон', days: 10, discount: 20 },
+    { name: 'До победного', days: 7, discount: 15, special: true }
+  ];
+
+  const orders = [
+    { id: 1, console: 'PS5', date: '15 янв 2026', status: 'Доставлена', days: 3 },
+    { id: 2, console: 'PS4 Pro', date: '10 янв 2026', status: 'Возвращена', days: 5 },
+    { id: 3, console: 'PS5', date: '02 янв 2026', status: 'Возвращена', days: 2 }
+  ];
+
+  const orderStages = [
+    { stage: 'Подтверждение', icon: '✓', active: true },
+    { stage: 'Транспортировка', icon: '🚚', active: true },
+    { stage: 'Доставка', icon: '📦', active: false }
+  ];
+
+  const HomePage = () => (
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #696969 0%, #191970 100%)' }}>
+      {/* Header */}
+      <div className="px-4 py-6 flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-white tracking-wider">jas</h1>
+        <button onClick={() => setMenuOpen(!menuOpen)} className="text-white">
+          {menuOpen ? <X size={28} /> : <Menu size={28} />}
+        </button>
+      </div>
+
+      {/* Menu */}
+      {menuOpen && (
+        <div className="bg-black bg-opacity-20 backdrop-blur-md px-4 py-4 space-y-3 animate-fadeIn">
+          <button onClick={() => { setCurrentPage('home'); setMenuOpen(false); }} className="w-full text-white text-left py-2 hover:text-gray-300 transition">Главная</button>
+          <button onClick={() => { setCurrentPage('profile'); setMenuOpen(false); }} className="w-full text-white text-left py-2 hover:text-gray-300 transition">Профиль</button>
+          <button onClick={() => { setCurrentPage('orders'); setMenuOpen(false); }} className="w-full text-white text-left py-2 hover:text-gray-300 transition">История заказов</button>
+        </div>
+      )}
+
+      {/* Hero Section */}
+      <div className="px-4 py-12 text-center">
+        <h2 className="text-4xl font-bold text-white mb-3 tracking-tight">
+          Аренда PlayStation
+        </h2>
+        <p className="text-gray-300 text-lg mb-8 max-w-xl mx-auto">
+          Премиальная аренда игровых консолей с гибкими тарифами и гарантией качества
+        </p>
+      </div>
+
+      {/* Console Cards */}
+      <div className="px-4 pb-12 space-y-4">
+        {consoles.map((console) => (
+          <div
+            key={console.id}
+            className="bg-white bg-opacity-10 backdrop-blur-md rounded-2xl p-6 border border-white border-opacity-20 hover:bg-opacity-20 transition-all duration-300 cursor-pointer transform hover:scale-105"
+            onClick={() => { setSelectedConsole(console); setOrderModal(true); }}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <div className="text-5xl mb-2">{console.image}</div>
+                <h3 className="text-2xl font-bold text-white">{console.name}</h3>
+                <p className="text-gray-300 text-sm">{console.model}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-white">{console.price.toLocaleString()} ₸</p>
+                <p className="text-gray-300 text-xs">за день</p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap mb-4">
+              {console.specs.map((spec, i) => (
+                <span key={i} className="text-xs bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
+                  {spec}
+                </span>
+              ))}
+            </div>
+            <p className="text-green-300 text-sm font-semibold">{console.status}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Tariffs */}
+      <div className="px-4 pb-12">
+        <h3 className="text-xl font-bold text-white mb-4">Гибкие тарифы</h3>
+        <div className="space-y-2">
+          {tariffs.map((t, i) => (
+            <div key={i} className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-4 border border-white border-opacity-20 flex justify-between items-center">
+              <span className="text-white font-semibold flex items-center gap-2">
+                {t.special && <Star size={16} className="text-yellow-400" />}
+                {t.name}
+              </span>
+              <span className="text-green-300 font-bold">-{t.discount}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ProfilePage = () => (
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #696969 0%, #191970 100%)' }}>
+      <div className="px-4 py-6 flex items-center gap-3">
+        <button onClick={() => setCurrentPage('home')} className="text-white">←</button>
+        <h1 className="text-2xl font-bold text-white">Профиль</h1>
+      </div>
+
+      <div className="px-4 pb-12">
+        {/* Profile Card */}
+        <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-2xl p-8 border border-white border-opacity-20 mb-6 text-center">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 mx-auto mb-4 flex items-center justify-center text-3xl">👤</div>
+          <h2 className="text-2xl font-bold text-white mb-2">{userProfile.name}</h2>
+          <div className="flex justify-center items-center gap-2 mb-4">
+            <Star size={20} className="text-yellow-400" fill="currentColor" />
+            <span className="text-white text-lg font-semibold">{userProfile.rating}</span>
+          </div>
+          <p className="text-green-300 text-lg font-bold mb-6">{userProfile.status}</p>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white bg-opacity-10 rounded-xl p-4">
+              <p className="text-gray-300 text-sm">Арендовано</p>
+              <p className="text-3xl font-bold text-white">{userProfile.totalRentals}</p>
+            </div>
+            <div className="bg-white bg-opacity-10 rounded-xl p-4">
+              <p className="text-gray-300 text-sm">Бонус баллы</p>
+              <p className="text-3xl font-bold text-green-300">{userProfile.bonusPoints}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Benefits */}
+        <h3 className="text-xl font-bold text-white mb-4">Привилегии</h3>
+        <div className="space-y-3 mb-8">
+          <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-4 border border-white border-opacity-20 flex items-center gap-3">
+            <Shield size={24} className="text-green-300" />
+            <div>
+              <p className="text-white font-semibold">Страховка включена</p>
+              <p className="text-gray-300 text-sm">Защита от повреждений</p>
+            </div>
+          </div>
+          <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-4 border border-white border-opacity-20 flex items-center gap-3">
+            <TrendingUp size={24} className="text-green-300" />
+            <div>
+              <p className="text-white font-semibold">+10% кэшбэка</p>
+              <p className="text-gray-300 text-sm">На каждую аренду</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const OrdersPage = () => (
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #696969 0%, #191970 100%)' }}>
+      <div className="px-4 py-6 flex items-center gap-3">
+        <button onClick={() => setCurrentPage('home')} className="text-white">←</button>
+        <h1 className="text-2xl font-bold text-white">История заказов</h1>
+      </div>
+
+      <div className="px-4 pb-12 space-y-3">
+        {orders.map((order) => (
+          <div key={order.id} className="bg-white bg-opacity-10 backdrop-blur-md rounded-xl p-4 border border-white border-opacity-20">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <p className="text-white font-bold">{order.console}</p>
+                <p className="text-gray-300 text-sm">{order.date} • {order.days} дней</p>
+              </div>
+              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${order.status === 'Доставлена' ? 'bg-green-500 bg-opacity-30 text-green-300' : 'bg-gray-500 bg-opacity-30 text-gray-300'}`}>
+                {order.status}
+              </span>
+            </div>
+
+            {order.status === 'Доставлена' && (
+              <div className="space-y-2">
+                {orderStages.map((s, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${s.active ? 'bg-green-500 text-white' : 'bg-gray-500 bg-opacity-50 text-gray-300'}`}>
+                      {s.active ? <Check size={14} /> : '○'}
+                    </div>
+                    <span className={s.active ? 'text-white text-sm' : 'text-gray-400 text-sm'}>{s.stage}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const OrderModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-end z-50">
+      <div className="w-full bg-white rounded-3xl rounded-b-none p-8 animate-slideUp" style={{ maxHeight: '90vh', overflow: 'auto' }}>
+        <div className="text-5xl text-center mb-4">{selectedConsole.image}</div>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">{selectedConsole.name}</h2>
+        <p className="text-gray-600 text-center mb-6">{selectedConsole.model}</p>
+
+        <div className="space-y-6 mb-8">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Выберите период аренды</label>
+            <div className="space-y-2">
+              {tariffs.map((t, i) => (
+                <button key={i} className="w-full p-4 border-2 border-gray-300 rounded-xl hover:border-gray-900 hover:bg-gray-50 transition text-left">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-gray-900">{t.name}</span>
+                    <span className="text-green-600 font-bold">-{t.discount}%</span>
+                  </div>
+                  <p className="text-sm text-gray-600">{t.days} дней</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Адрес доставки</label>
+            <input type="text" placeholder="Введите адрес" className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-gray-900 focus:outline-none" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Дополнительно</label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 p-3 border-2 border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50">
+                <input type="checkbox" className="w-5 h-5" />
+                <span className="text-gray-700">Страховка (+500 ₸)</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 border-2 border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50">
+                <input type="checkbox" className="w-5 h-5" />
+                <span className="text-gray-700">Второй геймпад (+1000 ₸)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-100 rounded-xl p-4 mb-6">
+          <div className="flex justify-between mb-2">
+            <span className="text-gray-700">Итого:</span>
+            <span className="text-2xl font-bold text-gray-900">{selectedConsole.price.toLocaleString()} ₸</span>
+          </div>
+          <p className="text-xs text-gray-600">Полная цена указана для 1 дня аренды</p>
+        </div>
+
+        <div className="space-y-3">
+          <button className="w-full py-4 rounded-xl font-bold text-white transition-all duration-300" style={{ background: 'linear-gradient(135deg, #696969 0%, #191970 100%)' }} onClick={() => { setOrderModal(false); setCurrentPage('home'); }}>
+            Оформить заказ
+          </button>
+          <button className="w-full py-3 rounded-xl font-semibold text-gray-700 border-2 border-gray-300 hover:bg-gray-50 transition" onClick={() => setOrderModal(false)}>
+            Отмена
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ fontFamily: '"Segoe UI", "Inter", sans-serif' }}>
+      {currentPage === 'home' && <HomePage />}
+      {currentPage === 'profile' && <ProfilePage />}
+      {currentPage === 'orders' && <OrdersPage />}
+      {orderModal && <OrderModal />}
+    </div>
+  );
+};
+
+export default JasApp;

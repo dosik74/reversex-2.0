@@ -1,0 +1,16 @@
+{
+  "appId": "com.reversex.app",
+  "appName": "ReverseX",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

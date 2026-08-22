@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PS5 Rental: План с Инвестором (Soft Exit)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Orbitron:wght@500;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f1f5f9; /* Slate 100 */
+        }
+        
+        h1, h2, h3, .stat-value {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .card-gradient {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+        }
+
+        .neon-glow {
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .investor-glow {
+            box-shadow: 0 0 15px rgba(234, 179, 8, 0.2);
+            border-color: rgba(234, 179, 8, 0.5);
+        }
+
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #3b82f6;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            max-height: 400px;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        
+        .risk-card:hover {
+            transform: translateY(-5px);
+            transition: transform 0.3s ease;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col items-center">
+
+    <div class="w-full max-w-7xl px-4 py-8 space-y-8">
+        
+        <!-- Header Section -->
+        <header class="text-center space-y-4 mb-12">
+            <div class="inline-block px-4 py-1 rounded-full bg-green-900/30 border border-green-500/50 text-green-400 text-sm font-bold tracking-wider uppercase mb-2">Финансовая Модель 2.0</div>
+            <h1 class="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-500 to-green-400">
+                Стратегия "Мягкий Выход"
+            </h1>
+            <p class="text-slate-400 text-lg max-w-3xl mx-auto leading-relaxed">
+                Долг возвращается частями в последние 3 месяца.
+                <br>
+                <span class="text-white">Итого чистыми за год: </span> <span id="total-annual-profit" class="text-green-400 font-bold text-2xl">...</span>
+            </p>
+        </header>
+
+        <!-- Main Simulation Dashboard -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left: Controls & Key Current Stats -->
+            <div class="lg:col-span-1 card-gradient rounded-2xl p-6 shadow-xl neon-glow flex flex-col justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-white mb-2 flex items-center">
+                        <span class="text-3xl mr-2">📅</span> Таймлайн (1 Год)
+                    </h2>
+                    <p class="text-slate-400 text-sm mb-6">Двигайте слайдер, чтобы увидеть распределение выплат в конце года.</p>
+                    
+                    <div class="mb-8">
+                        <div class="flex justify-between text-blue-400 font-bold mb-2 text-xs">
+                            <span>Старт</span>
+                            <span id="month-display" class="text-xl text-white">Месяц 1</span>
+                            <span>Финиш</span>
+                        </div>
+                        <input type="range" min="0" max="11" value="0" class="w-full h-3 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-thumb" id="month-slider">
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                        <div class="text-slate-400 text-xs uppercase tracking-wider">Ваш Флот</div>
+                        <div class="text-4xl font-bold text-white stat-value mt-1" id="fleet-stat">3 <span class="text-lg font-normal text-slate-500">PS5</span></div>
+                    </div>
+                    <div class="bg-yellow-900/20 p-4 rounded-xl border border-yellow-600/50">
+                        <div class="text-yellow-400 text-xs uppercase tracking-wider">Выплата Инвестору (в месяц)</div>
+                        <div class="text-3xl font-bold text-yellow-400 stat-value mt-1" id="investor-payment">30 000 ₸</div>
+                        <div class="text-yellow-600 text-xs mt-1" id="investor-note">Ежемесячные %</div>
+                    </div>
+                    <div class="bg-green-900/20 p-4 rounded-xl border border-green-800/50">
+                        <div class="text-green-400 text-xs uppercase tracking-wider">В Кармане (за этот месяц)</div>
+                        <div class="text-3xl font-bold text-green-400 stat-value mt-1" id="pocket-stat">76 000 ₸</div>
+                        <div class="text-green-600 text-xs mt-1">*Чистый кэш владельца</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Dynamic Chart -->
+            <div class="lg:col-span-2 card-gradient rounded-2xl p-6 shadow-xl relative">
+                <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+                    <h2 class="text-xl font-bold text-white">Денежный Поток</h2>
+                    <div class="flex gap-4 text-xs">
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>Выручка</div>
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-yellow-500 mr-2"></span>Выплаты Долга</div>
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-500 mr-2"></span>Чистые</div>
+                    </div>
+                </div>
+                <!-- Chart Container -->
+                <div class="chart-container">
+                    <canvas id="growthChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Investor Offer Details -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="col-span-1 md:col-span-3 card-gradient investor-glow rounded-2xl p-6">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div class="text-left">
+                        <h3 class="text-2xl font-bold text-yellow-400 mb-2">Схема Возврата Долга 🤝</h3>
+                        <p class="text-slate-300 max-w-xl">
+                            Чтобы не отдавать 1 млн разово, мы делим тело долга на 3 части. В месяцы 10, 11 и 12 мы платим по ~363к тенге. Это позволяет сохранять высокую прибыль даже в период выплат.
+                        </p>
+                    </div>
+                    <div class="flex gap-8 text-center">
+                        <div>
+                            <div class="text-slate-400 text-xs uppercase">Тело долга</div>
+                            <div class="text-2xl font-bold text-white">1 000 000 ₸</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400 text-xs uppercase">Схема Выплат</div>
+                            <div class="text-2xl font-bold text-blue-400">33% / 33% / 34%</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400 text-xs uppercase">Итого Выплат</div>
+                            <div class="text-2xl font-bold text-yellow-400">1 360 000 ₸</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Strategy Insights -->
+        <section class="card-gradient rounded-2xl p-6 flex flex-col justify-center">
+            <h3 class="text-lg font-bold text-white mb-4">Почему это лучше для нас?</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="border-l-4 border-blue-500 pl-4 py-1">
+                    <h4 class="font-bold text-blue-400">Без Стресса</h4>
+                    <p class="text-slate-300 text-sm mt-1">Вместо того чтобы отдать 1.1 млн в декабре и сидеть без денег, мы отдаем по 363к, и у нас остается еще 740к чистыми каждый месяц!</p>
+                </div>
+                <div class="border-l-4 border-green-500 pl-4 py-1">
+                    <h4 class="font-bold text-green-400">Итоговая Сумма</h4>
+                    <p class="text-slate-300 text-sm mt-1">За год, после покупки 7 консолей и полного погашения миллионного долга, в кармане остается более <span class="font-bold text-white">5.8 МЛН тенге</span>.</p>
+                </div>
+                <div class="border-l-4 border-purple-500 pl-4 py-1">
+                    <h4 class="font-bold text-purple-400">Активы</h4>
+                    <p class="text-slate-300 text-sm mt-1">На конец года у нас: 0 долгов, 10 оплаченных PS5 и готовый бизнес, приносящий 1.1 млн в месяц.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Detailed Data Table -->
+        <section class="w-full">
+            <h3 class="text-2xl font-bold text-white mb-6 px-2 border-l-4 border-blue-500 pl-4">Финансовый План (Разбивка)</h3>
+            <div class="overflow-x-auto rounded-xl shadow-xl border border-slate-700">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="px-4 py-4">Месяц</th>
+                            <th class="px-4 py-4">Парк</th>
+                            <th class="px-4 py-4">Выручка</th>
+                            <th class="px-4 py-4 text-red-300">Расходы</th>
+                            <th class="px-4 py-4 text-yellow-400">Долг + %</th>
+                            <th class="px-4 py-4 text-blue-300">Покупка PS5</th>
+                            <th class="px-4 py-4 text-green-400 text-right">Cashflow (В карман)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700 bg-slate-900" id="data-table-body">
+                        <!-- Rows generated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // Logic:
+        // Debt 1,000,000. Interest 30,000/mo.
+        // Months 1-9: Pay only interest (30k).
+        // Months 10-12: Pay interest (30k) + 1/3 of Principal (~333k). Total ~363k.
+        
+        const businessData = [
+            { month: 1, ps5: 3, revenue: 420000, expenses: 94000, debtPay: 30000, buyCost: 220000 },
+            { month: 2, ps5: 4, revenue: 560000, expenses: 123000, debtPay: 30000, buyCost: 220000 },
+            { month: 3, ps5: 5, revenue: 700000, expenses: 152000, debtPay: 30000, buyCost: 220000 },
+            { month: 4, ps5: 6, revenue: 840000, expenses: 181000, debtPay: 30000, buyCost: 220000 },
+            { month: 5, ps5: 7, revenue: 980000, expenses: 210000, debtPay: 30000, buyCost: 220000 },
+            { month: 6, ps5: 8, revenue: 1120000, expenses: 239000, debtPay: 30000, buyCost: 220000 },
+            { month: 7, ps5: 9, revenue: 1260000, expenses: 268000, debtPay: 30000, buyCost: 220000 },
+            { month: 8, ps5: 10, revenue: 1400000, expenses: 297000, debtPay: 30000, buyCost: 220000 }, 
+            // Growth stops, accumulation begins
+            { month: 9, ps5: 10, revenue: 1400000, expenses: 297000, debtPay: 30000, buyCost: 0 }, 
+            // Repayment Phase (Split Principal: 333,333 + 30,000 Interest)
+            { month: 10, ps5: 10, revenue: 1400000, expenses: 297000, debtPay: 363333, buyCost: 0 },
+            { month: 11, ps5: 10, revenue: 1400000, expenses: 297000, debtPay: 363333, buyCost: 0 },
+            { month: 12, ps5: 10, revenue: 1400000, expenses: 297000, debtPay: 363334, buyCost: 0 } 
+        ];
+
+        // Calculate Pocket & Total
+        let totalAnnualProfit = 0;
+        businessData.forEach(d => {
+            d.pocket = d.revenue - d.expenses - d.debtPay - d.buyCost;
+            totalAnnualProfit += d.pocket;
+        });
+
+        const formatKZT = (num) => new Intl.NumberFormat('ru-RU').format(num) + ' ₸';
+
+        // DOM Elements
+        const slider = document.getElementById('month-slider');
+        const monthDisplay = document.getElementById('month-display');
+        const fleetStat = document.getElementById('fleet-stat');
+        const investorPayment = document.getElementById('investor-payment');
+        const investorNote = document.getElementById('investor-note');
+        const pocketStat = document.getElementById('pocket-stat');
+        const tableBody = document.getElementById('data-table-body');
+        const totalProfitDisplay = document.getElementById('total-annual-profit');
+
+        // Set Total Profit
+        totalProfitDisplay.textContent = formatKZT(totalAnnualProfit);
+
+        // Initialize Charts
+        let growthChartInstance = null;
+
+        function initCharts() {
+            // Growth Chart
+            const ctxGrowth = document.getElementById('growthChart').getContext('2d');
+            growthChartInstance = new Chart(ctxGrowth, {
+                type: 'bar',
+                data: {
+                    labels: businessData.map(d => `М ${d.month}`),
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Выручка',
+                            data: businessData.map(d => d.revenue),
+                            borderColor: '#3b82f6',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 0
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Выплаты Инвестору',
+                            data: businessData.map(d => d.debtPay),
+                            backgroundColor: '#eab308',
+                            stack: 'Stack 0',
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Остаток (Cash)',
+                            data: businessData.map(d => d.pocket),
+                            backgroundColor: '#22c55e',
+                            stack: 'Stack 0',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1' } },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            titleColor: '#fff',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + formatKZT(context.parsed.y);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', callback: val => val / 1000 + 'к' } }
+                    }
+                }
+            });
+        }
+
+        // Render Table
+        function renderTable() {
+            tableBody.innerHTML = '';
+            businessData.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.id = `row-${index}`;
+                tr.className = 'transition-colors duration-300 hover:bg-slate-800 border-b border-slate-800';
+                
+                // Highlight split payment months
+                const isSplitPay = row.month >= 10;
+                const debtClass = isSplitPay ? 'text-yellow-400 font-bold' : 'text-yellow-500';
+                const debtText = isSplitPay ? '⚡ ' + formatKZT(row.debtPay) : formatKZT(row.debtPay);
+                
+                tr.innerHTML = `
+                    <td class="px-4 py-4 font-bold text-white">Месяц ${row.month}</td>
+                    <td class="px-4 py-4 text-blue-400 font-bold">${row.ps5} шт.</td>
+                    <td class="px-4 py-4 text-slate-300">${formatKZT(row.revenue)}</td>
+                    <td class="px-4 py-4 text-slate-500">${formatKZT(row.expenses)}</td>
+                    <td class="px-4 py-4 ${debtClass}">${debtText}</td>
+                    <td class="px-4 py-4 text-slate-400">${row.buyCost > 0 ? formatKZT(row.buyCost) : '-'}</td>
+                    <td class="px-4 py-4 text-right font-bold ${row.pocket > 0 ? 'text-green-400' : 'text-red-400'}">
+                        ${formatKZT(row.pocket)}
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Update Dashboard
+        function updateDashboard(index) {
+            const data = businessData[index];
+            
+            monthDisplay.textContent = `Месяц ${data.month}`;
+            fleetStat.innerHTML = `${data.ps5} <span class="text-lg font-normal text-slate-500">PS5</span>`;
+            
+            investorPayment.textContent = formatKZT(data.debtPay);
+            if(data.month >= 10) {
+                investorPayment.classList.add('text-yellow-300');
+                investorNote.textContent = '⚡ Возврат Долга (Часть) + %';
+            } else {
+                investorPayment.classList.remove('text-yellow-300');
+                investorNote.textContent = 'Только Ежемесячные %';
+            }
+
+            pocketStat.textContent = formatKZT(data.pocket);
+
+            // Table Highlight
+            document.querySelectorAll('tbody tr').forEach(tr => tr.classList.remove('bg-blue-900/40', 'border-l-4', 'border-blue-500'));
+            const activeRow = document.getElementById(`row-${index}`);
+            if (activeRow) activeRow.classList.add('bg-blue-900/40', 'border-l-4', 'border-blue-500');
+        }
+
+        slider.addEventListener('input', (e) => updateDashboard(parseInt(e.target.value)));
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            renderTable();
+            updateDashboard(0);
+        });
+    </script>
+</body>
+</html>

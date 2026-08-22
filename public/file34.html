@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PS5 Rental: Расчет с каникулами по аренде</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Orbitron:wght@500;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f1f5f9;
+            line-height: 1.6;
+        }
+        
+        h1, h2, h3, .stat-value {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .card-gradient {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+        }
+
+        .neon-glow {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+        }
+
+        .slider-thumb {
+            width: 100%;
+            height: 8px;
+            background: #334155;
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #3b82f6;
+        }
+
+        .slider-thumb::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #3b82f6;
+            border: none;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 350px;
+        }
+
+        .btn-toggle {
+            transition: all 0.3s ease;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            background-color: #1e293b;
+            color: #f1f5f9;
+            cursor: pointer;
+        }
+
+        .btn-toggle:hover {
+            background-color: #334155;
+        }
+
+        .btn-toggle.active {
+            background-color: #3b82f6;
+            border-color: #60a5fa;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+            color: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead {
+            background-color: rgba(15, 23, 42, 0.5);
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+
+        th, td {
+            padding: 16px 24px;
+            text-align: left;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #1e293b;
+            background-color: rgba(15, 23, 42, 0.25);
+            transition: background-color 0.2s;
+        }
+
+        tbody tr:hover {
+            background-color: rgba(30, 41, 59, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div style="width: 100%; max-width: 80rem; margin: 0 auto; padding: 2rem 1rem; display: flex; flex-direction: column; gap: 2rem;">
+        
+        <!-- Header -->
+        <header style="text-align: center; display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+            <div style="display: inline-block; margin: 0 auto; padding: 0.5rem 1rem; border-radius: 999px; background-color: rgba(30, 58, 138, 0.3); border: 1px solid rgba(59, 130, 246, 0.5); color: #60a5fa; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">Версия 3.2: Закуп 220к + Каникулы</div>
+            <h1 style="font-size: 2.25rem; font-weight: 700; background: linear-gradient(to right, #60a5fa, #22d3ee); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;">
+                Экономика Проката
+            </h1>
+            <p style="color: #94a3b8; margin: 0;">Закуп PS5 по 220 000 ₸. Аренда офиса (100к) начинается только с 4-го месяца.</p>
+        </header>
+
+        <!-- Configuration Panel -->
+        <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+            
+            <!-- Controls -->
+            <div class="card-gradient neon-glow" style="padding: 1.5rem; border-radius: 1rem; display: flex; flex-direction: column; gap: 1.5rem;">
+                <div>
+                    <label style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.75rem;">Дней аренды в месяц</label>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;" id="day-toggles">
+                        <button class="btn-toggle" onclick="updateDays(10)" id="btn-10">10 дн</button>
+                        <button class="btn-toggle" onclick="updateDays(15)" id="btn-15">15 дн</button>
+                        <button class="btn-toggle active" onclick="updateDays(20)" id="btn-20">20 дн</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.75rem;">Просмотр месяца: <span id="month-val" style="color: #60a5fa;">1</span></label>
+                    <input type="range" min="0" max="11" value="0" class="slider-thumb" id="month-slider">
+                </div>
+
+                <div style="padding-top: 1rem; border-top: 1px solid #334155; display: flex; flex-direction: column; gap: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem;">
+                        <span style="color: #94a3b8;">Цена закупа PS5:</span>
+                        <span style="font-weight: 700; color: #60a5fa;">220 000 ₸</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem;">
+                        <span style="color: #94a3b8;">Аренда (с 4 мес):</span>
+                        <span style="font-weight: 700; color: #f87171;">100 000 ₸</span>
+                    </div>
+                    <div style="padding-top: 0.5rem; border-top: 1px solid #1e293b;">
+                        <span style="font-size: 0.7rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Чистая прибыль за год:</span>
+                    </div>
+                    <div class="stat-value" id="total-year-profit" style="font-size: 1.5rem; font-weight: 700; color: #4ade80;">0 ₸</div>
+                </div>
+            </div>
+
+            <!-- Dashboard Stats -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; grid-column: 1 / -1;">
+                <div class="card-gradient" style="padding: 1.5rem; border-radius: 1rem; border-bottom: 4px solid #3b82f6; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="color: #64748b; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 0.25rem;">Выручка (Месяц)</div>
+                    <div class="stat-value" id="stat-rev" style="font-size: 1.875rem; font-weight: 700; color: white;">0 ₸</div>
+                </div>
+                <div class="card-gradient" style="padding: 1.5rem; border-radius: 1rem; border-bottom: 4px solid #eab308; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="color: #64748b; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 0.25rem;">Выплата долга</div>
+                    <div class="stat-value" id="stat-debt" style="font-size: 1.875rem; font-weight: 700; color: #eab308;">0 ₸</div>
+                </div>
+                <div class="card-gradient" style="padding: 1.5rem; border-radius: 1rem; border-bottom: 4px solid #4ade80; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="color: #64748b; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 0.25rem;">Остаток в карман</div>
+                    <div class="stat-value" id="stat-pocket" style="font-size: 1.875rem; font-weight: 700; color: #4ade80;">0 ₸</div>
+                </div>
+                
+                <!-- Chart Area -->
+                <div class="card-gradient" style="padding: 1.5rem; border-radius: 1rem; grid-column: 1 / -1; min-height: 400px;">
+                    <div class="chart-container">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Table -->
+        <section class="card-gradient" style="border-radius: 1rem; overflow: hidden;">
+            <div style="padding: 1.5rem; border-bottom: 1px solid #334155; background-color: rgba(15, 23, 42, 0.2);">
+                <h3 style="font-size: 1.25rem; font-weight: 700; margin: 0;">Таблица масштабирования</h3>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Месяц</th>
+                            <th style="text-align: center;">PS5 шт.</th>
+                            <th>Выручка</th>
+                            <th>Офис + Обсл.</th>
+                            <th style="color: #eab308;">Долг</th>
+                            <th style="color: #60a5fa;">Закуп (220к)</th>
+                            <th style="text-align: right; color: #4ade80;">Профит</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- JS generated -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let daysPerMonth = 20;
+        let data = [];
+        let chartInstance = null;
+
+        const pricePerDay = 7000;
+        const fixedRentAmount = 100000;
+        const ps5PurchasePrice = 220000; // Изменено на 220к
+        const formatKZT = (n) => new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' ₸';
+
+        function calculateModel() {
+            data = [];
+            let totalProfit = 0;
+            
+            for (let i = 1; i <= 12; i++) {
+                // Постепенно докупаем до 10 штук (начинаем с 3)
+                let ps5Count = i <= 8 ? (2 + i) : 10;
+                
+                // ВЫРУЧКА = Цена * Кол-во PS5 * Кол-во дней
+                let revenue = pricePerDay * ps5Count * daysPerMonth;
+                
+                // РАСХОДЫ АРЕНДА: 0 в первые 3 месяца, далее 100к
+                let currentRent = i <= 3 ? 0 : fixedRentAmount;
+                
+                // Прочие расходы (налог, логистика) ~ 10% от выручки
+                let maintenance = revenue * 0.10;
+                let totalExpenses = currentRent + maintenance;
+
+                // Выплата инвестору (Миллион в конце частями)
+                let debtPay = 30000; // Проценты ежемесячно
+                if (i === 10) debtPay += 333333;
+                if (i === 11) debtPay += 333333;
+                if (i === 12) debtPay += 333334;
+
+                // Закупка новых приставок по 220к до 8 месяца
+                let buyCost = i <= 8 ? ps5PurchasePrice : 0;
+
+                let pocket = revenue - totalExpenses - debtPay - buyCost;
+                totalProfit += pocket;
+
+                data.push({
+                    month: i,
+                    ps5: ps5Count,
+                    revenue,
+                    expenses: totalExpenses,
+                    debtPay,
+                    buyCost,
+                    pocket
+                });
+            }
+            
+            document.getElementById('total-year-profit').textContent = formatKZT(totalProfit);
+            renderTable();
+            updateChart();
+            updateDashboard(document.getElementById('month-slider').value);
+        }
+
+        function updateDays(days) {
+            daysPerMonth = days;
+            document.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${days}`).classList.add('active');
+            calculateModel();
+        }
+
+        function renderTable() {
+            const body = document.getElementById('table-body');
+            body.innerHTML = '';
+            data.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+                
+                tr.innerHTML = `
+                    <td style="font-weight: 700; color: #cbd5e1;">Месяц ${row.month}</td>
+                    <td style="text-align: center; font-weight: 700; color: #60a5fa;">${row.ps5}</td>
+                    <td>${formatKZT(row.revenue)}</td>
+                    <td style="color: #94a3b8;">${idx < 3 ? 'Обсл: ' + formatKZT(row.expenses) : formatKZT(row.expenses)}</td>
+                    <td style="color: #eab308;">${formatKZT(row.debtPay)}</td>
+                    <td style="color: #60a5fa;">${row.buyCost > 0 ? formatKZT(row.buyCost) : '-'}</td>
+                    <td style="text-align: right; font-weight: 700; color: ${row.pocket >= 0 ? '#4ade80' : '#f87171'}">${formatKZT(row.pocket)}</td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function updateDashboard(idx) {
+            const d = data[idx];
+            document.getElementById('month-val').textContent = d.month;
+            document.getElementById('stat-rev').textContent = formatKZT(d.revenue);
+            document.getElementById('stat-debt').textContent = formatKZT(d.debtPay);
+            document.getElementById('stat-pocket').textContent = formatKZT(d.pocket);
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => 'М' + d.month),
+                    datasets: [
+                        {
+                            label: 'Остаток в карман',
+                            data: data.map(d => d.pocket),
+                            backgroundColor: '#22c55e',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Расходы (Закуп+Долг)',
+                            data: data.map(d => d.debtPay + d.buyCost),
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8' } }
+                    },
+                    scales: {
+                        y: { 
+                            ticks: { color: '#64748b', callback: val => val / 1000 + 'к' },
+                            grid: { color: '#334155' } 
+                        },
+                        x: { ticks: { color: '#64748b' }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('month-slider').addEventListener('input', (e) => {
+            updateDashboard(e.target.value);
+        });
+
+        calculateModel();
+    </script>
+</body>
+</html>

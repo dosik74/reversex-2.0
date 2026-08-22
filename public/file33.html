@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PS5 Rental: Бренд и Маркетинг</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&family=Russo+One&display=swap');
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #050505;
+            color: #e5e5e5;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, .brand-font {
+            font-family: 'Russo One', sans-serif;
+            text-transform: uppercase;
+        }
+
+        /* Neon Effects */
+        .neon-text-blue {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
+        }
+        .neon-border-blue {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+            border-color: #3b82f6;
+        }
+        
+        .glass-panel {
+            background: rgba(20, 20, 20, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Phone Mockup */
+        .phone-mockup {
+            border: 8px solid #333;
+            border-radius: 30px;
+            overflow: hidden;
+            position: relative;
+            background: #000;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.2);
+        }
+        .phone-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40%;
+            height: 25px;
+            background: #333;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            z-index: 10;
+        }
+
+        /* Interactive Tabs */
+        .tab-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+
+        .gradient-text {
+            background: linear-gradient(to right, #3b82f6, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass-panel border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="brand-font text-2xl text-blue-500 tracking-wider">GAME<span class="text-white">DROP</span></div>
+            <div class="text-xs text-gray-400 font-mono">Brand Strategy v1.0</div>
+        </div>
+    </nav>
+
+    <div class="pt-24 pb-12 px-4 max-w-7xl mx-auto space-y-20">
+
+        <!-- Hero Section -->
+        <header class="text-center space-y-6 animate-fade-in">
+            <h1 class="text-5xl md:text-7xl gradient-text mb-4">Создание Бренда</h1>
+            <p class="text-xl text-gray-400 max-w-2xl mx-auto">
+                Мы не просто "сдаем приставки". Мы доставляем эмоции за 30 минут. 
+                <br>Упаковка бизнеса для доминирования на рынке.
+            </p>
+        </header>
+
+        <!-- 1. Brand Identity Section -->
+        <section>
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-xl font-bold">1</div>
+                <h2 class="text-3xl">Айдентика и Позиционирование</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Naming -->
+                <div class="glass-panel p-6 rounded-2xl neon-border-blue transition hover:scale-105 duration-300">
+                    <div class="text-blue-500 text-4xl mb-4"><i class="fa-solid fa-signature"></i></div>
+                    <h3 class="text-xl mb-3">Нейминг</h3>
+                    <p class="text-gray-400 text-sm mb-4">Название должно быть коротким, дерзким и намекать на скорость/игры.</p>
+                    <ul class="text-sm space-y-2">
+                        <li class="flex items-center"><i class="fa-solid fa-check text-green-500 mr-2"></i> <strong>GameDrop</strong> (Игра + Доставка)</li>
+                        <li class="flex items-center"><i class="fa-solid fa-check text-green-500 mr-2"></i> <strong>FlashPlay</strong> (Скорость)</li>
+                        <li class="flex items-center"><i class="fa-solid fa-check text-green-500 mr-2"></i> <strong>CyberRent</strong> (Стиль)</li>
+                    </ul>
+                </div>
+
+                <!-- Visual Style -->
+                <div class="glass-panel p-6 rounded-2xl hover:border-blue-500 transition duration-300">
+                    <div class="text-purple-500 text-4xl mb-4"><i class="fa-solid fa-palette"></i></div>
+                    <h3 class="text-xl mb-3">Визуальный Код</h3>
+                    <p class="text-gray-400 text-sm mb-4">Уходим от скучного "магазинного" стиля. Наш стиль — Cyberpunk / Dark Mode.</p>
+                    <div class="flex gap-2 mt-4">
+                        <div class="h-8 w-8 rounded-full bg-black border border-gray-600" title="Black"></div>
+                        <div class="h-8 w-8 rounded-full bg-blue-600 shadow-lg shadow-blue-500/50" title="Neon Blue"></div>
+                        <div class="h-8 w-8 rounded-full bg-purple-600 shadow-lg shadow-purple-500/50" title="Neon Purple"></div>
+                        <div class="h-8 w-8 rounded-full bg-yellow-400" title="Accent Warning"></div>
+                    </div>
+                </div>
+
+                <!-- Tone of Voice -->
+                <div class="glass-panel p-6 rounded-2xl hover:border-blue-500 transition duration-300">
+                    <div class="text-green-500 text-4xl mb-4"><i class="fa-solid fa-bullhorn"></i></div>
+                    <h3 class="text-xl mb-3">Голос Бренда</h3>
+                    <p class="text-gray-400 text-sm">Мы общаемся как "свои". Никакого официоза ("Уважаемый клиент").</p>
+                    <div class="mt-4 p-3 bg-gray-900 rounded text-xs italic text-gray-300">
+                        "Брат, катка стынет! PS5 уже заряжена, FIFA 24 установлена. Залетай в аренду, курьер на низком старте."
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. The Digital Product (App Concept) -->
+        <section class="bg-gradient-to-b from-gray-900 to-black rounded-3xl p-8 border border-gray-800">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-xl font-bold">2</div>
+                <h2 class="text-3xl">Сайт и Приложение: "Быстрый Заказ"</h2>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-12 items-center">
+                <!-- Concept Text -->
+                <div class="flex-1 space-y-6">
+                    <h3 class="text-2xl text-blue-400">Философия "В один клик"</h3>
+                    <p class="text-gray-300">
+                        Клиент не хочет звонить и договариваться. Он хочет нажать кнопку и получить приставку. 
+                        Главная фишка приложения — <strong>прозрачность времени и наличие</strong>.
+                    </p>
+                    
+                    <div class="space-y-4">
+                        <div class="flex gap-4">
+                            <div class="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-2xl">🚀</div>
+                            <div>
+                                <h4 class="font-bold">Мгновенный Букинг</h4>
+                                <p class="text-sm text-gray-400">Без регистрации. Вход по номеру телефона (SMS). Выбор комплекта -> Адрес -> Apple Pay / Kaspi QR.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-2xl">⏱️</div>
+                            <div>
+                                <h4 class="font-bold">Таймер Доставки</h4>
+                                <p class="text-sm text-gray-400">Как в Яндекс.Еде. "Курьер Азамат взял заказ. Будет через 24 минуты". Это создает доверие.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-2xl">📍</div>
+                            <div>
+                                <h4 class="font-bold">Режим "Самовывоз"</h4>
+                                <p class="text-sm text-gray-400">Переключатель на карте. Показывает ближайшую свободную точку, если клиент хочет забрать сам и сэкономить.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phone UI Mockup -->
+                <div class="w-full max-w-sm">
+                    <div class="phone-mockup h-[600px] w-[300px] mx-auto bg-gray-900 text-white flex flex-col">
+                        <div class="phone-notch"></div>
+                        
+                        <!-- App Content -->
+                        <div class="p-6 mt-8 flex flex-col h-full">
+                            <!-- App Header -->
+                            <div class="flex justify-between items-center mb-6">
+                                <div class="font-bold text-lg">GameDrop</div>
+                                <div class="w-8 h-8 bg-gray-700 rounded-full"></div>
+                            </div>
+
+                            <!-- Available Banner -->
+                            <div class="bg-green-500/20 border border-green-500 text-green-400 p-3 rounded-xl mb-6 text-sm font-bold flex items-center gap-2">
+                                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                3 консоли свободны сейчас
+                            </div>
+
+                            <!-- Product Card -->
+                            <div class="bg-gray-800 rounded-2xl p-4 mb-4 shadow-lg border border-gray-700 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 bg-blue-600 text-xs font-bold px-2 py-1 rounded-bl-lg">ХИТ</div>
+                                <div class="h-24 bg-gray-700 rounded-lg mb-3 flex items-center justify-center text-4xl">🎮</div>
+                                <h3 class="font-bold">PS5 + 2 Gamepads</h3>
+                                <p class="text-xs text-gray-400 mb-2">FIFA 24, UFC 5, MK 1, GTA V</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="font-bold text-lg">7 000 ₸</span>
+                                    <span class="text-xs text-gray-500">/ сутки</span>
+                                </div>
+                            </div>
+
+                            <!-- Delivery Toggle -->
+                            <div class="bg-gray-800 p-1 rounded-lg flex mb-4">
+                                <button class="flex-1 bg-blue-600 py-2 rounded text-xs font-bold shadow">Доставка 🚚</button>
+                                <button class="flex-1 py-2 rounded text-xs text-gray-400">Самовывоз 🏃</button>
+                            </div>
+
+                            <!-- Delivery Time -->
+                            <div class="mb-auto">
+                                <div class="text-xs text-gray-400 mb-1">Время ожидания:</div>
+                                <div class="text-xl font-bold font-mono text-yellow-400">~45 мин</div>
+                            </div>
+
+                            <!-- CTA Button -->
+                            <button class="w-full bg-gradient-to-r from-blue-600 to-purple-600 py-4 rounded-xl font-bold shadow-lg shadow-blue-900/50 active:scale-95 transition-transform">
+                                ЗАКАЗАТЬ СЕЙЧАС
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Marketing Channels Strategy -->
+        <section>
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center text-xl font-bold">3</div>
+                <h2 class="text-3xl">Маркетинг: Где брать клиентов?</h2>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div class="flex flex-wrap gap-4 mb-8">
+                <button onclick="showTab('tiktok')" id="btn-tiktok" class="tab-btn active px-6 py-3 rounded-full bg-gray-800 border border-gray-700 hover:bg-gray-700 transition font-bold text-sm">
+                    <i class="fa-brands fa-tiktok mr-2"></i> TikTok
+                </button>
+                <button onclick="showTab('olx')" id="btn-olx" class="tab-btn px-6 py-3 rounded-full bg-gray-800 border border-gray-700 hover:bg-gray-700 transition font-bold text-sm">
+                    <i class="fa-solid fa-bullhorn mr-2"></i> OLX / Объявления
+                </button>
+                <button onclick="showTab('insta')" id="btn-insta" class="tab-btn px-6 py-3 rounded-full bg-gray-800 border border-gray-700 hover:bg-gray-700 transition font-bold text-sm">
+                    <i class="fa-brands fa-instagram mr-2"></i> Instagram
+                </button>
+            </div>
+
+            <!-- Content Container -->
+            <div class="glass-panel p-8 rounded-3xl min-h-[300px]">
+                
+                <!-- TikTok Content -->
+                <div id="content-tiktok" class="animate-fade-in">
+                    <h3 class="text-2xl font-bold mb-4 text-pink-500">Стратегия TikTok: "Вирусность и Жиза"</h3>
+                    <p class="text-gray-300 mb-6">Цель: Бесплатный охват. Ролики должны попадать в рекомендации геймерам Алматы/Астаны.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800">
+                            <div class="text-sm font-bold text-gray-500 mb-2">ИДЕЯ #1</div>
+                            <h4 class="text-lg font-bold mb-2">"Когда друг нуб в FIFA"</h4>
+                            <p class="text-sm text-gray-400">Смешные нарезки эмоций проигрыша. Живая реакция на голы. Подпись: "Проверь дружбу на прочность. Ссылка на аренду в профиле".</p>
+                        </div>
+                        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800">
+                            <div class="text-sm font-bold text-gray-500 mb-2">ИДЕЯ #2</div>
+                            <h4 class="text-lg font-bold mb-2">ASMR Распаковка</h4>
+                            <p class="text-sm text-gray-400">Крупным планом: открываем кейс, достаем чистый джойстик, звук включения PS5. Эстетика для глаз.</p>
+                        </div>
+                        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800">
+                            <div class="text-sm font-bold text-gray-500 mb-2">ИДЕЯ #3</div>
+                            <h4 class="text-lg font-bold mb-2">Челлендж "Успей забрать"</h4>
+                            <p class="text-sm text-gray-400">Прячем промокод на бесплатный день в городе или в видео. Поднимает активность в комментариях.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OLX Content -->
+                <div id="content-olx" class="hidden animate-fade-in">
+                    <h3 class="text-2xl font-bold mb-4 text-green-500">Стратегия OLX: "Продающий Кликбейт"</h3>
+                    <p class="text-gray-300 mb-6">Цель: Перехватить горячего клиента, который ищет прямо сейчас.</p>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 flex flex-col md:flex-row gap-4">
+                            <div class="flex-1">
+                                <h4 class="font-bold text-yellow-400 mb-1">Заголовок — это 80% успеха</h4>
+                                <p class="text-sm text-gray-400">Плохо: "Аренда PS5 Алматы"<br>Хорошо: <strong>"PS5 + FIFA 24 + 2 Джойстика | Доставка за 30 минут | Игры 2024"</strong></p>
+                            </div>
+                            <div class="flex-1 border-l border-gray-700 pl-4">
+                                <h4 class="font-bold text-blue-400 mb-1">Описание (Оффер)</h4>
+                                <p class="text-sm text-gray-400">
+                                    - ✅ Игры уже установлены (список)<br>
+                                    - ✅ Джойстики заряжены на 100%<br>
+                                    - ✅ Без залога (при наличии удостоверения)<br>
+                                    - 🎁 Скидка 50% на вторые сутки
+                                </p>
+                            </div>
+                        </div>
+                        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800">
+                            <h4 class="font-bold text-white mb-2">Платное продвижение</h4>
+                            <p class="text-sm text-gray-400">Обязательно покупать пакет "Топ" + "Поднятие" в пятницу вечером и субботу утром. Это пиковые часы спроса.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Instagram Content -->
+                <div id="content-insta" class="hidden animate-fade-in">
+                    <h3 class="text-2xl font-bold mb-4 text-purple-500">Стратегия Instagram: "Витрина и Доверие"</h3>
+                    <p class="text-gray-300 mb-6">Цель: Показать, что мы реальные, надежные и у нас много довольных клиентов.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800">
+                            <h4 class="font-bold text-white mb-2">Highlights (Вечные сторис)</h4>
+                            <ul class="text-sm text-gray-400 space-y-2">
+                                <li>📂 <strong>Игры:</strong> Видео-обзор библиотеки игр.</li>
+                                <li>⭐️ <strong>Отзывы:</strong> Репосты сторис клиентов (социальное доказательство).</li>
+                                <li>❓ <strong>FAQ:</strong> Условия, залог, доставка.</li>
+                                <li>🔥 <strong>Акции:</strong> "3-й день в подарок".</li>
+                            </ul>
+                        </div>
+                        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800">
+                            <h4 class="font-bold text-white mb-2">Таргетированная Реклама</h4>
+                            <p class="text-sm text-gray-400 mb-2">Настраиваем на интересы: "FIFA", "PlayStation", "Футбол", "UFC".</p>
+                            <p class="text-sm text-gray-400"><strong>Креатив:</strong> Фото компании друзей с пиццей и джойстиками. Текст: "Не знаешь чем заняться в пятницу? Закажи эмоции на дом."</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all contents
+            document.getElementById('content-tiktok').classList.add('hidden');
+            document.getElementById('content-olx').classList.add('hidden');
+            document.getElementById('content-insta').classList.add('hidden');
+            
+            // Remove active class from all buttons
+            document.getElementById('btn-tiktok').classList.remove('active', 'bg-blue-600', 'text-white');
+            document.getElementById('btn-olx').classList.remove('active', 'bg-blue-600', 'text-white');
+            document.getElementById('btn-insta').classList.remove('active', 'bg-blue-600', 'text-white');
+            
+            // Show selected content
+            document.getElementById('content-' + tabName).classList.remove('hidden');
+            
+            // Add active class to button
+            document.getElementById('btn-' + tabName).classList.add('active');
+        }
+    </script>
+</body>
+</html>
