@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import supabase from "@/utils/supabase";
 import SettingsPanel from "@/components/SettingsPanel";
+import DataSettings from "@/components/DataSettings";
 import { Users, Settings as SettingsIcon } from "lucide-react";
 
 const Settings = () => {
@@ -56,8 +57,9 @@ const Settings = () => {
           <p className="text-muted-foreground">Manage your application preferences and account settings</p>
         </div>
 
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto space-y-6">
           <SettingsPanel />
+          <DataSettings />
         </div>
       </div>
     </div>
