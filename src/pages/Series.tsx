@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import SeriesCard from "@/components/SeriesCard";
 import CatalogHeader from "@/components/CatalogHeader";
+import PosterRow from "@/components/PosterRow";
 import SeriesCategoryFilter from "@/components/SeriesCategoryFilter";
 import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS } from "@/components/MovieSortFilter";
 import { getPopularSeries, searchSeries, getMoviePosterUrl } from "@/utils/tmdbApi";
@@ -234,6 +235,19 @@ const SeriesPage = () => {
     setHasMore(end < source.length);
   };
 
+  // Kinopoisk-style rows mode: no active filters/search
+  const rowsMode = !searchQuery.trim() && genreFilter === 'all' && selectedCategory === 'all';
+
+  const popularSeries = useMemo(() => allSeries.slice(0, 20), [allSeries]);
+  const topRatedSeries = useMemo(
+    () => [...allSeries].sort((a, b) => b.rating - a.rating).slice(0, 20),
+    [allSeries]
+  );
+  const freshSeries = useMemo(
+    () => [...allSeries].sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)).slice(0, 20),
+    [allSeries]
+  );
+
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
@@ -268,6 +282,12 @@ const SeriesPage = () => {
             <div key={i} className="aspect-[2/3] bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
+      ) : rowsMode ? (
+        <>
+          <PosterRow title="Популярные сериалы" items={popularSeries} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
+          <PosterRow title="Высокий рейтинг" items={topRatedSeries} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
+          <PosterRow title="Новинки" items={freshSeries} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
+        </>
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">

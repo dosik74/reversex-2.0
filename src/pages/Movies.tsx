@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import MovieCard from "@/components/MovieCard";
 import CatalogHeader from "@/components/CatalogHeader";
+import PosterRow from "@/components/PosterRow";
 import MovieCategoryFilter from "@/components/MovieCategoryFilter";
 import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS } from "@/components/MovieSortFilter";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
@@ -284,6 +285,21 @@ const Movies = () => {
     setHasMore(end < source.length);
   };
 
+  // Kinopoisk-style rows mode: no active filters/search, trending tab
+  const rowsMode = tab === 'trending' && !searchQuery.trim() && genreFilter === 'all' && selectedCategory === 'all';
+
+  const popularMovies = useMemo(() => allMovies.slice(0, 20), [allMovies]);
+  const topRatedMovies = useMemo(
+    () => [...allMovies].sort((a, b) => b.rating - a.rating).slice(0, 20),
+    [allMovies]
+  );
+  const freshMovies = useMemo(
+    () => [...allMovies].sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)).slice(0, 20),
+    [allMovies]
+  );
+
+  const renderMovie = (movie: Movie) => <MovieCard movie={movie} />;
+
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
@@ -332,16 +348,23 @@ const Movies = () => {
             onSortChange={setSortBy}
             genre={genreFilter}
             onGenreChange={setGenreFilter}
+            showGenres
           />
         </CatalogHeader>
 
-      {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
-          {[...Array(20)].map((_, i) => (
-            <div key={i} className="aspect-[2/3] bg-muted animate-pulse rounded-lg" />
-          ))}
-        </div>
-      ) : (
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
+            {[...Array(20)].map((_, i) => (
+              <div key={i} className="aspect-[2/3] bg-muted animate-pulse rounded-lg" />
+            ))}
+          </div>
+        ) : rowsMode ? (
+          <>
+            <PosterRow title="Популярное сейчас" items={popularMovies} render={renderMovie} getKey={(m) => m.id} />
+            <PosterRow title="Высокий рейтинг" items={topRatedMovies} render={renderMovie} getKey={(m) => m.id} />
+            <PosterRow title="Новинки" items={freshMovies} render={renderMovie} getKey={(m) => m.id} />
+          </>
+        ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
             {displayMovies.map((movie) => (
@@ -373,5 +396,4 @@ const Movies = () => {
     </div>
   );
 };
-
 export default Movies;

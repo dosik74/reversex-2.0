@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Search, X } from "lucide-react";
 import GameCard from "@/components/GameCard";
 import CatalogHeader from "@/components/CatalogHeader";
+import PosterRow from "@/components/PosterRow";
 import MovieSortFilter, { SortOption } from "@/components/MovieSortFilter";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useTranslation } from "react-i18next";
@@ -225,6 +226,15 @@ const Games = () => {
     setHasMore(end < source.length);
   };
 
+  // Kinopoisk-style rows mode: no active filters/search
+  const rowsMode = !searchQuery.trim() && selectedGenres.length === 0;
+
+  const topGames = useMemo(() => allGames.slice(0, 20), [allGames]);
+  const freshGames = useMemo(
+    () => [...allGames].sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)).slice(0, 20),
+    [allGames]
+  );
+
   const toggleGenre = (genre: string) => {
     setSelectedGenres((prev) =>
       prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]
@@ -300,6 +310,11 @@ const Games = () => {
             <div key={i} className="aspect-[2/3] bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
+      ) : rowsMode ? (
+        <>
+          <PosterRow title="Лучшие игры" items={topGames} render={(g) => <GameCard game={g} />} getKey={(g) => g.id} />
+          <PosterRow title="Новинки" items={freshGames} render={(g) => <GameCard game={g} />} getKey={(g) => g.id} />
+        </>
       ) : displayGames.length > 0 ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
