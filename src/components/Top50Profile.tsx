@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Expand, Trash2, GripVertical, Crown, Award, Star, Plus, Search, Loader2, X, Hash } from "lucide-react";
+import { ChevronLeft, ChevronRight, Expand, Trash2, GripVertical, Crown, Award, Star, Plus, Search, Loader2, X, Hash, Save } from "lucide-react";
 import supabase from "@/utils/supabase";
 import { toast } from "sonner";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -416,6 +416,27 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
     }
   };
 
+  // Ручное сохранение порядка (кнопка «Сохранить»)
+  const [savingOrder, setSavingOrder] = useState(false);
+  const saveOrder = async () => {
+    if (!isOwnProfile || !selectedList || !selectedList.items?.length) return;
+    setSavingOrder(true);
+    try {
+      await Promise.all(
+        selectedList.items.map(item =>
+          supabase.from('top_list_items').update({ rank: item.rank }).eq('id', item.id)
+        )
+      );
+      toast.success('Порядок сохранён!');
+    } catch (error) {
+      console.error('Error saving order:', error);
+      toast.error('Не удалось сохранить порядок');
+      loadLists();
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
   // Перестановка элемента на конкретную позицию (кнопка #)
   const moveItemToRank = async (itemId: string, targetRank: number) => {
     if (!isOwnProfile || !selectedList) return;
@@ -686,16 +707,34 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
             </div>
 
             {isOwnProfile && (
-              <Button onClick={canAddMore ? openAddDialog : createDefaultLists} variant="outline" size="sm" className="flex-shrink-0 mt-2 gap-1.5">
-                {canAddMore ? (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    Добавить
-                  </>
-                ) : (
-                  'Create Lists'
+              <div className="flex-shrink-0 mt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {selectedList && itemsCount > 0 && (
+                  <Button
+                    onClick={saveOrder}
+                    disabled={savingOrder}
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-purple-500/40 hover:bg-purple-500/10 hover:text-purple-300"
+                  >
+                    {savingOrder ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    Сохранить
+                  </Button>
                 )}
-              </Button>
+                <Button onClick={canAddMore ? openAddDialog : createDefaultLists} variant="outline" size="sm" className="gap-1.5">
+                  {canAddMore ? (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Добавить
+                    </>
+                  ) : (
+                    'Create Lists'
+                  )}
+                </Button>
+              </div>
             )}
           </div>
 
@@ -1017,13 +1056,30 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                   {itemsCount === 0 ? 'Пусто' : `${itemsCount} из 50 позиций`}
                 </p>
               </div>
-              <button
-                onClick={() => setShowExpanded(false)}
-                className="w-12 h-12 rounded-full bg-white/[0.06] border border-white/10 hover:bg-red-500/20 hover:border-red-500/40 flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-90 flex-shrink-0"
-                title="Закрыть (Esc)"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {isOwnProfile && selectedList && itemsCount > 0 && (
+                  <Button
+                    onClick={saveOrder}
+                    disabled={savingOrder}
+                    size="sm"
+                    className="gap-2 rounded-full bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 shadow-lg shadow-purple-500/25 border-0"
+                  >
+                    {savingOrder ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    Сохранить
+                  </Button>
+                )}
+                <button
+                  onClick={() => setShowExpanded(false)}
+                  className="w-12 h-12 rounded-full bg-white/[0.06] border border-white/10 hover:bg-red-500/20 hover:border-red-500/40 flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-90 flex-shrink-0"
+                  title="Закрыть (Esc)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             {/* Progress bar */}
             <div className="max-w-[1700px] mx-auto px-4 sm:px-10 pb-4">
