@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Expand, Trash2, GripVertical, Crown, Award, Star, Plus, Search, Loader2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Expand, Trash2, GripVertical, Crown, Award, Star, Plus, Search, Loader2, X, Hash } from "lucide-react";
 import supabase from "@/utils/supabase";
 import { toast } from "sonner";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -64,7 +64,53 @@ interface Top50ProfileProps {
   isOwnProfile: boolean;
 }
 
-const SortableItem = ({ item, isOwnProfile, onRemove, mediaType }: { item: TopListItem; isOwnProfile: boolean; onRemove: () => void; mediaType: 'movie' | 'anime' | 'game' }) => {
+const RankMoveControl = ({ rank, maxRank, onMove }: { rank: number; maxRank: number; onMove: (target: number) => void }) => {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(String(rank));
+
+  const submit = () => {
+    const n = parseInt(value);
+    if (!isNaN(n) && n >= 1 && n <= maxRank && n !== rank) onMove(n);
+    setOpen(false);
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}
+        title="Поставить на позицию"
+        className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-purple-600/80 p-1.5 rounded-full shadow-lg z-20 flex items-center justify-center"
+      >
+        <Hash className="w-4 h-4 text-white" />
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="bg-zinc-900/95 border border-purple-500/50 rounded-lg px-2 py-1.5 shadow-xl z-30 flex items-center gap-1.5"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+    >
+      <span className="text-[10px] text-zinc-400 font-bold">#</span>
+      <input
+        type="number"
+        min={1}
+        max={maxRank}
+        value={value}
+        autoFocus
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setOpen(false); }}
+        className="w-14 bg-zinc-800 border border-zinc-700 rounded text-white text-xs text-center py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
+      />
+      <button onClick={submit} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white transition-colors">
+        OK
+      </button>
+      <button onClick={() => setOpen(false)} className="text-zinc-500 hover:text-white text-xs px-1">✕</button>
+    </div>
+  );
+};
+
+const SortableItem = ({ item, isOwnProfile, onRemove, mediaType, onMoveToRank }: { item: TopListItem; isOwnProfile: boolean; onRemove: () => void; mediaType: 'movie' | 'anime' | 'game'; onMoveToRank?: (target: number) => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
 
   const style = {
@@ -105,6 +151,11 @@ const SortableItem = ({ item, isOwnProfile, onRemove, mediaType }: { item: TopLi
       >
         <h4 className="font-grotesk font-medium truncate cursor-pointer">{item.title}</h4>
       </Link>
+      {isOwnProfile && onMoveToRank && (
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <RankMoveControl rank={item.rank} maxRank={50} onMove={onMoveToRank} />
+        </div>
+      )}
       {isOwnProfile && (
         <Button
           variant="ghost"
@@ -119,7 +170,7 @@ const SortableItem = ({ item, isOwnProfile, onRemove, mediaType }: { item: TopLi
   );
 };
 
-const TopRankItem = ({ item, rank, isOwnProfile, onRemove, mediaType }: { item: TopListItem; rank: number; isOwnProfile: boolean; onRemove: () => void; mediaType: 'movie' | 'anime' | 'game' }) => {
+const TopRankItem = ({ item, rank, isOwnProfile, onRemove, mediaType, onMoveToRank }: { item: TopListItem; rank: number; isOwnProfile: boolean; onRemove: () => void; mediaType: 'movie' | 'anime' | 'game'; onMoveToRank?: (target: number) => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
 
   const style = {
@@ -207,6 +258,13 @@ const TopRankItem = ({ item, rank, isOwnProfile, onRemove, mediaType }: { item: 
           >
             <Trash2 className="w-4 h-4" />
           </Button>
+        )}
+
+        {/* Move to position */}
+        {isOwnProfile && onMoveToRank && (
+          <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+            <RankMoveControl rank={rank} maxRank={50} onMove={onMoveToRank} />
+          </div>
         )}
 
         {/* Drag Handle */}
@@ -355,6 +413,40 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
         toast.error('Не удалось обновить порядок');
         loadLists();
       }
+    }
+  };
+
+  // Перестановка элемента на конкретную позицию (кнопка #)
+  const moveItemToRank = async (itemId: string, targetRank: number) => {
+    if (!isOwnProfile || !selectedList) return;
+    const items = selectedList.items || [];
+    const oldIndex = items.findIndex(i => i.id === itemId);
+    if (oldIndex < 0) return;
+
+    const clamped = Math.max(1, Math.min(items.length, targetRank));
+    const newIndex = clamped - 1;
+    if (newIndex === oldIndex) return;
+
+    const newItems = arrayMove(items, oldIndex, newIndex).map((item, idx) => ({
+      ...item,
+      rank: idx + 1,
+    }));
+
+    setSelectedList({ ...selectedList, items: newItems });
+    setLists(prev => prev.map(l => l.id === selectedList.id ? { ...l, items: newItems } : l));
+
+    try {
+      const changed = newItems.filter((item, idx) => items[idx]?.rank !== item.rank);
+      await Promise.all(
+        changed.map(item =>
+          supabase.from('top_list_items').update({ rank: item.rank }).eq('id', item.id)
+        )
+      );
+      toast.success(`Перемещено на #${clamped}`);
+    } catch (error) {
+      console.error('Error moving item:', error);
+      toast.error('Не удалось переместить');
+      loadLists();
     }
   };
 
@@ -583,8 +675,8 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
               <p className="font-pixel text-[9px] tracking-[0.25em] text-accent uppercase mb-3 drop-shadow-sm">
                 ★ Personal Ranking
               </p>
-              <h3 className="leading-[0.85]">
-                <span className="block font-sloop text-[4.5rem] md:text-[7rem] bg-gradient-to-br from-accent via-primary to-accent bg-clip-text text-transparent -mb-3 md:-mb-5 pl-1 select-none [text-shadow:none] drop-shadow-[0_0_18px_hsl(var(--accent)/0.35)]">
+              <h3 className="leading-[1.1]">
+                <span className="block font-sloop text-[4.5rem] md:text-[7rem] bg-gradient-to-br from-accent via-primary to-accent bg-clip-text text-transparent -mb-1 md:-mb-2 pl-1 pt-2 select-none [text-shadow:none] drop-shadow-[0_0_18px_hsl(var(--accent)/0.35)]">
                   My
                 </span>
                 <span className="block font-grotesk font-bold tracking-tight text-4xl md:text-6xl rxp-shine pb-1">
@@ -708,6 +800,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                         isOwnProfile={isOwnProfile}
                         mediaType={selectedList?.media_type || 'movie'}
                         onRemove={() => removeItemFromList(item.id)}
+                        onMoveToRank={moveItemToRank}
                       />
                     ))}
                   </div>
@@ -723,6 +816,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                         isOwnProfile={isOwnProfile}
                         mediaType={selectedList?.media_type || 'movie'}
                         onRemove={() => removeItemFromList(item.id)}
+                        onMoveToRank={moveItemToRank}
                       />
                     ))}
                   </div>
@@ -934,6 +1028,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                             onRemove={() => {
                               removeItemFromList(item.id);
                             }}
+                            onMoveToRank={moveItemToRank}
                           />
                         ))}
                       </div>
@@ -953,6 +1048,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                               onRemove={() => {
                                 removeItemFromList(item.id);
                               }}
+                              onMoveToRank={moveItemToRank}
                             />
                           ))}
                         </div>
