@@ -15,6 +15,8 @@ interface ContentActionsButtonProps {
   genre?: string;
   releaseYear?: string;
   synopsis?: string;
+  /** poster = small round icon on cards, detail = large pill on detail pages */
+  variant?: 'poster' | 'detail';
 }
 
 const ALL_STATUSES: ContentStatus[] = ['favorite', 'watching', 'planned', 'watched', 'postponed', 'dropped'];
@@ -29,6 +31,7 @@ export default function ContentActionsButton({
   genre,
   releaseYear,
   synopsis,
+  variant = 'poster',
 }: ContentActionsButtonProps) {
   const {
     getBookmark,
@@ -128,21 +131,35 @@ export default function ContentActionsButton({
       }}
     >
       {/* Single trigger button */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        title="Действия"
-        className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 ${
-          bookmark || inTop50
-            ? 'bg-purple-600/80 hover:bg-purple-500 shadow-lg shadow-purple-500/30'
-            : 'bg-black/60 hover:bg-black/80'
-        }`}
-      >
-        {bookmark ? (
-          <BookmarkCheck className="w-5 h-5 text-white" />
-        ) : (
-          <Bookmark className="w-5 h-5 text-white" />
-        )}
-      </button>
+      {variant === 'detail' ? (
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className={`flex items-center gap-2.5 px-6 py-3 rounded-full font-semibold text-sm backdrop-blur-md transition-all duration-200 hover:scale-[1.04] active:scale-95 border ${
+            bookmark
+              ? 'bg-gradient-to-r from-purple-600 to-violet-600 border-transparent text-white shadow-lg shadow-purple-500/40'
+              : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+          }`}
+        >
+          {bookmark ? <BookmarkCheck className="w-5 h-5" /> : <Bookmark className="w-5 h-5" />}
+          {bookmark ? CONTENT_STATUS_CONFIG[bookmark.status].label : 'В закладки'}
+        </button>
+      ) : (
+        <button
+          onClick={() => setOpen((v) => !v)}
+          title="Действия"
+          className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 ${
+            bookmark || inTop50
+              ? 'bg-purple-600/80 hover:bg-purple-500 shadow-lg shadow-purple-500/30'
+              : 'bg-black/60 hover:bg-black/80'
+          }`}
+        >
+          {bookmark ? (
+            <BookmarkCheck className="w-5 h-5 text-white" />
+          ) : (
+            <Bookmark className="w-5 h-5 text-white" />
+          )}
+        </button>
+      )}
 
       {/* Dropdown */}
       {open && (

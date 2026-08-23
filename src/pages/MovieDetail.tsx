@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star, Play } from "lucide-react";
 import { useIMDbRating } from "@/hooks/useIMDbRating";
 import CommunityRating from "@/components/CommunityRating";
-import AddToBookmarksButton from "@/components/AddToBookmarksButton";
+import ContentActionsButton from "@/components/ContentActionsButton";
 
 interface MovieDetails {
   id: number;
@@ -186,6 +186,19 @@ const MovieDetail = () => {
                     {movie.genres.map(g => g.name).join(', ')}
                   </div>
                 )}
+
+                <ContentActionsButton
+                  contentId={movie.id.toString()}
+                  contentType="movie"
+                  top50MediaType="movie"
+                  title={movie.title}
+                  posterUrl={getMoviePosterUrl(movie.poster_path, 'w500')}
+                  externalRating={movie.vote_average}
+                  releaseYear={String(releaseYear || '')}
+                  genre={movie.genres?.map(g => g.name).join(', ')}
+                  synopsis={movie.overview}
+                  variant="detail"
+                />
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import MovieCard from "@/components/MovieCard";
 import CatalogHeader from "@/components/CatalogHeader";
 import MovieCategoryFilter from "@/components/MovieCategoryFilter";
-import MovieSortFilter, { SortOption, GenreFilter } from "@/components/MovieSortFilter";
+import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS } from "@/components/MovieSortFilter";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { getPopularMovies, searchMovies, getTopRatedMovies } from "@/utils/tmdbApi";
 import { useTranslation } from "react-i18next";
@@ -109,12 +109,10 @@ const Movies = () => {
       });
     }
 
-    // Apply genre filter
+    // Apply genre filter (real TMDB genre_ids)
     if (genreFilter !== 'all') {
-      result = result.filter(movie => {
-        // TODO: Filter by genre once genre_ids are properly populated from TMDB
-        return true;
-      });
+      const tmdbIds = GENRE_TMDB_IDS[genreFilter]?.movie || [];
+      result = result.filter(movie => movie.genre_ids?.some(id => tmdbIds.includes(id)));
     }
 
     // Apply sorting
@@ -159,22 +157,35 @@ const Movies = () => {
   const fetchPopularMovies = async () => {
     try {
       setLoading(true);
-      const { movies } = await getPopularMovies(1);
-      
-      const transformedMovies: Movie[] = movies
-        .filter(m => m.poster_path)
-        .map(m => ({
-          id: m.id,
-          title: m.title,
-          year: m.release_date?.split('-')[0] || 'Unknown',
-          rating: Math.round(m.vote_average * 10) / 10,
-          poster: `https://image.tmdb.org/t/p/w342${m.poster_path}`,
-          description: m.overview || ''
-        }));
+      const all: Movie[] = [];
 
-      setAllMovies(transformedMovies);
-      setDisplayMovies(transformedMovies.slice(0, MOVIES_PER_PAGE));
-      setHasMore(transformedMovies.length > MOVIES_PER_PAGE);
+      // Load 8 pages (~160 movies) for a rich catalog
+      for (let pageNum = 1; pageNum <= 8; pageNum++) {
+        try {
+          const { movies } = await getPopularMovies(pageNum);
+          const transformedMovies: Movie[] = movies
+            .filter(m => m.poster_path)
+            .map(m => ({
+              id: m.id,
+              title: m.title,
+              year: m.release_date?.split('-')[0] || 'Unknown',
+              rating: Math.round(m.vote_average * 10) / 10,
+              poster: `https://image.tmdb.org/t/p/w342${m.poster_path}`,
+              description: m.overview || '',
+              genre_ids: m.genre_ids || []
+            }));
+          all.push(...transformedMovies);
+          if (movies.length === 0) break;
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (err) {
+          console.warn(`Failed to load page ${pageNum}:`, err);
+          break;
+        }
+      }
+
+      setAllMovies(all);
+      setDisplayMovies(all.slice(0, MOVIES_PER_PAGE));
+      setHasMore(all.length > MOVIES_PER_PAGE);
     } catch (error) {
       console.error('Error fetching movies:', error);
     } finally {

@@ -290,6 +290,7 @@ const Games = () => {
             onSortChange={setSortBy}
             genre="all"
             onGenreChange={() => {}}
+            showGenres={false}
           />
         </CatalogHeader>
 

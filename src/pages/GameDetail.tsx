@@ -2,9 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Star, Plus, ArrowLeft } from "lucide-react";
-import supabase from "@/utils/supabase";
-import { toast } from "sonner";
+import { Star, ArrowLeft } from "lucide-react";
 import { getGameDescriptionFromSteam } from "@/lib/translationToggle";
 
 interface GameDetails {
@@ -30,8 +28,6 @@ const GameDetail = () => {
   const [isTranslated, setIsTranslated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [addingToTop50, setAddingToTop50] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchGame = async () => {
@@ -53,17 +49,7 @@ const GameDetail = () => {
       }
     };
 
-    const getCurrentUser = async () => {
-      try {
-        const { data } = await supabase.auth.getUser();
-        setCurrentUserId(data.user?.id || null);
-      } catch (error) {
-        console.error("Error getting user:", error);
-      }
-    };
-
     fetchGame();
-    getCurrentUser();
   }, [id]);
 
   // Fetch Russian description in background (non-blocking)
@@ -82,81 +68,6 @@ const GameDetail = () => {
         });
     }
   }, [game?.id]);
-
-  const handleAddToTop50 = async (e: React.MouseEvent) => {
-    e.preventDefault();
-
-    if (!currentUserId) {
-      toast.error('Войдите в аккаунт чтобы добавить в Top 50');
-      return;
-    }
-
-    if (!game) return;
-
-    setAddingToTop50(true);
-    try {
-      let topListId: string | undefined;
-
-      const { data: existingList, error: listError } = await supabase
-        .from('top_lists')
-        .select('id')
-        .eq('user_id', currentUserId)
-        .eq('media_type', 'game')
-        .single();
-
-      if (existingList) {
-        topListId = existingList.id;
-      } else if (!listError || listError.code === 'PGRST116') {
-        const { data: newList, error: createError } = await supabase
-          .from('top_lists')
-          .insert({ user_id: currentUserId, title: 'Top 50 Games', media_type: 'game' })
-          .select('id')
-          .single();
-
-        if (createError) throw createError;
-        topListId = newList?.id;
-      }
-
-      if (!topListId) throw new Error('Failed to create or find top list');
-
-      const { data: existingItem } = await supabase
-        .from('top_list_items')
-        .select('id')
-        .eq('top_list_id', topListId)
-        .eq('item_id', game.id.toString())
-        .single();
-
-      if (existingItem) {
-        toast.info('Уже в Top 50');
-        return;
-      }
-
-      const { data: items } = await supabase
-        .from('top_list_items')
-        .select('rank')
-        .eq('top_list_id', topListId)
-        .order('rank', { ascending: false })
-        .limit(1);
-
-      const nextRank = (items?.[0]?.rank || 0) + 1;
-
-      const { error: insertError } = await supabase.from('top_list_items').insert({
-        top_list_id: topListId,
-        item_id: game.id.toString(),
-        rank: nextRank,
-        title: game.name,
-        poster_url: game.background_image,
-      });
-
-      if (insertError) throw insertError;
-      toast.success('Добавлено в Top 50');
-    } catch (error) {
-      console.error(error);
-      toast.error('Ошибка при добавлении в Top 50');
-    } finally {
-      setAddingToTop50(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -213,14 +124,17 @@ const GameDetail = () => {
                 <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
                 <span className="text-xl font-bold text-white">{game.rating.toFixed(1)}</span>
               </div>
-              <Button
-                onClick={handleAddToTop50}
-                disabled={addingToTop50}
-                className="bg-primary hover:bg-primary/90 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Добавить в Top 50
-              </Button>
+              <ContentActionsButton
+                contentId={game.id.toString()}
+                contentType="game"
+                top50MediaType="game"
+                title={game.name}
+                posterUrl={game.background_image}
+                externalRating={game.rating}
+                genre={game.genres?.map((g: any) => g.name).join(', ')}
+                synopsis={game.description}
+                variant="detail"
+              />
             </div>
           </div>
         </div>

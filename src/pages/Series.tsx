@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import SeriesCard from "@/components/SeriesCard";
 import CatalogHeader from "@/components/CatalogHeader";
 import SeriesCategoryFilter from "@/components/SeriesCategoryFilter";
-import MovieSortFilter, { SortOption, GenreFilter } from "@/components/MovieSortFilter";
+import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS } from "@/components/MovieSortFilter";
 import { getPopularSeries, searchSeries, getMoviePosterUrl } from "@/utils/tmdbApi";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useTranslation } from "react-i18next";
@@ -17,6 +17,7 @@ interface Series {
   poster: string;
   description: string;
   rank?: number;
+  genre_ids?: number[];
 }
 
 const SERIES_PER_PAGE = 20;
@@ -99,12 +100,10 @@ const SeriesPage = () => {
       });
     }
 
-    // Apply genre filter
+    // Apply genre filter (real TMDB genre_ids)
     if (genreFilter !== 'all') {
-      result = result.filter(series => {
-        // TODO: Filter by genre_ids once properly populated from TMDB
-        return true;
-      });
+      const tmdbIds = GENRE_TMDB_IDS[genreFilter]?.tv || [];
+      result = result.filter(series => series.genre_ids?.some(id => tmdbIds.includes(id)));
     }
 
     // Apply sorting
@@ -188,18 +187,35 @@ const SeriesPage = () => {
   const fetchSeries = async () => {
     try {
       setLoading(true);
-      const results = await getPopularSeries(1);
-      const transformed = results.results.map((series: any) => ({
-        id: series.id,
-        title: series.name || series.original_name,
-        year: series.first_air_date ? new Date(series.first_air_date).getFullYear().toString() : '',
-        rating: series.vote_average,
-        poster: getMoviePosterUrl(series.poster_path, 'w342'),
-        description: series.overview
-      }));
-      setAllSeries(transformed);
-      setDisplaySeries(transformed.slice(0, SERIES_PER_PAGE));
-      setHasMore(transformed.length > SERIES_PER_PAGE);
+      const all: Series[] = [];
+
+      // Load 8 pages (~160 series) for a rich catalog
+      for (let pageNum = 1; pageNum <= 8; pageNum++) {
+        try {
+          const results = await getPopularSeries(pageNum);
+          const transformed = results.results
+            .filter((s: any) => s.poster_path)
+            .map((series: any) => ({
+              id: series.id,
+              title: series.name || series.original_name,
+              year: series.first_air_date ? new Date(series.first_air_date).getFullYear().toString() : '',
+              rating: series.vote_average,
+              poster: getMoviePosterUrl(series.poster_path, 'w342'),
+              description: series.overview,
+              genre_ids: series.genre_ids || []
+            }));
+          all.push(...transformed);
+          if (results.results.length === 0) break;
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (err) {
+          console.warn(`Failed to load page ${pageNum}:`, err);
+          break;
+        }
+      }
+
+      setAllSeries(all);
+      setDisplaySeries(all.slice(0, SERIES_PER_PAGE));
+      setHasMore(all.length > SERIES_PER_PAGE);
     } catch (error) {
       console.error('Error fetching series:', error);
     } finally {
@@ -222,10 +238,10 @@ const SeriesPage = () => {
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
         <CatalogHeader
-          scriptLabel="Сериалы"
-          title="Исследуйте сериалы"
-          subtitle={`Популярное сейчас · ${allSeries.length} сериалов`}
-          searchPlaceholder="Поиск сериалов..."
+          scriptLabel="пїЅпїЅпїЅпїЅпїЅпїЅпїЅ"
+          title="пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ"
+          subtitle={`пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ ${allSeries.length} пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ`}
+          searchPlaceholder="пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ..."
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           glow="from-sky-400 to-indigo-500"

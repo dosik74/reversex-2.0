@@ -148,4 +148,19 @@ All colors MUST be HSL.
     transform: translateZ(0);
     will-change: transform;
   }
+
+  .kp-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  }
+  .kp-scroll::-webkit-scrollbar {
+    height: 4px;
+  }
+  .kp-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+  }
+  .kp-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }

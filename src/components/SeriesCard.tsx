@@ -40,6 +40,15 @@ const SeriesCard = ({ series }: { series: Series }) => {
               e.currentTarget.src = FALLBACK_IMAGE;
             }}
           />
+          {(() => {
+            const r = Number(series.rating);
+            const color = r >= 7 ? 'bg-green-500' : r >= 5 ? 'bg-yellow-500' : 'bg-red-500';
+            return (
+              <span className={`absolute bottom-2 right-2 z-10 ${color} text-black text-sm font-bold px-2 py-0.5 rounded-md shadow-lg group-hover:opacity-0 transition-opacity`}>
+                {r.toFixed(1)}
+              </span>
+            );
+          })()}
           <div className="absolute top-2 right-2 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
             <ContentActionsButton
               contentId={series.id.toString()}

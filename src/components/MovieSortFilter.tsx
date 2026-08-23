@@ -1,70 +1,105 @@
-import { ChevronDown } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { ChevronRight } from 'lucide-react';
+import { ReactNode } from 'react';
 
 export type SortOption = 'popularity' | 'rating' | 'title' | 'year';
 export type GenreFilter = 'all' | string;
+
+/** Chip id → TMDB genre ids per content type (for real filtering) */
+export const GENRE_TMDB_IDS: Record<string, { movie: number[]; tv: number[] }> = {
+  action:    { movie: [28],           tv: [10759] },
+  comedy:    { movie: [35],           tv: [35] },
+  drama:     { movie: [18],           tv: [18] },
+  horror:    { movie: [27],           tv: [9648] },
+  'sci-fi':  { movie: [878],          tv: [10765, 878] },
+  romance:   { movie: [10749],        tv: [10749] },
+  thriller:  { movie: [53],           tv: [53] },
+  animation: { movie: [16],           tv: [16] },
+};
+
+const SORTS: { id: SortOption; label: string }[] = [
+  { id: 'popularity', label: 'По популярности' },
+  { id: 'rating', label: 'По рейтингу' },
+  { id: 'year', label: 'По году' },
+  { id: 'title', label: 'По названию' },
+];
+
+const GENRES = [
+  { id: 'all', name: 'Все жанры' },
+  { id: 'action', name: 'Экшн' },
+  { id: 'comedy', name: 'Комедия' },
+  { id: 'drama', name: 'Драма' },
+  { id: 'horror', name: 'Ужасы' },
+  { id: 'sci-fi', name: 'Фантастика' },
+  { id: 'romance', name: 'Романтика' },
+  { id: 'thriller', name: 'Триллер' },
+  { id: 'animation', name: 'Мультфильмы' },
+];
 
 export default function MovieSortFilter({
   sortBy,
   onSortChange,
   genre,
   onGenreChange,
+  showGenres = true,
 }: {
   sortBy: SortOption;
   onSortChange: (sort: SortOption) => void;
   genre: GenreFilter;
   onGenreChange: (genre: GenreFilter) => void;
+  showGenres?: boolean;
 }) {
-  const genres = [
-    { id: 'all', name: 'Все жанры' },
-    { id: 'action', name: 'Экшн' },
-    { id: 'comedy', name: 'Комедия' },
-    { id: 'drama', name: 'Драма' },
-    { id: 'horror', name: 'Ужас' },
-    { id: 'sci-fi', name: 'Научная фантастика' },
-    { id: 'romance', name: 'Романтика' },
-    { id: 'thriller', name: 'Триллер' },
-    { id: 'animation', name: 'Мультипликация' },
-  ];
-
   return (
-    <div className="flex flex-col sm:flex-row gap-4 mb-6">
-      <div className="flex-1">
-        <label className="block text-sm font-medium text-zinc-400 mb-2">Сортировка</label>
-        <Select value={sortBy} onValueChange={(value) => onSortChange(value as SortOption)}>
-          <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-zinc-800 border-zinc-700">
-            <SelectItem value="popularity">По популярности</SelectItem>
-            <SelectItem value="rating">По рейтингу</SelectItem>
-            <SelectItem value="title">По названию</SelectItem>
-            <SelectItem value="year">По году</SelectItem>
-          </SelectContent>
-        </Select>
+    <div className="space-y-3">
+      {/* Sort chips */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {SORTS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onSortChange(s.id)}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+              sortBy === s.id
+                ? 'bg-white text-black font-semibold'
+                : 'bg-white/[0.05] text-zinc-400 border border-white/[0.06] hover:bg-white/[0.1] hover:text-white'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
 
-      <div className="flex-1">
-        <label className="block text-sm font-medium text-zinc-400 mb-2">Жанр</label>
-        <Select value={genre} onValueChange={(value) => onGenreChange(value as GenreFilter)}>
-          <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-zinc-800 border-zinc-700">
-            {genres.map((g) => (
-              <SelectItem key={g.id} value={g.id}>
+      {/* Genre chips */}
+      {showGenres && (
+        <div className="flex items-center gap-2 overflow-x-auto kp-scroll pb-0.5">
+          {GENRES.map((g) => {
+            const active = genre === g.id;
+            return (
+              <button
+                key={g.id}
+                onClick={() => onGenreChange(g.id)}
+                className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 border ${
+                  active
+                    ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-black/90 border-transparent shadow-md shadow-orange-500/25'
+                    : 'bg-white/[0.05] text-zinc-400 border-white/[0.06] hover:bg-white/[0.1] hover:text-white'
+                }`}
+              >
                 {g.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+                {!active && <ChevronRight className="w-3 h-3 opacity-40" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function KpSection({ title, children }: { title?: string; children: ReactNode }) {
+  return (
+    <div className="mb-8">
+      {title && (
+        <h2 className="font-grotesk text-xl font-bold text-white mb-4">{title}</h2>
+      )}
+      {children}
     </div>
   );
 }

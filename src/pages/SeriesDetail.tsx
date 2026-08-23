@@ -4,6 +4,7 @@ import { getSeriesDetails, getSeriesVideos, getSeriesCredits, getSimilarSeries, 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star, Play } from "lucide-react";
+import ContentActionsButton from "@/components/ContentActionsButton";
 
 interface SeriesDetails {
   id: number;
@@ -164,6 +165,19 @@ const SeriesDetail = () => {
                     {series.genres.map(g => g.name).join(', ')}
                   </div>
                 )}
+
+                <ContentActionsButton
+                  contentId={series.id.toString()}
+                  contentType="series"
+                  top50MediaType="anime"
+                  title={series.title}
+                  posterUrl={getMoviePosterUrl(series.poster_path, 'w500')}
+                  externalRating={series.vote_average}
+                  releaseYear={String(releaseYear || '')}
+                  genre={series.genres?.map(g => g.name).join(', ')}
+                  synopsis={series.overview}
+                  variant="detail"
+                />
               </div>
             </div>
           </div>

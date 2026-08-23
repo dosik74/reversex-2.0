@@ -35,9 +35,6 @@ import FileDownload2 from "./pages/FileDownload2";
 import FileDownload3 from "./pages/FileDownload3";
 import FileBrowserDownload from "./pages/FileBrowserDownload";
 import YouTubeDownloader from "./pages/YouTubeDownloader";
-import Shop from "./pages/Shop/Shop";
-import ShopDetail from "./pages/Shop/ShopDetail";
-import ShopAdmin from "./pages/Shop/ShopAdmin";
 import ProfileCard from "./pages/ProfileCard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Tusau from "./pages/Tusau";
@@ -184,9 +181,6 @@ const App = () => {
                 <Route path="/download/file_browser" element={<FileBrowserDownload />} />
                 <Route path="/youtube-downloader" element={<YouTubeDownloader />} />
                 <Route path="/de" element={<ProfileCard />} />
-                <Route path="/shop" element={<Shop />} />
-                <Route path="/shop/:id" element={<ShopDetail />} />
-                <Route path="/shop/admin" element={<ShopAdmin />} />
 
                 <Route element={<Layout />}>
                   <Route path="/" element={<Index />} />
