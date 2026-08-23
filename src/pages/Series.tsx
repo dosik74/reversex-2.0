@@ -1,8 +1,6 @@
 ﻿import { useState, useEffect, useMemo, useRef } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
 import SeriesCard from "@/components/SeriesCard";
+import CatalogHeader from "@/components/CatalogHeader";
 import SeriesCategoryFilter from "@/components/SeriesCategoryFilter";
 import MovieSortFilter, { SortOption, GenreFilter } from "@/components/MovieSortFilter";
 import { getPopularSeries, searchSeries, getMoviePosterUrl } from "@/utils/tmdbApi";
@@ -221,36 +219,32 @@ const SeriesPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4 gradient-text">
-          {t('Исследуйте сериалы') || 'Explore Series'}
-        </h1>
-        <div className="relative max-w-md mb-6">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-          <Input
-            type="text"
-            placeholder={t('series.searchPlaceholder') || 'Search series...'}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-8">
+        <CatalogHeader
+          scriptLabel="Сериалы"
+          title="Исследуйте сериалы"
+          subtitle={`Популярное сейчас · ${allSeries.length} сериалов`}
+          searchPlaceholder="Поиск сериалов..."
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          glow="from-sky-400 to-indigo-500"
+          accent="text-sky-400"
+        >
+          {/* Category Filter */}
+          <SeriesCategoryFilter
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
           />
-        </div>
-      </div>
 
-      {/* Category Filter */}
-      <SeriesCategoryFilter 
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
-
-      {/* Sort and Genre Filter */}
-      <MovieSortFilter
-        sortBy={sortBy}
-        onSortChange={setSortBy}
-        genre={genreFilter}
-        onGenreChange={setGenreFilter}
-      />
+          {/* Sort and Genre Filter */}
+          <MovieSortFilter
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            genre={genreFilter}
+            onGenreChange={setGenreFilter}
+          />
+        </CatalogHeader>
 
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -280,6 +274,7 @@ const SeriesPage = () => {
           </p>
         </div>
       )}
+      </div>
     </div>
   );
 };

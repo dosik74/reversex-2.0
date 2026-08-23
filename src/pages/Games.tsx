@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Search, X } from "lucide-react";
 import GameCard from "@/components/GameCard";
+import CatalogHeader from "@/components/CatalogHeader";
 import MovieSortFilter, { SortOption } from "@/components/MovieSortFilter";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useTranslation } from "react-i18next";
@@ -239,55 +238,60 @@ const Games = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-6 gradient-text">Игры</h1>
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-8">
+        <CatalogHeader
+          scriptLabel="Геймин"
+          title="Игры"
+          subtitle={`Лучшие игры · ${allGames.length} в каталоге`}
+          searchPlaceholder="Поиск игр..."
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          glow="from-emerald-400 to-teal-500"
+          accent="text-emerald-400"
+        >
+          {/* Genre pills */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-bold">Жанры</p>
+              {(searchQuery || selectedGenres.length > 0) && (
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/[0.04] border border-white/[0.06] text-zinc-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30 transition-all"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Очистить
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {GAME_GENRES.map((genre) => {
+                const active = selectedGenres.includes(genre);
+                return (
+                  <button
+                    key={genre}
+                    onClick={() => toggleGenre(genre)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border ${
+                      active
+                        ? 'bg-gradient-to-r from-emerald-400 to-teal-500 text-black/90 border-transparent shadow-lg shadow-emerald-500/25 scale-[1.03]'
+                        : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'
+                    }`}
+                  >
+                    {genre}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-        {/* Search Bar */}
-        <div className="relative max-w-md mb-6">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-          <Input
-            type="text"
-            placeholder="Поиск игр..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+          {/* Sort Filter */}
+          <MovieSortFilter
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            genre="all"
+            onGenreChange={() => {}}
           />
-        </div>
-
-        {/* Genre Filters */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Жанры</h2>
-            {(searchQuery || selectedGenres.length > 0) && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="flex items-center gap-2">
-                <X className="w-4 h-4" />
-                Очистить фильтры
-              </Button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {GAME_GENRES.map((genre) => (
-              <Button
-                key={genre}
-                variant={selectedGenres.includes(genre) ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleGenre(genre)}
-              >
-                {genre}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Sort Filter */}
-        <MovieSortFilter
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-          genre="all"
-          onGenreChange={() => {}}
-        />
-      </div>
+        </CatalogHeader>
 
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -313,6 +317,7 @@ const Games = () => {
           <p className="text-muted-foreground">Игры не найдены</p>
         </div>
       )}
+      </div>
     </div>
   );
 };

@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
 import MovieCard from "@/components/MovieCard";
+import CatalogHeader from "@/components/CatalogHeader";
 import MovieCategoryFilter from "@/components/MovieCategoryFilter";
 import MovieSortFilter, { SortOption, GenreFilter } from "@/components/MovieSortFilter";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
@@ -276,60 +274,55 @@ const Movies = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Tabs */}
-      <div className="mb-8 flex gap-4 border-b border-gray-700">
-        <button
-          onClick={() => setTab('trending')}
-          className={`px-4 py-3 font-semibold transition-colors ${
-            tab === 'trending'
-              ? 'text-yellow-400 border-b-2 border-yellow-400'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-8">
+        <CatalogHeader
+          scriptLabel="Кинотеатр"
+          title={tab === 'trending' ? 'Исследуйте фильмы' : 'Лучшие всех времён'}
+          subtitle={tab === 'trending'
+            ? `Популярное сейчас · ${allMovies.length} фильмов`
+            : `Топ 1000 · ${allMovies.length} фильмов`}
+          searchPlaceholder={tab === 'trending' ? 'Поиск фильмов...' : 'Поиск в топ 1000...'}
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          glow={tab === 'trending' ? 'from-purple-500 to-violet-600' : 'from-amber-400 to-orange-500'}
         >
-          Популярное Сейчас
-        </button>
-        <button
-          onClick={() => setTab('top1000')}
-          className={`px-4 py-3 font-semibold transition-colors ${
-            tab === 'top1000'
-              ? 'text-yellow-400 border-b-2 border-yellow-400'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-        >
-          Топ 1000 Всех Времён
-        </button>
-      </div>
+          {/* Tab pills */}
+          <div className="flex gap-2 mb-5">
+            {([
+              { key: 'trending', label: 'Популярное сейчас' },
+              { key: 'top1000', label: 'Топ 1000 Всех Времён' },
+            ] as const).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 border ${
+                  tab === key
+                    ? key === 'top1000'
+                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-black/90 border-transparent shadow-lg shadow-orange-500/25 scale-[1.03]'
+                      : 'bg-gradient-to-r from-purple-500 to-violet-600 text-white border-transparent shadow-lg shadow-purple-500/25 scale-[1.03]'
+                    : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4 gradient-text">
-          {tab === 'trending' ? t('movies.explore') : 'Величайшие Фильмы Всех Времён'}
-        </h1>
-        <div className="relative max-w-md mb-6">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-          <Input
-            type="text"
-            placeholder={tab === 'trending' ? t('movies.searchPlaceholder') || 'Поиск...' : 'Поиск в топ 1000...'}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+          {/* Category Filter */}
+          <MovieCategoryFilter
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
           />
-        </div>
-      </div>
 
-      {/* Category Filter */}
-      <MovieCategoryFilter 
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
-
-      {/* Sort and Genre Filter */}
-      <MovieSortFilter
-        sortBy={sortBy}
-        onSortChange={setSortBy}
-        genre={genreFilter}
-        onGenreChange={setGenreFilter}
-      />
+          {/* Sort and Genre Filter */}
+          <MovieSortFilter
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            genre={genreFilter}
+            onGenreChange={setGenreFilter}
+          />
+        </CatalogHeader>
 
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -365,6 +358,7 @@ const Movies = () => {
           <p className="text-muted-foreground">{t('movies.noResults')}</p>
         </div>
       )}
+      </div>
     </div>
   );
 };
