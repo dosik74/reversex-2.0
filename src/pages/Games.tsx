@@ -294,14 +294,14 @@ const Games = () => {
         </CatalogHeader>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
           {[...Array(20)].map((_, i) => (
             <div key={i} className="aspect-[2/3] bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
       ) : displayGames.length > 0 ? (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
             {displayGames.map((game) => (
               <GameCard key={game.id} game={game} />
             ))}

@@ -1,4 +1,4 @@
-ï»¿import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import SeriesCard from "@/components/SeriesCard";
 import CatalogHeader from "@/components/CatalogHeader";
 import SeriesCategoryFilter from "@/components/SeriesCategoryFilter";
@@ -222,10 +222,10 @@ const SeriesPage = () => {
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
         <CatalogHeader
-          scriptLabel="Ð¡ÐµÑ€Ð¸Ð°Ð»Ñ‹"
-          title="Ð˜ÑÑÐ»ÐµÐ´ÑƒÐ¹Ñ‚Ðµ ÑÐµÑ€Ð¸Ð°Ð»Ñ‹"
-          subtitle={`ÐŸÐ¾Ð¿ÑƒÐ»ÑÑ€Ð½Ð¾Ðµ ÑÐµÐ¹Ñ‡Ð°Ñ Â· ${allSeries.length} ÑÐµÑ€Ð¸Ð°Ð»Ð¾Ð²`}
-          searchPlaceholder="ÐŸÐ¾Ð¸ÑÐº ÑÐµÑ€Ð¸Ð°Ð»Ð¾Ð²..."
+          scriptLabel="Ñåðèàëû"
+          title="Èññëåäóéòå ñåðèàëû"
+          subtitle={`Ïîïóëÿðíîå ñåé÷àñ · ${allSeries.length} ñåðèàëîâ`}
+          searchPlaceholder="Ïîèñê ñåðèàëîâ..."
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           glow="from-sky-400 to-indigo-500"
@@ -247,14 +247,14 @@ const SeriesPage = () => {
         </CatalogHeader>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
           {[...Array(20)].map((_, i) => (
             <div key={i} className="aspect-[2/3] bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
             {displaySeries.map((series) => (
               <SeriesCard key={series.id} series={series} />
             ))}
