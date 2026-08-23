@@ -129,7 +129,7 @@ const MovieDetail = () => {
     <div className="min-h-screen">
       {/* Hero Section */}
       <div
-        className="h-[500px] bg-cover bg-center relative overflow-hidden"
+        className="h-[500px] bg-cover bg-center relative"
         style={{
           backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(15,15,28,1)), url(${movie.backdrop_path
               ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`
@@ -150,7 +150,7 @@ const MovieDetail = () => {
             />
             <div className="flex flex-col justify-end space-y-4 flex-1">
               <div>
-                <h1 className="text-5xl font-script font-bold mb-2 gradient-text">{movie.title}</h1>
+                <h1 className="text-6xl md:text-7xl font-script font-bold mb-2 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">{movie.title}</h1>
                 <p className="text-lg text-muted-foreground">{releaseYear}</p>
               </div>
 
