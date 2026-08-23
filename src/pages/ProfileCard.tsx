@@ -15,7 +15,7 @@ const ProfileCard: React.FC = () => {
 
   return (
     <div style={{ background: '#000', color: '#fff', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', fontFamily: "'Inter', sans-serif" }}>
-      <div className="container">
+      <div className="pc-card">
         <div className="profile-section">
           <img src="https://diservice.kz/image.jpg" alt="Profile" className="profile-img" />
           <div className="profile-name">dosikedit</div>
