@@ -988,23 +988,57 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Expanded View Modal */}
+      {/* Expanded View — FULLSCREEN */}
       <Dialog open={showExpanded} onOpenChange={setShowExpanded}>
-        <DialogContent className="rxp-dark max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0 bg-gradient-to-br from-background via-background to-background/80">
-          {/* Header */}
-          <div className="sticky top-0 z-10 bg-gradient-to-b from-background to-background/80 backdrop-blur-sm border-b border-primary/20 p-4 md:p-6">
-            <DialogTitle className="text-xl md:text-3xl font-bold font-grotesk flex items-center gap-2 md:gap-3 text-primary drop-shadow-[0_0_16px_hsl(var(--primary)/0.5)]">
-              <Star className="w-8 h-8 md:w-10 md:h-10 fill-primary" />
-              <span className="line-clamp-1">{selectedList?.title}</span>
-            </DialogTitle>
-            <p className="text-muted-foreground mt-1 md:mt-2 text-xs md:text-sm">
-              {itemsCount === 0 ? 'Empty list' : `Showing ${itemsCount} items`}
-            </p>
+        <DialogContent className="rxp-dark fixed inset-0 translate-x-0 translate-y-0 left-0 top-0 w-screen h-screen max-w-none max-h-none rounded-none border-0 overflow-hidden flex flex-col p-0 bg-zinc-950">
+          {/* Ambient glows */}
+          <div className="pointer-events-none fixed -top-56 left-1/4 -translate-x-1/2 w-[55rem] h-[55rem] rounded-full blur-[160px] opacity-[0.14] bg-gradient-to-br from-purple-500 to-violet-700" />
+          <div className="pointer-events-none fixed -bottom-56 right-0 w-[45rem] h-[45rem] rounded-full blur-[150px] opacity-[0.1] bg-gradient-to-br from-amber-400 to-orange-500" />
+
+          {/* Hero Header */}
+          <div className="relative z-20 shrink-0 bg-zinc-950/85 backdrop-blur-xl border-b border-white/[0.06]">
+            <div className="max-w-[1700px] mx-auto px-4 sm:px-10 py-6 flex items-end justify-between gap-6">
+              <div className="min-w-0">
+                <p className="font-pixel text-[9px] tracking-[0.3em] text-purple-400 uppercase mb-2 flex items-center gap-1.5">
+                  <Star className="w-3 h-3 fill-purple-400" /> Personal Ranking
+                </p>
+                <h2 className="leading-[1.05]">
+                  <span className="block font-script text-5xl md:text-7xl text-purple-300 -mb-3 md:-mb-5 pl-1 pt-2 select-none drop-shadow-[0_0_24px_rgba(168,85,247,0.35)]">
+                    My
+                  </span>
+                  <span className="font-grotesk text-4xl md:text-6xl font-bold text-white tracking-tight">
+                    TOP&nbsp;50
+                  </span>
+                  <span className="font-grotesk text-xl md:text-3xl font-bold text-purple-400 ml-3 uppercase">
+                    {selectedList?.media_type === 'movie' ? 'Movies' : selectedList?.media_type === 'anime' ? 'Series' : 'Games'}
+                  </span>
+                </h2>
+                <p className="text-zinc-500 text-sm mt-3">
+                  {itemsCount === 0 ? 'Пусто' : `${itemsCount} из 50 позиций`}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowExpanded(false)}
+                className="w-12 h-12 rounded-full bg-white/[0.06] border border-white/10 hover:bg-red-500/20 hover:border-red-500/40 flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-90 flex-shrink-0"
+                title="Закрыть (Esc)"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Progress bar */}
+            <div className="max-w-[1700px] mx-auto px-4 sm:px-10 pb-4">
+              <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-purple-500 to-violet-400 transition-all duration-500"
+                  style={{ width: `${Math.min(100, (itemsCount / MAX_ITEMS) * 100)}%` }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4 md:p-6">
+          <div className="flex-1 overflow-y-auto relative z-10">
+            <div className="max-w-[1700px] mx-auto px-4 sm:px-10 py-10">
               {selectedList?.items && selectedList.items.length > 0 ? (
                 <DndContext
                   sensors={sensors}
@@ -1015,9 +1049,12 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                     items={selectedList.items.map(item => item.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {/* Top 3 - Premium Display - LARGE */}
-                    <div className="mb-12 md:mb-16">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 px-4 md:px-8 py-4">
+                    {/* Podium — Top 3 */}
+                    <div className="mb-16">
+                      <p className="font-pixel text-[9px] tracking-[0.3em] text-amber-400/80 uppercase mb-6 flex items-center gap-2">
+                        <Crown className="w-3.5 h-3.5" /> Призовой подиум
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
                         {selectedList.items.slice(0, 3).map((item) => (
                           <TopRankItem
                             key={item.id}
@@ -1034,10 +1071,13 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                       </div>
                     </div>
 
-                    {/* Rest of Items - Smaller Grid */}
+                    {/* Rest — dense grid */}
                     {selectedList.items.length > 3 && (
-                      <div className="px-4 md:px-8">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-5">
+                      <div>
+                        <p className="font-pixel text-[9px] tracking-[0.3em] text-zinc-500 uppercase mb-6">
+                          Позиции 4–{selectedList.items.length}
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 sm:gap-5">
                           {selectedList.items.slice(3).map((item) => (
                             <TopRankItem
                               key={item.id}
@@ -1057,9 +1097,13 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                   </SortableContext>
                 </DndContext>
               ) : (
-                <div className="flex items-center justify-center h-96">
-                  <p className="text-muted-foreground text-base md:text-lg">
-                    {isOwnProfile ? 'Список пуст. Нажмите «+ Добавить»!' : 'No items yet'}
+                <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+                  <Star className="w-16 h-16 text-zinc-800 mb-6" />
+                  <p className="font-grotesk text-2xl text-zinc-400 font-bold mb-2">
+                    {isOwnProfile ? 'Список пуст' : 'No items yet'}
+                  </p>
+                  <p className="text-zinc-600 text-sm">
+                    {isOwnProfile ? 'Нажмите «+ Добавить», чтобы начать коллекцию' : ''}
                   </p>
                 </div>
               )}
