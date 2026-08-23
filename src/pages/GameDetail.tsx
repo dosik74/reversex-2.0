@@ -207,7 +207,7 @@ const GameDetail = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6">
-            <h1 className="text-5xl font-bold text-white mb-4">{game.name}</h1>
+            <h1 className="text-5xl font-script font-bold text-white mb-4">{game.name}</h1>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 bg-black/50 px-4 py-2 rounded-lg">
                 <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />

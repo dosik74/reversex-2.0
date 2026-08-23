@@ -161,7 +161,7 @@ function BookmarkCard({ bookmark, index }: { bookmark: ContentBookmark; index: n
 
         {/* Info */}
         <div className="p-3 space-y-1">
-          <h3 className="text-[13px] font-semibold text-white leading-snug line-clamp-2 group-hover:text-purple-300 transition-colors">
+          <h3 className="font-script text-base font-semibold text-white leading-snug line-clamp-2 group-hover:text-purple-300 transition-colors">
             {bookmark.title}
           </h3>
           <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">

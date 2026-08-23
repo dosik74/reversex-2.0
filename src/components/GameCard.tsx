@@ -53,7 +53,7 @@ const GameCard = ({ game }: { game: Game }) => {
               <Star className="w-4 h-4 fill-current" />
               <span className="text-sm font-semibold">{Number(game.rating).toFixed(1)}</span>
             </div>
-            <h3 className="text-sm font-semibold text-white line-clamp-2">{game.title}</h3>
+            <h3 className="font-script text-base font-semibold text-white line-clamp-2">{game.title}</h3>
             <p className="text-xs text-white/70">{game.year}</p>
           </div>
         </div>

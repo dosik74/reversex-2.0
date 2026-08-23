@@ -67,7 +67,7 @@ const SeriesCard = ({ series }: { series: Series }) => {
                 </div>
               )}
             </div>
-            <h3 className="text-sm font-semibold text-white line-clamp-2">{series.title}</h3>
+            <h3 className="font-script text-base font-semibold text-white line-clamp-2">{series.title}</h3>
             <p className="text-xs text-white/70">{series.year}</p>
           </div>
         </div>

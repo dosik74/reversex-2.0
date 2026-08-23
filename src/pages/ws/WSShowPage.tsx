@@ -77,7 +77,7 @@ export default function WSShowPage() {
               </span>
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-black text-white mb-8 drop-shadow-lg leading-tight">
+            <h1 className="font-script text-5xl md:text-7xl font-bold text-white mb-8 drop-shadow-lg leading-tight">
               {show.title}
             </h1>
 

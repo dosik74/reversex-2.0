@@ -68,7 +68,7 @@ const MovieCard = ({ movie }: { movie: Movie }) => {
                 </div>
               )}
             </div>
-            <h3 className="text-sm font-semibold text-white line-clamp-2">{movie.title}</h3>
+            <h3 className="font-script text-base font-semibold text-white line-clamp-2">{movie.title}</h3>
             <p className="text-xs text-white/70">{movie.year}</p>
           </div>
         </div>

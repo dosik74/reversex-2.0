@@ -142,7 +142,7 @@ const SeriesDetail = () => {
             />
             <div className="flex flex-col justify-end space-y-4 flex-1">
               <div>
-                <h1 className="text-5xl font-display font-bold mb-2 gradient-text">{series.title}</h1>
+                <h1 className="text-5xl font-script font-bold mb-2 gradient-text">{series.title}</h1>
                 <p className="text-lg text-muted-foreground">{releaseYear}</p>
               </div>
 
