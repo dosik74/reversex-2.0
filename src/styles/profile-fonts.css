@@ -17,6 +17,29 @@
 }
 
 @font-face {
+  font-family: "Martina Script";
+  src:
+    local("Martina Script"),
+    url("/fonts/MartinaScript.woff2") format("woff2"),
+    url("/fonts/MartinaScript.ttf") format("truetype");
+  font-display: swap;
+}
+
+/* Epic Pro — только английские буквы.
+   unicode-range ограничивает латиницей: кириллица автоматически
+   уходит на следующий шрифт в стеке (Inter / Space Grotesk). */
+@font-face {
+  font-family: "Epic Pro";
+  src:
+    local("Epic Pro"),
+    url("/fonts/EpicPro.otf") format("opentype");
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
   font-family: "Pixel 4.0";
   src:
     local("Pixel 4.0"),
@@ -61,7 +84,7 @@
 /* ---- Utility families (со стилевыми фолбэками) ---- */
 
 .font-grotesk {
-  font-family: "Soyuz Grotesk", "Space Grotesk", ui-sans-serif, system-ui,
+  font-family: "Epic Pro", "Soyuz Grotesk", "Space Grotesk", ui-sans-serif, system-ui,
     sans-serif;
 }
 
@@ -72,11 +95,11 @@
 }
 
 .font-script {
-  font-family: "Monplesir Script", "Segoe Script", cursive;
+  font-family: "Monplesir Script", "Martina Script", "Segoe Script", cursive;
 }
 
 .font-sloop {
-  font-family: "Sloop Script Three", "Monplesir Script", "Segoe Script", cursive;
+  font-family: "Sloop Script Three", "Monplesir Script", "Martina Script", "Segoe Script", cursive;
 }
 
 /* ---- Профильные декоративные элементы ---- */
