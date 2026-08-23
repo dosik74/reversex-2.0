@@ -245,20 +245,35 @@ const SeriesPage = () => {
 
   const popularSeries = useMemo(() => allSeries.slice(0, 20), [allSeries]);
   const topRatedSeries = useMemo(
-    () => [...allSeries].sort((a, b) => b.rating - a.rating).slice(0, 20),
-    [allSeries]
+    () => {
+      const popularIds = new Set(popularSeries.map((s) => s.id));
+      return [...allSeries].filter((s) => !popularIds.has(s.id)).sort((a, b) => b.rating - a.rating).slice(0, 20);
+    },
+    [allSeries, popularSeries]
   );
 
-  // Genre rows built from the loaded pool
+  // Genre rows: each series appears in only ONE row (its first matching genre)
   const genreRows = useMemo(
-    () =>
-      GENRE_LIST.map((g) => ({
-        ...g,
-        items: allSeries
-          .filter((s) => s.genre_ids?.some((id) => GENRE_TMDB_IDS[g.id]?.tv.includes(id)))
-          .slice(0, 30),
-      })).filter((r) => r.items.length >= 6),
-    [allSeries]
+    () => {
+      const used = new Set<number>([
+        ...popularSeries.map((s) => s.id),
+        ...topRatedSeries.map((s) => s.id),
+      ]);
+      return GENRE_LIST.map((g) => {
+        const tmdbIds = GENRE_TMDB_IDS[g.id]?.tv || [];
+        const items: Series[] = [];
+        for (const s of allSeries) {
+          if (used.has(s.id)) continue;
+          if (s.genre_ids?.some((id) => tmdbIds.includes(id))) {
+            items.push(s);
+            used.add(s.id);
+            if (items.length >= 30) break;
+          }
+        }
+        return { ...g, items };
+      }).filter((r) => r.items.length >= 6);
+    },
+    [allSeries, popularSeries, topRatedSeries]
   );
 
   return (

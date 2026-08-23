@@ -295,20 +295,35 @@ const Movies = () => {
 
   const popularMovies = useMemo(() => allMovies.slice(0, 20), [allMovies]);
   const topRatedMovies = useMemo(
-    () => [...allMovies].sort((a, b) => b.rating - a.rating).slice(0, 20),
-    [allMovies]
+    () => {
+      const popularIds = new Set(popularMovies.map((m) => m.id));
+      return [...allMovies].filter((m) => !popularIds.has(m.id)).sort((a, b) => b.rating - a.rating).slice(0, 20);
+    },
+    [allMovies, popularMovies]
   );
 
-  // Genre rows built from the loaded pool
+  // Genre rows: each movie appears in only ONE row (its first matching genre)
   const genreRows = useMemo(
-    () =>
-      GENRE_LIST.map((g) => ({
-        ...g,
-        items: allMovies
-          .filter((m) => m.genre_ids?.some((id) => GENRE_TMDB_IDS[g.id]?.movie.includes(id)))
-          .slice(0, 30),
-      })).filter((r) => r.items.length >= 6),
-    [allMovies]
+    () => {
+      const used = new Set<number>([
+        ...popularMovies.map((m) => m.id),
+        ...topRatedMovies.map((m) => m.id),
+      ]);
+      return GENRE_LIST.map((g) => {
+        const tmdbIds = GENRE_TMDB_IDS[g.id]?.movie || [];
+        const items: Movie[] = [];
+        for (const m of allMovies) {
+          if (used.has(m.id)) continue;
+          if (m.genre_ids?.some((id) => tmdbIds.includes(id))) {
+            items.push(m);
+            used.add(m.id);
+            if (items.length >= 30) break;
+          }
+        }
+        return { ...g, items };
+      }).filter((r) => r.items.length >= 6);
+    },
+    [allMovies, popularMovies, topRatedMovies]
   );
 
   const renderMovie = (movie: Movie) => <MovieCard movie={movie} />;

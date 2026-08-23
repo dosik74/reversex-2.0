@@ -247,17 +247,24 @@ const Games = () => {
 
   const topGames = useMemo(() => allGames.slice(0, 20), [allGames]);
 
-  // Genre rows built from the loaded pool
+  // Genre rows: each game appears in only ONE row (its first matching genre)
   const genreRows = useMemo(
-    () =>
-      GAME_GENRES.map((genre) => ({
-        id: genre,
-        name: genre,
-        items: allGames
-          .filter((g) => g.genres?.some((x) => x.toLowerCase() === genre.toLowerCase()))
-          .slice(0, 30),
-      })).filter((r) => r.items.length >= 6),
-    [allGames]
+    () => {
+      const used = new Set<number>(topGames.map((g) => g.id));
+      return GAME_GENRES.map((genre) => {
+        const items: Game[] = [];
+        for (const g of allGames) {
+          if (used.has(g.id)) continue;
+          if (g.genres?.some((x) => x.toLowerCase() === genre.toLowerCase())) {
+            items.push(g);
+            used.add(g.id);
+            if (items.length >= 30) break;
+          }
+        }
+        return { id: genre, name: genre, items };
+      }).filter((r) => r.items.length >= 6);
+    },
+    [allGames, topGames]
   );
 
   const toggleGenre = (genre: string) => {
