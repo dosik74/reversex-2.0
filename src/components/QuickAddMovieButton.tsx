@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Star, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -32,8 +32,22 @@ export default function QuickAddContentButton({
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [userRating, setUserRating] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const statuses: ContentStatus[] = ['watched', 'watching', 'planned', 'postponed', 'dropped'];
+
+  // Закрываем меню по клику вне
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) {
+      document.addEventListener('mousedown', handler);
+    }
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMenu]);
 
   const handleAddWithStatus = async (status: ContentStatus) => {
     try {
@@ -117,7 +131,15 @@ export default function QuickAddContentButton({
   };
 
   return (
-    <div className="relative">
+    <div
+      ref={containerRef}
+      className="relative"
+      onClick={(e) => {
+        // Не даём клику провалиться в родительский <Link> карточки
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       <Button
         variant="outline"
         size="sm"

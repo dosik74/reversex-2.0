@@ -82,11 +82,11 @@
   text-shadow: 0 0 8px hsl(var(--rxp-glow-cyan) / 0.25);
 }
 
-/* Аватар: скошенный «квадрат будущего» */
+/* Аватар: круг с неоновой рамкой */
 .rxp-avatar-frame {
   position: relative;
   padding: 3px;
-  border-radius: 22px;
+  border-radius: 999px;
   background: linear-gradient(140deg, hsl(var(--primary)), hsl(var(--accent)));
   box-shadow:
     0 0 22px hsl(var(--rxp-glow-cyan) / 0.25),
@@ -96,7 +96,7 @@
   content: "";
   position: absolute;
   inset: -7px;
-  border-radius: 26px;
+  border-radius: 999px;
   border: 1px dashed hsl(var(--primary) / 0.4);
   animation: rxp-dash 24s linear infinite;
   pointer-events: none;
@@ -108,7 +108,7 @@
 }
 .rxp-avatar-frame [data-radix-avatar],
 .rxp-avatar-frame .avatar-wrap {
-  border-radius: 19px;
+  border-radius: 999px;
   overflow: hidden;
   display: block;
 }
@@ -583,7 +583,7 @@
     min-height: 260px;
   }
   .rxp-avatar-frame {
-    border-radius: 18px;
+    border-radius: 999px;
   }
   .rxp-name {
     font-size: 2rem;

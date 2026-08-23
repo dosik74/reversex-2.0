@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bookmark, Check, Loader2 } from 'lucide-react';
+import { Bookmark, Check, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -40,6 +40,7 @@ export default function AddToBookmarksButton({
   const [loading, setLoading] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<ContentStatus | null>(null);
+  const [bookmarkId, setBookmarkId] = useState<string | null>(null);
 
   const statuses: ContentStatus[] = ['watching', 'planned', 'watched', 'postponed', 'dropped', 'favorite'];
 
@@ -54,6 +55,7 @@ export default function AddToBookmarksButton({
         if (!cancelled && existing) {
           setIsAdded(true);
           setCurrentStatus(existing.status);
+          setBookmarkId(existing.id);
         }
       } catch {
         // silently fail
@@ -67,13 +69,19 @@ export default function AddToBookmarksButton({
     try {
       setLoading(true);
 
+      // Duplicate check: same status → nothing to do
+      if (isAdded && currentStatus === status) {
+        toast.info(`Уже в "${CONTENT_STATUS_CONFIG[status].label}"`);
+        setIsOpen(false);
+        return;
+      }
+
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user?.id) {
         toast.error('Требуется вход');
         return;
       }
 
-      // Upsert handles duplicates automatically
       await bookmarkService.addToBookmarks(userData.user.id, {
         contentType,
         contentId,
@@ -95,7 +103,7 @@ export default function AddToBookmarksButton({
       setCurrentStatus(status);
       setIsOpen(false);
 
-      const action = currentStatus ? 'Обновлено' : 'Добавлено';
+      const action = isAdded ? 'Обновлено' : 'Добавлено';
       toast.success(`${action} → "${CONTENT_STATUS_CONFIG[status].label}"`);
     } catch (error) {
       console.error('Error adding to bookmarks:', error);
@@ -105,54 +113,98 @@ export default function AddToBookmarksButton({
     }
   };
 
+  const handleRemoveFromBookmarks = async () => {
+    if (!bookmarkId) return;
+    try {
+      setLoading(true);
+      const success = await bookmarkService.deleteBookmark(bookmarkId);
+      if (success) {
+        setIsAdded(false);
+        setCurrentStatus(null);
+        setBookmarkId(null);
+        setIsOpen(false);
+        toast.success('Удалено из закладок');
+      } else {
+        throw new Error('delete failed');
+      }
+    } catch (error) {
+      console.error('Error removing from bookmarks:', error);
+      toast.error('Ошибка при удалении');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          size="sm"
-          variant={isAdded ? 'default' : 'outline'}
-          className={`gap-2 transition-all duration-300 ${isAdded
-              ? 'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 shadow-lg shadow-purple-500/25'
-              : 'hover:border-purple-500/50'
-            }`}
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : isAdded ? (
-            <Check className="w-4 h-4" />
-          ) : (
-            <Bookmark className="w-4 h-4" />
-          )}
-          {isAdded
-            ? currentStatus
-              ? CONTENT_STATUS_CONFIG[currentStatus].label
-              : 'Добавлено'
-            : 'В закладки'}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <div className="px-2 py-2 text-sm font-semibold text-muted-foreground">
-          {isAdded ? 'Изменить статус:' : 'Выбери статус:'}
-        </div>
-        <DropdownMenuSeparator />
-        {statuses.map((status) => (
-          <DropdownMenuItem
-            key={status}
-            onClick={() => handleAddToBookmarks(status)}
+    <div
+      className="relative"
+      onClick={(e) => {
+        // Не даём клику провалиться в родительский <Link> карточки
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant={isAdded ? 'default' : 'outline'}
+            className={`gap-2 transition-all duration-300 ${isAdded
+                ? 'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 shadow-lg shadow-purple-500/25'
+                : 'hover:border-purple-500/50'
+              }`}
             disabled={loading}
-            className={`cursor-pointer ${currentStatus === status ? 'bg-purple-500/15' : ''}`}
           >
-            <div
-              className={`w-3 h-3 rounded-full mr-2 ${CONTENT_STATUS_CONFIG[status].bgColor}`}
-            />
-            <span className={CONTENT_STATUS_CONFIG[status].color}>
-              {CONTENT_STATUS_CONFIG[status].label}
-            </span>
-            {currentStatus === status && <Check className="w-3 h-3 ml-auto text-purple-400" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isAdded ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <Bookmark className="w-4 h-4" />
+            )}
+            {isAdded
+              ? currentStatus
+                ? CONTENT_STATUS_CONFIG[currentStatus].label
+                : 'Добавлено'
+              : 'В закладки'}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 z-50">
+          <div className="px-2 py-2 text-sm font-semibold text-muted-foreground">
+            {isAdded ? 'Изменить статус:' : 'Выбери статус:'}
+          </div>
+          <DropdownMenuSeparator />
+          {statuses.map((status) => (
+            <DropdownMenuItem
+              key={status}
+              onClick={() => handleAddToBookmarks(status)}
+              disabled={loading}
+              className={`cursor-pointer ${currentStatus === status ? 'bg-purple-500/15' : ''}`}
+            >
+              <div
+                className={`w-3 h-3 rounded-full mr-2 ${CONTENT_STATUS_CONFIG[status].bgColor}`}
+              />
+              <span className={CONTENT_STATUS_CONFIG[status].color}>
+                {CONTENT_STATUS_CONFIG[status].label}
+              </span>
+              {currentStatus === status && <Check className="w-3 h-3 ml-auto text-purple-400" />}
+            </DropdownMenuItem>
+          ))}
+          {isAdded && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleRemoveFromBookmarks}
+                disabled={loading}
+                className="cursor-pointer text-red-400 focus:text-red-400 focus:bg-red-500/10"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Удалить из закладок
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

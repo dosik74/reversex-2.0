@@ -43,6 +43,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Tusau from "./pages/Tusau";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { AppProvider } from "@/context/AppContext";
+import { BookmarkProvider } from "@/context/BookmarkContext";
 
 // Task Pages imports
 import Task20 from "./pages/Task20";
@@ -67,7 +68,31 @@ import BatrPage from "./pages/BatrPage";
 
 import supabase from "@/lib/supabase";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { Navigate, useParams } from "react-router-dom";
 import "./App.css";
+
+/* Перенаправление /id/custom_name → /profile/userId */
+const ProfileBySlug = () => {
+  const { slug } = useParams<{ slug: string }>();
+  const [target, setTarget] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("profiles")
+      .select("id")
+      .eq("custom_slug", slug)
+      .single()
+      .then(({ data }) => {
+        if (data?.id) setTarget(data.id);
+        else setFailed(true);
+      });
+  }, [slug]);
+
+  if (target) return <Navigate to={`/profile/${target}`} replace />;
+  if (failed) return <Navigate to="/not-found" replace />;
+  return null;
+};
 
 const AnalyticsTracker = () => {
   useAnalytics();
@@ -125,6 +150,7 @@ const App = () => {
         <ThemeProvider>
           <LanguageProvider>
             <AppProvider>
+              <BookmarkProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
@@ -174,6 +200,7 @@ const App = () => {
                   <Route path="/ws/show/:id" element={<WSShowPage />} />
                   <Route path="/profile/:userId" element={<Profile />} />
                   <Route path="/profile/:userId/edit" element={<ProfileEdit />} />
+                  <Route path="/id/:slug" element={<ProfileBySlug />} />
                   <Route path="/bookmarks" element={<BookmarksNew />} />
                   <Route path="/recommendations" element={<Recommendations />} />
                   <Route path="/settings" element={<Settings />} />
@@ -189,6 +216,7 @@ const App = () => {
               </Routes>
             </BrowserRouter>
           </TooltipProvider>
+              </BookmarkProvider>
             </AppProvider>
           </LanguageProvider>
         </ThemeProvider>

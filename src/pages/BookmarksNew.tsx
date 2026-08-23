@@ -1,304 +1,242 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Trash2, Star, Search, MoreVertical, BookmarkIcon, Film, Tv, Gamepad2, LayoutGrid, X, ChevronDown } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as bookmarkService from '@/services/bookmarkService';
+import {
+  Search, X, Star, Trash2, Trophy, Bookmark as BookmarkIcon,
+  Film, Tv, Gamepad2, LayoutGrid, SlidersHorizontal, Sparkles,
+} from 'lucide-react';
+import { useBookmarks } from '@/context/BookmarkContext';
 import { ContentBookmark, ContentStatus, ContentType, CONTENT_STATUS_CONFIG } from '@/types/anime';
-import supabase from '@/lib/supabase';
 import { toast } from 'sonner';
 
-/* ─── Content Type Filter Config ─── */
-const CONTENT_TYPE_FILTERS: { key: ContentType | 'all'; label: string; icon: React.ReactNode }[] = [
-  { key: 'all', label: 'Все', icon: <LayoutGrid className="w-4 h-4" /> },
-  { key: 'movie', label: 'Фильмы', icon: <Film className="w-4 h-4" /> },
-  { key: 'series', label: 'Сериалы', icon: <Tv className="w-4 h-4" /> },
-  { key: 'game', label: 'Игры', icon: <Gamepad2 className="w-4 h-4" /> },
-];
+const STATUS_ORDER: ContentStatus[] = ['favorite', 'watching', 'planned', 'watched', 'postponed', 'dropped'];
 
-/* ─── Status tabs with enhanced colors ─── */
-const STATUS_COLORS: Record<ContentStatus, { gradient: string; glow: string; ring: string }> = {
-  favorite: { gradient: 'from-amber-500 to-orange-500', glow: 'shadow-amber-500/30', ring: 'ring-amber-500/40' },
-  watching: { gradient: 'from-emerald-500 to-green-500', glow: 'shadow-emerald-500/30', ring: 'ring-emerald-500/40' },
-  planned: { gradient: 'from-blue-500 to-indigo-500', glow: 'shadow-blue-500/30', ring: 'ring-blue-500/40' },
-  watched: { gradient: 'from-slate-400 to-zinc-500', glow: 'shadow-slate-500/30', ring: 'ring-slate-400/40' },
-  postponed: { gradient: 'from-orange-500 to-amber-600', glow: 'shadow-orange-500/30', ring: 'ring-orange-500/40' },
-  dropped: { gradient: 'from-red-500 to-rose-600', glow: 'shadow-red-500/30', ring: 'ring-red-500/40' },
+const STATUS_THEME: Record<ContentStatus, { gradient: string; glow: string; text: string; soft: string }> = {
+  favorite:  { gradient: 'from-amber-400 to-orange-500', glow: 'shadow-amber-500/25', text: 'text-amber-400',   soft: 'bg-amber-500/10' },
+  watching:  { gradient: 'from-emerald-400 to-teal-500', glow: 'shadow-emerald-500/25', text: 'text-emerald-400', soft: 'bg-emerald-500/10' },
+  planned:   { gradient: 'from-sky-400 to-indigo-500',  glow: 'shadow-sky-500/25',    text: 'text-sky-400',     soft: 'bg-sky-500/10' },
+  watched:   { gradient: 'from-zinc-400 to-zinc-600',   glow: 'shadow-zinc-500/25',   text: 'text-zinc-300',    soft: 'bg-zinc-500/10' },
+  postponed: { gradient: 'from-orange-400 to-pink-500', glow: 'shadow-orange-500/25', text: 'text-orange-400',  soft: 'bg-orange-500/10' },
+  dropped:   { gradient: 'from-red-400 to-rose-600',    glow: 'shadow-red-500/25',    text: 'text-red-400',     soft: 'bg-red-500/10' },
 };
 
-/* ─── Skeleton Card ─── */
-const SkeletonCard = ({ index }: { index: number }) => (
-  <div
-    className="relative rounded-2xl overflow-hidden bg-zinc-900/60 animate-pulse"
-    style={{ animationDelay: `${index * 80}ms` }}
-  >
-    <div className="aspect-[2/3] bg-zinc-800/80" />
-    <div className="p-3 space-y-2">
-      <div className="h-4 bg-zinc-800 rounded-lg w-3/4" />
-      <div className="h-3 bg-zinc-800/60 rounded-lg w-1/2" />
-    </div>
-  </div>
-);
+const TYPE_FILTERS: { key: ContentType | 'all'; label: string; icon: React.ReactNode }[] = [
+  { key: 'all', label: 'Все', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+  { key: 'movie', label: 'Фильмы', icon: <Film className="w-3.5 h-3.5" /> },
+  { key: 'series', label: 'Сериалы', icon: <Tv className="w-3.5 h-3.5" /> },
+  { key: 'game', label: 'Игры', icon: <Gamepad2 className="w-3.5 h-3.5" /> },
+];
 
-/* ═══════════════════════════════════════════════════════════
-   BOOKMARK CARD — Poster-first Netflix-style design
-   ═══════════════════════════════════════════════════════════ */
-const BookmarkCard = ({
-  bookmark,
-  onDelete,
-  onStatusChange,
-  onRatingChange,
-  index,
-}: {
-  bookmark: ContentBookmark;
-  onDelete: () => void;
-  onStatusChange: (newStatus: ContentStatus) => void;
-  onRatingChange: (newRating: number) => void;
-  index: number;
-}) => {
+const EMPTY_TEXT: Record<ContentStatus, string> = {
+  favorite: 'Нет избранного',
+  watching: 'Ничего не смотрите',
+  planned: 'Планов пока нет',
+  watched: 'Ничего не просмотрено',
+  postponed: 'Нет отложенного',
+  dropped: 'Ничего не брошено',
+};
+
+/* ─────────── Card ─────────── */
+function BookmarkCard({ bookmark, index }: { bookmark: ContentBookmark; index: number }) {
   const navigate = useNavigate();
-  const [showActions, setShowActions] = useState(false);
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const [userRating, setUserRating] = useState<string>((bookmark.userRating || 0).toString());
-  const config = CONTENT_STATUS_CONFIG[bookmark.status];
-  const colors = STATUS_COLORS[bookmark.status];
-  const statuses: ContentStatus[] = ['favorite', 'watching', 'planned', 'watched', 'postponed', 'dropped'];
-  const menuRef = useRef<HTMLDivElement>(null);
+  const { setStatus, removeBookmark, updateRating } = useBookmarks();
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const [ratingInput, setRatingInput] = useState(String(bookmark.userRating || ''));
 
-  // Close menu on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowActions(false);
-        setShowStatusMenu(false);
-      }
-    };
-    if (showActions || showStatusMenu) {
-      document.addEventListener('mousedown', handler);
-    }
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showActions, showStatusMenu]);
+  const theme = STATUS_THEME[bookmark.status];
+  const cfg = CONTENT_STATUS_CONFIG[bookmark.status];
 
-  const handlePosterClick = () => {
-    const route = bookmark.contentType === 'movie' ? 'movie' : bookmark.contentType === 'series' ? 'series' : 'game';
-    navigate(`/${route}/${bookmark.contentId}`);
+  const openDetail = () => {
+    const route = bookmark.contentType === 'movie' ? 'movie'
+      : bookmark.contentType === 'series' ? 'series' : bookmark.contentType === 'game' ? 'game' : null;
+    if (route) navigate(`/${route}/${bookmark.contentId}`);
   };
 
-  const handleRatingSubmit = () => {
-    const rating = parseFloat(userRating);
-    if (isNaN(rating) || rating < 0 || rating > 10) {
-      toast.error('Рейтинг от 0 до 10');
+  const handleStatus = (e: React.MouseEvent, s: ContentStatus) => {
+    e.stopPropagation();
+    setStatus({
+      contentType: bookmark.contentType,
+      contentId: bookmark.contentId,
+      title: bookmark.title,
+      posterUrl: bookmark.posterUrl,
+      externalRating: bookmark.externalRating,
+      genre: bookmark.genre,
+      releaseYear: bookmark.releaseYear,
+      synopsis: bookmark.synopsis,
+      status: s,
+    });
+    toast.success(`Статус → «${CONTENT_STATUS_CONFIG[s].label}»`);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeBookmark(bookmark.contentType, bookmark.contentId);
+    toast.success('Удалено из закладок');
+  };
+
+  const submitRating = () => {
+    const r = parseFloat(ratingInput);
+    if (isNaN(r) || r < 0 || r > 10) {
+      toast.error('Оценка от 0 до 10');
       return;
     }
-    onRatingChange(rating);
-    setShowRatingModal(false);
-    toast.success('Рейтинг обновлён');
+    updateRating(bookmark.id, r);
+    setRatingOpen(false);
+    toast.success(`Оценка ${r} сохранена`);
   };
-
-  const handleStatusChange = (newStatus: ContentStatus) => {
-    onStatusChange(newStatus);
-    setShowActions(false);
-    setShowStatusMenu(false);
-    toast.success(`Статус → ${CONTENT_STATUS_CONFIG[newStatus].label}`);
-  };
-
-  const handleDelete = () => {
-    if (window.confirm('Удалить закладку?')) {
-      onDelete();
-      toast.success('Закладка удалена');
-    }
-  };
-
-  const typeIcon = bookmark.contentType === 'movie' ? '🎬' : bookmark.contentType === 'series' ? '📺' : '🎮';
 
   return (
     <>
       <div
-        className="bk-card group relative rounded-2xl overflow-hidden bg-zinc-900/80 border border-zinc-800/50 hover:border-zinc-700/80 transition-all duration-500 cursor-pointer"
-        style={{ animationDelay: `${index * 60}ms` }}
+        className="bkc group relative rounded-2xl overflow-hidden bg-zinc-900/70 border border-white/[0.06] hover:border-white/20 hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+        style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
+        onClick={openDetail}
       >
         {/* Poster */}
-        <div className="relative aspect-[2/3] overflow-hidden" onClick={handlePosterClick}>
+        <div className="relative aspect-[2/3] overflow-hidden bg-zinc-800">
           {bookmark.posterUrl ? (
             <img
               src={bookmark.posterUrl}
               alt={bookmark.title}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               loading="lazy"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450"%3E%3Crect fill="%2318181b" width="300" height="450"/%3E%3Ctext x="150" y="225" text-anchor="middle" fill="%2352525b" font-size="14"%3EНет постера%3C/text%3E%3C/svg%3E';
+                (e.target as HTMLImageElement).src =
+                  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="450"%3E%3Crect fill="%2318181b" width="300" height="450"/%3E%3C/svg%3E';
               }}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
-              <BookmarkIcon className="w-10 h-10 text-zinc-700" />
+            <div className="w-full h-full flex items-center justify-center">
+              <BookmarkIcon className="w-8 h-8 text-zinc-700" />
             </div>
           )}
 
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
 
-          {/* Hover overlay with actions */}
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3">
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowRatingModal(true); }}
-              className="p-2.5 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-all duration-200 hover:scale-110"
-              title="Рейтинг"
-            >
-              <Star className="w-5 h-5 text-amber-400" />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowActions(!showActions); }}
-              className="p-2.5 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-all duration-200 hover:scale-110"
-              title="Меню"
-            >
-              <MoreVertical className="w-5 h-5 text-white" />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-              className="p-2.5 rounded-full bg-white/15 backdrop-blur-sm hover:bg-red-500/40 transition-all duration-200 hover:scale-110"
-              title="Удалить"
-            >
-              <Trash2 className="w-5 h-5 text-red-400" />
-            </button>
-          </div>
+          {/* Type badge */}
+          <span className="absolute top-2 left-2 w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center text-sm">
+            {bookmark.contentType === 'movie' ? '🎬' : bookmark.contentType === 'series' ? '📺' : '🎮'}
+          </span>
 
-          {/* Content type badge */}
-          <span className="absolute top-2.5 left-2.5 text-sm bg-black/50 backdrop-blur-sm rounded-lg px-2 py-0.5">{typeIcon}</span>
-
-          {/* Rating badge */}
-          {bookmark.externalRating ? (
-            <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1">
+          {/* External rating */}
+          {!!bookmark.externalRating && (
+            <span className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-lg px-1.5 py-1">
               <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <span className="text-xs font-bold text-amber-400">{bookmark.externalRating.toFixed(1)}</span>
-            </div>
-          ) : null}
-
-          {/* User rating if set */}
-          {bookmark.userRating ? (
-            <div className="absolute bottom-14 right-2.5 flex items-center gap-1 bg-purple-600/70 backdrop-blur-sm rounded-lg px-2 py-1">
-              <span className="text-[10px] text-purple-200">МОЙ</span>
-              <span className="text-xs font-bold text-white">{bookmark.userRating.toFixed(1)}</span>
-            </div>
-          ) : null}
-
-          {/* Status badge on poster */}
-          <div className={`absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between`}>
-            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-gradient-to-r ${colors.gradient} text-white shadow-lg ${colors.glow}`}>
-              {config.label}
+              <span className="text-[11px] font-bold text-amber-400">{Number(bookmark.externalRating).toFixed(1)}</span>
             </span>
-            {bookmark.isFavorite && <span className="text-sm">⭐</span>}
+          )}
+
+          {/* Hover actions */}
+          <div className="absolute inset-x-2 bottom-2 flex gap-1.5 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+            <button
+              onClick={(e) => { e.stopPropagation(); setRatingOpen(true); }}
+              title="Оценить"
+              className="flex-1 py-2 rounded-xl bg-white/15 backdrop-blur-md hover:bg-white/25 active:scale-95 transition-all flex items-center justify-center"
+            >
+              <Star className="w-4 h-4 text-amber-400" />
+            </button>
+            <button
+              onClick={handleDelete}
+              title="Удалить"
+              className="flex-1 py-2 rounded-xl bg-white/15 backdrop-blur-md hover:bg-red-500/50 active:scale-95 transition-all flex items-center justify-center"
+            >
+              <Trash2 className="w-4 h-4 text-red-300" />
+            </button>
           </div>
+
+          {/* Status pill */}
+          <div className={`absolute bottom-2 inset-x-2 ${ratingOpen ? 'opacity-0' : 'opacity-100'} transition-opacity`}>
+            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide bg-gradient-to-r ${theme.gradient} text-black/90 shadow-lg`}>
+              {cfg.icon} {cfg.label}
+            </span>
+          </div>
+
+          {/* User rating chip */}
+          {!!bookmark.userRating && (
+            <div className="absolute bottom-10 right-2 flex items-center gap-1 bg-purple-600 rounded-lg px-1.5 py-0.5 shadow-lg shadow-purple-500/30">
+              <Star className="w-2.5 h-2.5 fill-white text-white" />
+              <span className="text-[11px] font-bold text-white">{Number(bookmark.userRating).toFixed(1)}</span>
+            </div>
+          )}
         </div>
 
-        {/* Info below poster */}
+        {/* Info */}
         <div className="p-3 space-y-1">
-          <h3 className="font-semibold text-white text-sm leading-tight line-clamp-2 group-hover:text-purple-300 transition-colors duration-300">
+          <h3 className="text-[13px] font-semibold text-white leading-snug line-clamp-2 group-hover:text-purple-300 transition-colors">
             {bookmark.title}
           </h3>
-          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+          <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
             {bookmark.releaseYear && <span>{bookmark.releaseYear}</span>}
-            {bookmark.genre && (
-              <>
-                <span>•</span>
-                <span className="line-clamp-1">{bookmark.genre.split(',')[0]}</span>
-              </>
+            {!!bookmark.userRating && (
+              <span className={`flex items-center gap-0.5 ml-auto ${theme.text}`}>
+                <Star className="w-3 h-3 fill-current" />{Number(bookmark.userRating).toFixed(1)}
+              </span>
             )}
           </div>
-          {bookmark.progress !== undefined && bookmark.totalItems ? (
-            <div className="pt-1">
-              <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
-                <span>Прогресс</span>
-                <span>{bookmark.progress}/{bookmark.totalItems}</span>
-              </div>
-              <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full bg-gradient-to-r ${colors.gradient} transition-all duration-500`}
-                  style={{ width: `${Math.min((bookmark.progress / bookmark.totalItems) * 100, 100)}%` }}
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
 
-        {/* Actions dropdown */}
-        {showActions && (
-          <div
-            ref={menuRef}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/50 rounded-xl shadow-2xl shadow-black/50 min-w-[200px] bk-dropdown"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-2 space-y-0.5">
-              <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider px-3 py-1.5">Изменить статус</p>
-              {statuses.map(s => (
-                <button
-                  key={s}
-                  onClick={() => handleStatusChange(s)}
-                  className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-all duration-200 flex items-center gap-2 ${bookmark.status === s
-                    ? `bg-gradient-to-r ${STATUS_COLORS[s].gradient} text-white font-semibold`
-                    : 'text-zinc-300 hover:bg-zinc-800'
-                    }`}
-                >
-                  <span>{CONTENT_STATUS_CONFIG[s].icon}</span>
-                  {CONTENT_STATUS_CONFIG[s].label}
-                </button>
-              ))}
-              <div className="border-t border-zinc-800 my-1" />
+          {/* Quick status switcher */}
+          <div className="pt-1.5 grid grid-cols-6 gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+            {STATUS_ORDER.map((s) => (
               <button
-                onClick={handleDelete}
-                className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2"
+                key={s}
+                onClick={(e) => handleStatus(e, s)}
+                title={CONTENT_STATUS_CONFIG[s].label}
+                className={`h-6 rounded-md text-xs flex items-center justify-center transition-all active:scale-90 ${
+                  bookmark.status === s ? CONTENT_STATUS_CONFIG[s].bgColor + ' ring-1 ring-white/20' : 'bg-white/[0.04] hover:bg-white/10'
+                }`}
               >
-                <Trash2 className="w-3.5 h-3.5" /> Удалить закладку
+                {CONTENT_STATUS_CONFIG[s].icon}
               </button>
-            </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Rating Modal */}
-      {showRatingModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 bk-modal-overlay" onClick={() => setShowRatingModal(false)}>
-          <div className="bg-zinc-900 border border-zinc-800 w-80 rounded-2xl p-6 shadow-2xl bk-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-white">Ваш рейтинг</h3>
-              <button onClick={() => setShowRatingModal(false)} className="p-1 hover:bg-zinc-800 rounded-lg transition-colors">
-                <X className="w-5 h-5 text-zinc-400" />
+      {/* Rating modal */}
+      {ratingOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center bkc-overlay"
+          onClick={() => setRatingOpen(false)}
+        >
+          <div className="w-80 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl bkc-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div className="min-w-0 pr-2">
+                <h3 className="text-lg font-bold text-white">Ваша оценка</h3>
+                <p className="text-xs text-zinc-500 truncate">{bookmark.title}</p>
+              </div>
+              <button onClick={() => setRatingOpen(false)} className="p-1 rounded-lg hover:bg-zinc-800 transition-colors shrink-0">
+                <X className="w-4 h-4 text-zinc-400" />
               </button>
             </div>
 
-            <div className="mb-6">
-              <div className="relative mb-4">
-                <input
-                  type="number"
-                  min="0"
-                  max="10"
-                  step="0.1"
-                  value={userRating}
-                  onChange={(e) => setUserRating(e.target.value)}
-                  placeholder="0-10"
-                  className="w-full px-4 py-3 bg-zinc-800/80 border border-zinc-700 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-center text-3xl font-bold transition-all"
-                />
-              </div>
-              <div className="flex justify-center gap-1.5 mb-3">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                  <button
-                    key={n}
-                    onClick={() => setUserRating(n.toString())}
-                    className={`w-7 h-7 rounded-lg text-[11px] font-bold transition-all duration-200 ${parseFloat(userRating) === n
-                      ? 'bg-purple-500 text-white scale-110'
-                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
-                      }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
+            <input
+              type="number" min="0" max="10" step="0.1"
+              value={ratingInput}
+              onChange={(e) => setRatingInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitRating()}
+              placeholder="0–10"
+              autoFocus
+              className="w-full px-4 py-3 mb-4 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-center text-3xl font-bold focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+            />
+
+            <div className="flex justify-center gap-1 mb-5 flex-wrap">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setRatingInput(String(n))}
+                  className={`w-7 h-7 rounded-lg text-[11px] font-bold transition-all ${
+                    parseFloat(ratingInput) === n ? 'bg-purple-500 text-white scale-110' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => setShowRatingModal(false)} className="flex-1 px-4 py-2.5 bg-zinc-800 text-white rounded-xl hover:bg-zinc-700 transition-colors text-sm font-medium">
+              <button onClick={() => setRatingOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-800 text-white text-sm font-medium hover:bg-zinc-700 transition-colors">
                 Отмена
               </button>
-              <button onClick={handleRatingSubmit} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl hover:from-purple-700 hover:to-violet-700 transition-all text-sm font-medium shadow-lg shadow-purple-500/25">
+              <button onClick={submitRating} className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white text-sm font-semibold shadow-lg shadow-purple-500/25 hover:from-purple-700 hover:to-violet-700 transition-all">
                 Сохранить
               </button>
             </div>
@@ -307,342 +245,204 @@ const BookmarkCard = ({
       )}
     </>
   );
-};
+}
 
-/* ═══════════════════════════════════════════════════════════
-   MAIN PAGE COMPONENT
-   ═══════════════════════════════════════════════════════════ */
+/* ─────────── Page ─────────── */
 export default function BookmarksNew() {
-  const [user, setUser] = useState<any>(null);
-  const [bookmarks, setBookmarks] = useState<ContentBookmark[]>([]);
-  const [activeTab, setActiveTab] = useState<ContentStatus>('watching');
-  const [contentTypeFilter, setContentTypeFilter] = useState<ContentType | 'all'>('all');
+  const { userId, bookmarks, loading, isInTop50 } = useBookmarks();
+  const [activeTab, setActiveTab] = useState<ContentStatus>('favorite');
+  const [typeFilter, setTypeFilter] = useState<ContentType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'rating' | 'title'>('date');
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<Record<ContentStatus, number>>({
-    favorite: 0, watching: 0, planned: 0, watched: 0, postponed: 0, dropped: 0,
-  });
 
-  const statuses: ContentStatus[] = ['favorite', 'watching', 'planned', 'watched', 'postponed', 'dropped'];
-
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Get user
-  useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-    };
-    getUser();
-  }, []);
-
-  // Load bookmarks
-  useEffect(() => {
-    const loadBookmarks = async () => {
-      if (!user?.id) { setLoading(false); return; }
-      try {
-        setLoading(true);
-        const data = await bookmarkService.getUserBookmarks(user.id);
-        setBookmarks(data);
-
-        const newStats: Record<ContentStatus, number> = {
-          favorite: 0, watching: 0, planned: 0, watched: 0, postponed: 0, dropped: 0,
-        };
-        data.forEach(b => { if (b.status in newStats) newStats[b.status]++; });
-        setStats(newStats);
-      } catch (error) {
-        console.error('Error loading bookmarks:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadBookmarks();
-  }, [user?.id]);
-
-  // Filtered & sorted bookmarks
-  const filteredBookmarks = useMemo(() => {
-    let filtered = bookmarks.filter(b => b.status === activeTab);
-
-    if (contentTypeFilter !== 'all') {
-      filtered = filtered.filter(b => b.contentType === contentTypeFilter);
-    }
-
-    if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase();
-      filtered = filtered.filter(b => b.title.toLowerCase().includes(q));
-    }
-
-    if (sortBy === 'rating') {
-      filtered.sort((a, b) => (b.externalRating || 0) - (a.externalRating || 0));
-    } else if (sortBy === 'title') {
-      filtered.sort((a, b) => a.title.localeCompare(b.title));
-    } else {
-      filtered.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    }
-
-    return filtered;
-  }, [activeTab, contentTypeFilter, debouncedSearch, sortBy, bookmarks]);
-
-  const handleDelete = useCallback(async (id: string) => {
-    setBookmarks(prev => prev.filter(b => b.id !== id));
-    setStats(prev => {
-      const bookmark = bookmarks.find(b => b.id === id);
-      if (bookmark) return { ...prev, [bookmark.status]: Math.max(0, prev[bookmark.status] - 1) };
-      return prev;
-    });
-    try {
-      await bookmarkService.deleteBookmark(id);
-    } catch {
-      // Reload on error
-      if (user?.id) {
-        const data = await bookmarkService.getUserBookmarks(user.id);
-        setBookmarks(data);
-      }
-    }
-  }, [bookmarks, user?.id]);
-
-  const handleStatusChange = useCallback(async (id: string, newStatus: ContentStatus) => {
-    const bookmark = bookmarks.find(b => b.id === id);
-    if (!bookmark) return;
-    // Optimistic
-    const oldStatus = bookmark.status;
-    setBookmarks(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
-    setStats(prev => ({
-      ...prev,
-      [oldStatus]: Math.max(0, prev[oldStatus] - 1),
-      [newStatus]: prev[newStatus] + 1,
-    }));
-    try {
-      await bookmarkService.updateBookmarkStatus(id, newStatus);
-    } catch {
-      // Revert
-      setBookmarks(prev => prev.map(b => b.id === id ? { ...b, status: oldStatus } : b));
-      setStats(prev => ({
-        ...prev,
-        [oldStatus]: prev[oldStatus] + 1,
-        [newStatus]: Math.max(0, prev[newStatus] - 1),
-      }));
-    }
+  const stats = useMemo(() => {
+    const s: Record<ContentStatus, number> = { favorite: 0, watching: 0, planned: 0, watched: 0, postponed: 0, dropped: 0 };
+    bookmarks.forEach((b) => { if (b.status in s) s[b.status]++; });
+    return s;
   }, [bookmarks]);
 
-  const handleRatingChange = useCallback(async (id: string, newRating: number) => {
-    setBookmarks(prev => prev.map(b => b.id === id ? { ...b, userRating: newRating } : b));
-    try {
-      await bookmarkService.updateBookmarkRating(id, newRating);
-    } catch {
-      toast.error('Ошибка при обновлении рейтинга');
+  const total = Object.values(stats).reduce((a, b) => a + b, 0);
+
+  const filtered = useMemo(() => {
+    let list = bookmarks.filter((b) => b.status === activeTab);
+    if (typeFilter !== 'all') list = list.filter((b) => b.contentType === typeFilter);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((b) => b.title.toLowerCase().includes(q));
     }
-  }, []);
+    return [...list].sort((a, b) => {
+      if (sortBy === 'rating') return (b.userRating || 0) - (a.userRating || 0);
+      if (sortBy === 'title') return a.title.localeCompare(b.title);
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+  }, [bookmarks, activeTab, typeFilter, searchQuery, sortBy]);
 
-  const totalBookmarks = Object.values(stats).reduce((a, b) => a + b, 0);
+  const theme = STATUS_THEME[activeTab];
 
-  if (!user) {
+  if (!userId && !loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-950">
-        <div className="text-center bk-fade-in">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-600 to-violet-600 flex items-center justify-center shadow-2xl shadow-purple-500/30">
-            <BookmarkIcon className="w-10 h-10 text-white" />
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4">
+        <div className="text-center max-w-sm w-full">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-purple-500 to-violet-700 flex items-center justify-center shadow-2xl shadow-purple-500/30 rotate-3">
+            <BookmarkIcon className="w-9 h-9 text-white" />
           </div>
-          <h2 className="text-2xl font-bold mb-2 text-white">Требуется вход</h2>
-          <p className="text-zinc-400">Войдите чтобы просмотреть свои закладки</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Требуется вход</h2>
+          <p className="text-zinc-500 text-sm mb-6">Войдите в аккаунт, чтобы увидеть свои закладки</p>
+          <a href="/auth" className="inline-block w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold text-sm shadow-lg shadow-purple-500/25 hover:from-purple-500 hover:to-violet-500 transition-all">
+            Войти
+          </a>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950">
-      {/* CSS Animations */}
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-950 to-zinc-900">
       <style>{`
-        .bk-card {
-          animation: bk-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-        .bk-fade-in {
-          animation: bk-fade 0.4s ease-out both;
-        }
-        .bk-dropdown {
-          animation: bk-scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-        .bk-modal-overlay {
-          animation: bk-fade 0.2s ease-out both;
-        }
-        .bk-modal {
-          animation: bk-scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-        .bk-tab-indicator {
-          transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1), width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        @keyframes bk-slide-up {
-          from { opacity: 0; transform: translateY(24px) scale(0.97); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes bk-fade {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes bk-scale-in {
-          from { opacity: 0; transform: scale(0.9); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes bk-shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        .bk-skeleton {
-          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
-          background-size: 200% 100%;
-          animation: bk-shimmer 1.5s infinite;
-        }
-        .bk-tab-active {
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .bk-scrollbar::-webkit-scrollbar { height: 0; width: 0; }
+        .bkc { animation: bkc-in .45s cubic-bezier(.16,1,.3,1) both; }
+        @keyframes bkc-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+        .bkc-overlay { animation: bkc-fade .15s ease both; }
+        .bkc-modal { animation: bkc-pop .25s cubic-bezier(.16,1,.3,1) both; }
+        @keyframes bkc-fade { from { opacity: 0; } }
+        @keyframes bkc-pop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+        .bkm-scroll::-webkit-scrollbar { height: 0; width: 0; }
       `}</style>
 
-      {/* ─── Glassmorphism Header ─── */}
-      <div className="sticky top-0 z-20">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-zinc-950/95 to-zinc-950 backdrop-blur-xl" />
-
-        <div className="relative container mx-auto px-4 pt-6 pb-4">
-          {/* Title + stats */}
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/25">
-                <BookmarkIcon className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Мои закладки</h1>
-                <p className="text-xs text-zinc-500">{totalBookmarks} всего</p>
-              </div>
+      {/* Hero header */}
+      <div className="relative overflow-hidden">
+        <div className={`absolute -top-32 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] rounded-full blur-[120px] opacity-20 bg-gradient-to-br ${theme.gradient}`} />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-6">
+          <div className="flex items-end justify-between gap-4 mb-8">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-purple-400 font-semibold mb-2 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" /> Коллекция
+              </p>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                Мои закладки
+              </h1>
+              <p className="text-sm text-zinc-500 mt-1.5">
+                {total} сохранённых · {stats[activeTab]} в «{CONTENT_STATUS_CONFIG[activeTab].label}»
+              </p>
             </div>
 
-            {/* Sort dropdown */}
-            <div className="relative">
+            <div className="relative hidden sm:block">
+              <SlidersHorizontal className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="appearance-none pl-3 pr-8 py-2 bg-zinc-800/80 text-white text-xs font-medium rounded-xl border border-zinc-700/50 hover:border-zinc-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                className="appearance-none pl-9 pr-8 py-2.5 bg-white/[0.05] border border-white/10 text-zinc-200 text-xs font-medium rounded-xl cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/40"
               >
-                <option value="date">По дате</option>
-                <option value="rating">По рейтингу</option>
+                <option value="date">Недавние</option>
+                <option value="rating">По оценке</option>
                 <option value="title">По названию</option>
               </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              placeholder="Поиск по названию..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-zinc-800/60 border border-zinc-700/40 text-white text-sm rounded-xl placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/50 transition-all"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-zinc-700 rounded-md transition-colors">
-                <X className="w-4 h-4 text-zinc-500" />
-              </button>
-            )}
-          </div>
-
-          {/* Content Type Filter Chips */}
-          <div className="flex gap-2 mb-4 bk-scrollbar overflow-x-auto pb-1">
-            {CONTENT_TYPE_FILTERS.map(f => (
-              <button
-                key={f.key}
-                onClick={() => setContentTypeFilter(f.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-300 ${contentTypeFilter === f.key
-                  ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30 shadow-sm shadow-purple-500/10'
-                  : 'bg-zinc-800/50 text-zinc-400 border border-zinc-700/30 hover:bg-zinc-800 hover:text-zinc-300'
-                  }`}
-              >
-                {f.icon}
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Status Tabs */}
-          <div className="flex gap-1 bk-scrollbar overflow-x-auto pb-1">
-            {statuses.map(status => {
-              const c = CONTENT_STATUS_CONFIG[status];
-              const sc = STATUS_COLORS[status];
-              const isActive = activeTab === status;
+          {/* Status pills */}
+          <div className="flex gap-2 overflow-x-auto bkm-scroll pb-1 mb-4">
+            {STATUS_ORDER.map((s) => {
+              const c = CONTENT_STATUS_CONFIG[s];
+              const t = STATUS_THEME[s];
+              const active = activeTab === s;
               return (
                 <button
-                  key={status}
-                  onClick={() => setActiveTab(status)}
-                  className={`bk-tab-active flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap ${isActive
-                    ? `bg-gradient-to-r ${sc.gradient} text-white shadow-lg ${sc.glow}`
-                    : 'bg-zinc-800/40 text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-300'
-                    }`}
+                  key={s}
+                  onClick={() => setActiveTab(s)}
+                  className={`flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-300 border ${
+                    active
+                      ? `bg-gradient-to-r ${t.gradient} text-black/90 border-transparent shadow-lg ${t.glow} scale-[1.03]`
+                      : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'
+                  }`}
                 >
-                  <span className="text-sm">{c.icon}</span>
-                  <span>{c.label}</span>
-                  <span className={`ml-0.5 text-[10px] px-1.5 py-0.5 rounded-md ${isActive ? 'bg-white/20' : 'bg-zinc-700/50'
-                    }`}>
-                    {stats[status]}
+                  <span>{c.icon}</span>{c.label}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-black/20' : 'bg-white/10'}`}>
+                    {stats[s]}
                   </span>
                 </button>
               );
             })}
           </div>
+
+          {/* Type filter + search */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06] self-start">
+              {TYPE_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setTypeFilter(f.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    typeFilter === f.key ? 'bg-purple-600 text-white shadow-md shadow-purple-500/25' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {f.icon}{f.label}
+                </button>
+              ))}
+            </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск по названию..."
+                className="w-full pl-10 pr-9 py-2.5 bg-white/[0.05] border border-white/10 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-md hover:bg-white/10">
+                  <X className="w-4 h-4 text-zinc-500" />
+                </button>
+              )}
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="sm:hidden appearance-none px-3 py-2.5 bg-white/[0.05] border border-white/10 text-zinc-200 text-xs rounded-xl"
+            >
+              <option value="date">Недавние</option>
+              <option value="rating">По оценке</option>
+              <option value="title">По названию</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* ─── Content Grid ─── */}
-      <div className="container mx-auto px-4 py-6">
-        {/* Result count */}
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs text-zinc-600 font-medium">
-            {filteredBookmarks.length} {filteredBookmarks.length === 1 ? 'элемент' : 'элементов'}
-          </p>
-        </div>
-
+      {/* Grid */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
         {loading ? (
-          /* Skeleton Grid */
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {Array.from({ length: 12 }).map((_, i) => (
-              <SkeletonCard key={i} index={i} />
+              <div key={i} className="rounded-2xl overflow-hidden bg-zinc-900/60 animate-pulse" style={{ animationDelay: `${i * 60}ms` }}>
+                <div className="aspect-[2/3] bg-zinc-800/70" />
+                <div className="p-3 space-y-2"><div className="h-3.5 bg-zinc-800 rounded w-3/4" /><div className="h-3 bg-zinc-800/60 rounded w-1/2" /></div>
+              </div>
             ))}
           </div>
-        ) : filteredBookmarks.length === 0 ? (
-          /* Empty state */
-          <div className="flex flex-col items-center justify-center py-20 bk-fade-in">
-            <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${STATUS_COLORS[activeTab].gradient} flex items-center justify-center mb-6 shadow-xl ${STATUS_COLORS[activeTab].glow} opacity-50`}>
-              <span className="text-3xl">{CONTENT_STATUS_CONFIG[activeTab].icon}</span>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className={`w-24 h-24 rounded-3xl mb-6 flex items-center justify-center bg-gradient-to-br ${theme.gradient} shadow-2xl ${theme.glow} rotate-3`}>
+              <span className="text-4xl drop-shadow">{CONTENT_STATUS_CONFIG[activeTab].icon}</span>
             </div>
-            <p className="text-zinc-400 text-base font-medium mb-1">Здесь пока пусто</p>
-            <p className="text-zinc-600 text-sm">
-              {contentTypeFilter !== 'all'
-                ? `Нет ${contentTypeFilter === 'movie' ? 'фильмов' : contentTypeFilter === 'series' ? 'сериалов' : 'игр'} в этой категории`
-                : 'Добавляйте контент из каталога'
-              }
+            <h3 className="text-lg font-bold text-white mb-1">{EMPTY_TEXT[activeTab]}</h3>
+            <p className="text-sm text-zinc-500 max-w-xs">
+              Добавляйте контент кнопкой на постере в каталоге фильмов, сериалов и игр — он появится здесь моментально.
             </p>
           </div>
         ) : (
-          /* Cards Grid */
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {filteredBookmarks.map((bookmark, i) => (
-              <BookmarkCard
-                key={bookmark.id}
-                bookmark={bookmark}
-                index={i}
-                onDelete={() => handleDelete(bookmark.id)}
-                onStatusChange={(newStatus) => handleStatusChange(bookmark.id, newStatus)}
-                onRatingChange={(newRating) => handleRatingChange(bookmark.id, newRating)}
-              />
-            ))}
+            {filtered.map((b, i) => <BookmarkCard key={b.id} bookmark={b} index={i} />)}
           </div>
+        )}
+
+        {/* Top-50 hint */}
+        {bookmarks.some((b) =>
+          (b.contentType === 'movie' && isInTop50('movie', b.contentId)) ||
+          (b.contentType === 'series' && isInTop50('anime', b.contentId)) ||
+          (b.contentType === 'game' && isInTop50('game', b.contentId))
+        ) && (
+          <p className="mt-10 text-center text-xs text-zinc-600 flex items-center justify-center gap-1.5">
+            <Trophy className="w-3.5 h-3.5 text-amber-500/60" />
+            Часть закладок добавлена и в Топ-50
+          </p>
         )}
       </div>
     </div>

@@ -31,12 +31,18 @@ import {
   Eye,
   Share,
   Copy,
-  Facebook,
-  Twitter,
-} from "lucide-react";
+   Facebook,
+   Twitter,
+   Trophy,
+   Heart,
+   Image as ImageIcon,
+   ExternalLink,
+ } from "lucide-react";
 import { Link } from "react-router-dom";
 import ProfileSidebar from "@/components/ProfileSidebar";
 import Top50Profile from "@/components/Top50Profile";
+import ProfileSettingsEditor, { renderMarkdown } from "@/components/ProfileSettingsEditor";
+import type { ShowcaseBlock, Achievement, FavoriteContent } from "@/components/ProfileSettingsEditor";
 import "@/styles/profile-fonts.css";
 import "@/styles/profile-theme.css";
 
@@ -47,7 +53,19 @@ interface Profile {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  avatar_frame_url?: string | null;
   background_gif_url: string | null;
+  background_url?: string | null;
+  background_type?: 'image' | 'video' | null;
+  theme?: string | null;
+  accent_color?: string | null;
+  about_me?: string | null;
+  banner_url?: string | null;
+   gallery_images?: string[] | null;
+   achievements?: Achievement[] | null;
+   favorite_content?: FavoriteContent | null;
+   showcase?: ShowcaseBlock[] | null;
+  custom_slug?: string | null;
   profile_color: string;
   profile_accent: string;
   status: string;
@@ -185,8 +203,9 @@ const Profile = () => {
   const { userId } = useParams();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [friendshipStatus, setFriendshipStatus] = useState<string | null>(null);
+   const [isFollowing, setIsFollowing] = useState(false);
+   const [isFriend, setIsFriend] = useState(false);
+   const [friendshipStatus, setFriendshipStatus] = useState<string | null>(null);
   const [stats, setStats] = useState({ movies: 0, followers: 0, following: 0, comments: 0 });
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
@@ -289,15 +308,13 @@ const Profile = () => {
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId),
         supabase
-          .from('friendships')
+          .from('follows')
           .select('id', { count: 'exact', head: true })
-          .eq('friend_id', userId)
-          .eq('status', 'accepted'),
+          .eq('following_id', userId),
         supabase
-          .from('friendships')
+          .from('follows')
           .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('status', 'accepted'),
+          .eq('follower_id', userId),
         supabase
           .from('profile_comments')
           .select('id', { count: 'exact', head: true })
@@ -410,12 +427,56 @@ const Profile = () => {
     });
   };
 
-  const checkFollowStatus = async () => {
-    setIsFollowing(false); // Временная заглушка
+  const checkFriendshipStatus = async () => {
+    if (!currentUserId || !userId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('friendships')
+        .select('status')
+        .or(
+          `and(requester_id.eq.${currentUserId},addressee_id.eq.${userId}),` +
+          `and(requester_id.eq.${userId},addressee_id.eq.${currentUserId})`
+        )
+        .maybeSingle();
+
+      if (error) throw error;
+      setFriendshipStatus(data?.status || null);
+      setIsFriend(data?.status === 'accepted');
+    } catch (err) {
+      console.error('Error checking friendship:', err);
+      setFriendshipStatus(null);
+      setIsFriend(false);
+    }
   };
 
-  const checkFriendshipStatus = async () => {
-    setFriendshipStatus(null); // Временная заглушка
+  const handleFollow = async () => {
+    if (!currentUserId || !userId) {
+      toast.error("Войдите, чтобы подписаться");
+      return;
+    }
+
+    try {
+      if (isFollowing) {
+        const { error } = await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_id', currentUserId)
+          .eq('following_id', userId);
+        if (error) throw error;
+        toast.success("Отписано");
+      } else {
+        const { error } = await supabase
+          .from('follows')
+          .insert({ follower_id: currentUserId, following_id: userId });
+        if (error) throw error;
+        toast.success("Подписано");
+      }
+      setIsFollowing(!isFollowing);
+    } catch (err) {
+      console.error(err);
+      toast.error("Ошибка обновления подписки");
+    }
   };
 
   const handleShareProfile = async (platform?: string) => {
@@ -452,22 +513,33 @@ const Profile = () => {
     }
   };
 
-  const handleFollow = async () => {
+  const checkFollowStatus = async () => {
+    if (!currentUserId || !userId) return;
+
     try {
-      if (isFollowing) {
-        toast.success("Отписано");
-      } else {
-        toast.success("Подписано");
-      }
-      setIsFollowing(!isFollowing);
+      const { data, error } = await supabase
+        .from('follows')
+        .select('id')
+        .eq('follower_id', currentUserId)
+        .eq('following_id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      setIsFollowing(!!data);
     } catch (err) {
-      console.error(err);
-      toast.error("Ошибка обновления подписки");
+      console.error('Error checking follow status:', err);
+      setIsFollowing(false);
     }
   };
 
   const handleFriendRequest = async () => {
+    if (!currentUserId || !userId) return;
+
     try {
+      const { error } = await supabase
+        .from('friendships')
+        .insert({ requester_id: currentUserId, addressee_id: userId });
+      if (error) throw error;
       toast.success("Запрос на дружбу отправлен");
       setFriendshipStatus("pending");
     } catch (err) {
@@ -522,6 +594,9 @@ const Profile = () => {
 
   const isOwnProfile = currentUserId === userId;
 
+  const accentColor = profile.accent_color || profile.profile_accent;
+
+  const hasCustomBg = !!profile.background_url;
   const backgroundStyle = profile.background_gif_url
     ? {
         backgroundImage: `url(${profile.background_gif_url})`,
@@ -531,7 +606,7 @@ const Profile = () => {
     : {
         background: `
           radial-gradient(700px 300px at 75% 20%, ${profile.profile_color}55, transparent 60%),
-          radial-gradient(600px 280px at 25% 80%, ${profile.profile_accent}44, transparent 60%),
+          radial-gradient(600px 280px at 25% 80%, ${accentColor}44, transparent 60%),
           linear-gradient(135deg, hsl(250 40% 8%), hsl(255 45% 12%))
         `,
       };
@@ -544,7 +619,38 @@ const Profile = () => {
   ];
 
   return (
-    <div className="rxp-scope min-h-screen text-foreground">
+    <div
+      className="rxp-scope min-h-screen text-foreground"
+      style={{ ['--rxp-accent' as any]: accentColor }}
+    >
+      {/* ===== ПОЛЬЗОВАТЕЛЬСКИЙ ФОН (обои на весь экран) ===== */}
+      {hasCustomBg && (
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+          {profile.background_type === 'video' ? (
+            <video
+              src={profile.background_url!}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover scale-110 blur-[2px]"
+            />
+          ) : (
+            <img
+              src={profile.background_url!}
+              alt=""
+              className="w-full h-full object-cover scale-110 blur-[2px]"
+            />
+          )}
+          <div className="absolute inset-0 bg-background/45" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-transparent to-background" />
+          <div
+            className="absolute inset-0"
+            style={{ background: 'radial-gradient(ellipse at center, transparent 40%, hsl(var(--background) / 0.55) 100%)' }}
+          />
+        </div>
+      )}
+      <div className={hasCustomBg ? 'relative z-10' : ''}>
       {/* ===== HERO ===== */}
       <header className="rxp-hero relative h-[340px] md:h-[400px]" style={backgroundStyle}>
         {/* затемнение для читаемости */}
@@ -556,9 +662,18 @@ const Profile = () => {
               {/* Аватар */}
               <div className="relative flex-shrink-0">
                 <div className="rxp-avatar-frame">
-                  <Avatar className="avatar-wrap w-28 h-28 md:w-36 md:h-36 rounded-[19px]">
+                  {/* Пользовательская рамка (GIF/APNG) поверх аватара */}
+                  {profile.avatar_frame_url && (
+                    <img
+                      src={profile.avatar_frame_url}
+                      alt=""
+                      className="absolute inset-0 w-full h-full pointer-events-none"
+                      style={{ transform: 'scale(1.35)', zIndex: 5 }}
+                    />
+                  )}
+                  <Avatar className="avatar-wrap w-28 h-28 md:w-36 md:h-36 rounded-full">
                     <AvatarImage src={profile.avatar_url || undefined} />
-                    <AvatarFallback className="rounded-[19px] text-4xl font-grotesk font-bold bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                    <AvatarFallback className="rounded-full text-4xl font-grotesk font-bold bg-gradient-to-br from-primary to-accent text-primary-foreground">
                       {profile.username?.[0]?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -686,6 +801,148 @@ const Profile = () => {
 
           {/* Правая колонка — био и вкладки */}
           <main className="lg:col-span-8 order-1 lg:order-2 space-y-6">
+
+            {/* Витринные блоки — порядок и видимость из настроек профиля */}
+            {(() => {
+              const canSee = (b?: ShowcaseBlock) => {
+                if (!b) return true;
+                if (b.visible === false || b.visibility === 'hidden') return false;
+                if (b.visibility === 'friends' && !isOwnProfile && !isFriend) return false;
+                return true;
+              };
+
+              const configured = (profile.showcase || []).filter((b) => b.visible !== false);
+              const blocks: ShowcaseBlock[] = configured.length
+                ? configured
+                : [
+                    { type: 'about', visible: true, visibility: 'all' },
+                    { type: 'achievements', visible: true, visibility: 'all' },
+                    { type: 'stats', visible: true, visibility: 'all' },
+                  ];
+
+              const renderers: Record<string, () => JSX.Element | null> = {
+                about: () =>
+                  profile.about_me ? (
+                    <div className="rxp-panel p-6">
+                      <div dangerouslySetInnerHTML={{ __html: renderMarkdown(profile.about_me) }} />
+                    </div>
+                  ) : null,
+
+                gallery: () =>
+                  (profile.gallery_images || []).length ? (
+                    <div className="rxp-panel p-6">
+                      <h3 className="rxp-section-title mb-4">
+                        <ImageIcon className="w-5 h-5 text-primary" />
+                        Галерея
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {profile.gallery_images!.map((img, i) => (
+                          <a
+                            key={i}
+                            href={img}
+                            target="_blank"
+                            rel="noopener"
+                            className="rounded-xl overflow-hidden border border-border hover:border-primary/60 transition-all group"
+                          >
+                            <img
+                              src={img}
+                              alt=""
+                              loading="lazy"
+                              className="w-full aspect-square object-cover group-hover:scale-105 transition-transform"
+                              onError={(e) => ((e.target as HTMLImageElement).style.opacity = '0.15')}
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null,
+
+                achievements: () =>
+                  (profile.achievements || []).length ? (
+                    <div className="rxp-panel p-6">
+                      <h3 className="rxp-section-title mb-4">
+                        <Trophy className="w-5 h-5 text-primary" />
+                        Достижения
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {profile.achievements!.map((a, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-3 p-3 rounded-xl border border-border bg-muted/30"
+                          >
+                            <span className="text-2xl flex-shrink-0">{a.icon || "🏆"}</span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate">{a.title}</p>
+                              {a.description && (
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                  {a.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null,
+
+                inventory: () => null,
+
+                favorite: () =>
+                  profile.favorite_content?.title ? (
+                    <div className="rxp-panel overflow-hidden">
+                      <a
+                        href={profile.favorite_content.url || undefined}
+                        target={profile.favorite_content.url ? "_blank" : undefined}
+                        rel="noopener"
+                        className="block relative h-44 group"
+                      >
+                        {profile.favorite_content.image_url ? (
+                          <img
+                            src={profile.favorite_content.image_url}
+                            alt=""
+                            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary/30 to-accent/30" />
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4 flex items-center gap-2">
+                          <Heart className="w-4 h-4 text-red-400 fill-red-400 flex-shrink-0" />
+                          <span className="text-white font-semibold">{profile.favorite_content.title}</span>
+                          {profile.favorite_content.url && (
+                            <ExternalLink className="w-4 h-4 text-white/70 ml-auto" />
+                          )}
+                        </div>
+                      </a>
+                    </div>
+                  ) : null,
+
+                stats: () => (
+                  <div className="rxp-panel p-6">
+                    <h3 className="rxp-section-title mb-4">
+                      <BarChart3 className="w-5 h-5 text-primary" />
+                      Статистика
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {statTiles.map(({ icon, value, label }) => (
+                        <div key={label} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
+                          <IconChip icon={icon} />
+                          <div>
+                            <div className="rxp-stat-value text-lg">{value}</div>
+                            <div className="rxp-stat-label">{label}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ),
+              };
+
+              return blocks.map((b) =>
+                renderers[b.type] && canSee(b) ? (
+                  <div key={b.type}>{renderers[b.type]()}</div>
+                ) : null
+              );
+            })()}
 
             {/* Био */}
             {profile.bio && (
@@ -901,10 +1158,31 @@ const Profile = () => {
           </div>
         </div>
       </div>
+      </div>
 
       {/* Модальные окна */}
-      {showEditor && (
-        <ProfileEditor profile={profile} open={showEditor} onClose={() => setShowEditor(false)} onUpdate={fetchProfile} />
+      {showEditor && profile && (
+        <ProfileSettingsEditor
+          userId={userId!}
+          open={showEditor}
+          onClose={() => setShowEditor(false)}
+          onSaved={fetchProfile}
+          initial={{
+            avatar_url: profile.avatar_url,
+            avatar_frame_url: profile.avatar_frame_url,
+            background_url: profile.background_url,
+            background_type: profile.background_type || 'image',
+            theme: profile.theme || 'dark',
+            accent_color: profile.accent_color,
+            about_me: profile.about_me,
+            banner_url: profile.banner_url,
+            gallery_images: profile.gallery_images || [],
+            achievements: profile.achievements || [],
+            favorite_content: profile.favorite_content || null,
+            showcase: profile.showcase || [],
+            customization: {},
+          }}
+        />
       )}
 
       {showChat && !isOwnProfile && profile && (

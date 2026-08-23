@@ -47,6 +47,17 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Sloop Script Three";
+  src:
+    local("Sloop Script Three"),
+    local("SloopScriptThree"),
+    local("Sloop ScriptThree"),
+    url("/fonts/SloopScriptThree.woff2") format("woff2"),
+    url("/fonts/SloopScriptThree.ttf") format("truetype");
+  font-display: swap;
+}
+
 /* ---- Utility families (со стилевыми фолбэками) ---- */
 
 .font-grotesk {
@@ -62,6 +73,10 @@
 
 .font-script {
   font-family: "Monplesir Script", "Segoe Script", cursive;
+}
+
+.font-sloop {
+  font-family: "Sloop Script Three", "Monplesir Script", "Segoe Script", cursive;
 }
 
 /* ---- Профильные декоративные элементы ---- */

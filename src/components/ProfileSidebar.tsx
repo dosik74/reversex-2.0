@@ -40,11 +40,11 @@ const ProfileSidebar = ({ userId, userLevel = 1, userXP = 0 }: ProfileSidebarPro
     try {
       setLoading(true);
 
-      // Загружаем друзей из базы данных
-      const { data: friendships, error: friendshipError } = await supabase
+      // Загружаем друзей из базы данных (схема: requester_id / addressee_id)
+      const { data: friendshipRows, error: friendshipError } = await supabase
         .from('friendships')
-        .select('friend_id, friend:profiles(id, username, display_name, avatar_url, level)')
-        .eq('user_id', userId)
+        .select('requester_id, addressee_id')
+        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
         .eq('status', 'accepted')
         .limit(5);
 
@@ -52,13 +52,24 @@ const ProfileSidebar = ({ userId, userLevel = 1, userXP = 0 }: ProfileSidebarPro
         console.error('Error fetching friendships:', friendshipError);
         setTopFriends([]);
       } else {
-        const friends = (friendships || []).map((f: any) => ({
-          id: f.friend_id,
-          username: f.friend?.username || 'Unknown',
-          display_name: f.friend?.display_name,
-          avatar_url: f.friend?.avatar_url,
-          level: f.friend?.level || 1,
-        }));
+        const friendIds = (friendshipRows || []).map((r: any) =>
+          r.requester_id === userId ? r.addressee_id : r.requester_id
+        );
+
+        let friends: Friend[] = [];
+        if (friendIds.length) {
+          const { data: friendsData } = await supabase
+            .from('profiles')
+            .select('id, username, display_name, avatar_url, level')
+            .in('id', friendIds);
+          friends = (friendsData || []).map((f: any) => ({
+            id: f.id,
+            username: f.username || 'Unknown',
+            display_name: f.display_name,
+            avatar_url: f.avatar_url,
+            level: f.level || 1,
+          }));
+        }
         setTopFriends(friends);
       }
 

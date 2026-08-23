@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Expand, Trash2, GripVertical, Crown, Award, Star } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ChevronLeft, ChevronRight, Expand, Trash2, GripVertical, Crown, Award, Star, Plus, Search, Loader2, X } from "lucide-react";
 import supabase from "@/utils/supabase";
 import { toast } from "sonner";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -32,6 +33,31 @@ const CATEGORIES = [
   { id: 'anime', label: 'Series', icon: '📺' },
   { id: 'game', label: 'Games', icon: '🎮' },
 ];
+
+// Категории поиска: media_type в БД → тип контента для поиска
+type SearchCategory = 'movie' | 'series' | 'game';
+const DB_TO_SEARCH: Record<string, SearchCategory> = {
+  movie: 'movie',
+  anime: 'series',
+  game: 'game',
+};
+
+const SEARCH_LABELS: Record<SearchCategory, string> = {
+  movie: 'Фильмы',
+  series: 'Сериалы',
+  game: 'Игры',
+};
+
+const MAX_ITEMS = 50;
+
+const RAWG_API_KEY = "c33c648c0d8f45c494af8da025d7b862";
+
+interface SearchResultItem {
+  id: string;
+  title: string;
+  posterUrl: string | null;
+  year?: string;
+}
 
 interface Top50ProfileProps {
   userId: string;
@@ -62,6 +88,7 @@ const SortableItem = ({ item, isOwnProfile, onRemove, mediaType }: { item: TopLi
         <Link
           to={`/${mediaType === 'movie' ? 'movie' : mediaType === 'anime' ? 'series' : 'game'}/${item.item_id}`}
           className="flex-shrink-0"
+          onClick={(e) => e.stopPropagation()}
         >
           <img
             src={item.poster_url.replace('/w500/', '/w342/')}
@@ -72,8 +99,9 @@ const SortableItem = ({ item, isOwnProfile, onRemove, mediaType }: { item: TopLi
         </Link>
       )}
       <Link
-        to={`/${mediaType === 'movie' ? 'movie' : 'series'}/${item.item_id}`}
+        to={`/${mediaType === 'movie' ? 'movie' : mediaType === 'anime' ? 'series' : 'game'}/${item.item_id}`}
         className="flex-1 min-w-0 hover:text-primary transition-colors"
+        onClick={(e) => e.stopPropagation()}
       >
         <h4 className="font-grotesk font-medium truncate cursor-pointer">{item.title}</h4>
       </Link>
@@ -112,6 +140,8 @@ const TopRankItem = ({ item, rank, isOwnProfile, onRemove, mediaType }: { item: 
     }
   };
 
+  const routeBase = mediaType === 'movie' ? 'movie' : mediaType === 'anime' ? 'series' : 'game';
+
   return (
     <div
       ref={setNodeRef}
@@ -119,54 +149,61 @@ const TopRankItem = ({ item, rank, isOwnProfile, onRemove, mediaType }: { item: 
       className={`relative group ${rank <= 3 ? 'col-span-1' : ''}`}
     >
       {/* Main Card */}
-      <div className={`relative group ${getFrameClass()} overflow-visible transition-all duration-300 cursor-pointer`}>
-        {/* Link Wrapper */}
-        <Link 
-          to={`/${mediaType === 'movie' ? 'movie' : mediaType === 'anime' ? 'series' : 'game'}/${item.item_id}`}
-          className="relative block overflow-hidden h-full"
+      <div className={`relative ${getFrameClass()} transition-all duration-300 cursor-pointer`}>
+        <Link
+          to={`/${routeBase}/${item.item_id}`}
+          className="relative block overflow-hidden rounded-[14px] aspect-[2/3]"
         >
           {/* Poster */}
-          {item.poster_url && (
-            <img 
-              src={item.poster_url} 
+          {item.poster_url ? (
+            <img
+              src={item.poster_url}
               alt={item.title}
-              className="w-full h-auto object-cover"
+              className="w-full h-full object-cover"
             />
+          ) : (
+            <div className="w-full h-full bg-muted flex items-center justify-center p-4 text-center text-sm text-muted-foreground">
+              {item.title}
+            </div>
           )}
-          
+
           {/* Overlay Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent" />
+
+          {/* Title Section */}
+          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+            <h4 className="font-grotesk font-bold text-white text-sm md:text-base line-clamp-2 drop-shadow-lg">
+              {item.title}
+            </h4>
+            {rank <= 3 && (
+              <span className={`inline-block mt-1.5 text-[9px] font-pixel tracking-[0.2em] uppercase ${
+                rank === 1 ? 'text-yellow-300/90' :
+                rank === 2 ? 'text-slate-300/90' :
+                'text-orange-300/90'
+              }`}>
+                {rank === 1 ? '★ Gold' : rank === 2 ? '★ Silver' : '★ Bronze'}
+              </span>
+            )}
+          </div>
         </Link>
 
-        {/* Rank Badge - Serious Numbers in Center */}
-        <div className={`absolute ${
+        {/* Rank Badge - круглая медаль в углу */}
+        <div className={`${
           rank === 1 ? 'rank-badge-1' :
           rank === 2 ? 'rank-badge-2' :
           rank === 3 ? 'rank-badge-3' :
           'rank-badge-regular'
-        } font-bold flex items-center justify-center z-30 shadow-xl`}>
-          <span className="relative z-10 drop-shadow-lg">
-            {rank}
-          </span>
-        </div>
-
-          {/* Title Section */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 bg-gradient-to-t from-black/95 via-black/50 to-transparent">
-          <Link 
-            to={`/${mediaType === 'movie' ? 'movie' : 'series'}/${item.item_id}`}
-            className="block hover:text-primary transition-colors"
-          >
-            <h4 className="font-grotesk font-bold text-white text-sm md:text-base line-clamp-2 drop-shadow-lg">{item.title}</h4>
-          </Link>
+        } z-30`}>
+          {rank}
         </div>
 
         {/* Delete Button */}
         {isOwnProfile && (
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={onRemove}
-            className="absolute top-2 left-2 md:top-3 md:left-3 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-red-500/80 text-white rounded-full shadow-lg z-20"
+            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-red-500/80 text-white rounded-full shadow-lg z-20"
           >
             <Trash2 className="w-4 h-4" />
           </Button>
@@ -174,10 +211,10 @@ const TopRankItem = ({ item, rank, isOwnProfile, onRemove, mediaType }: { item: 
 
         {/* Drag Handle */}
         {isOwnProfile && (
-          <div 
-            {...attributes} 
-            {...listeners} 
-            className="absolute bottom-2 left-2 md:bottom-3 md:left-3 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 p-1.5 md:p-2 rounded-full shadow-lg z-20"
+          <div
+            {...attributes}
+            {...listeners}
+            className="absolute bottom-2 left-2 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 p-1.5 rounded-full shadow-lg z-20"
           >
             <GripVertical className="w-4 h-4 text-white" />
           </div>
@@ -194,6 +231,14 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
   const [showExpanded, setShowExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Add-item dialog state
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addSearchCategory, setAddSearchCategory] = useState<SearchCategory>('movie');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [addingId, setAddingId] = useState<string | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -207,6 +252,13 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
     const list = lists.find(l => l.media_type === activeCategory);
     setSelectedList(list || null);
   }, [activeCategory, lists]);
+
+  const totalItems = lists.reduce((acc, l) => acc + (l.items?.length || 0), 0);
+
+  // Пустой топ видит только владелец — скрываем секцию от окружающих
+  if (!loading && !isOwnProfile && totalItems === 0) {
+    return null;
+  }
 
   const loadLists = async () => {
     try {
@@ -228,7 +280,12 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
             .select('*')
             .eq('top_list_id', list.id)
             .order('rank');
-          return { ...list, items: items || [] };
+          // Нормализация: пересчитываем ранги последовательно,
+          // чтобы не было дублей (#2, #2, #3...) после старых багов
+          const normalized = (items || [])
+            .sort((a, b) => a.rank - b.rank)
+            .map((item, idx) => ({ ...item, rank: idx + 1 }));
+          return { ...list, items: normalized };
         })
       );
 
@@ -245,11 +302,11 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
 
     try {
       await supabase.from('top_list_items').delete().eq('id', itemId);
-      toast.success('Removed from list');
+      toast.success('Удалено из списка');
       loadLists();
     } catch (error) {
       console.error('Error removing item:', error);
-      toast.error('Failed to remove item');
+      toast.error('Не удалось удалить');
     }
   };
 
@@ -259,8 +316,9 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = selectedList.items?.findIndex(item => item.id === active.id) || 0;
-      const newIndex = selectedList.items?.findIndex(item => item.id === over.id) || 0;
+      const oldIndex = selectedList.items?.findIndex(item => item.id === active.id) ?? -1;
+      const newIndex = selectedList.items?.findIndex(item => item.id === over.id) ?? -1;
+      if (oldIndex < 0 || newIndex < 0) return;
 
       const newItems = arrayMove(selectedList.items || [], oldIndex, newIndex);
       const reorderedItems = newItems.map((item, idx) => ({
@@ -268,26 +326,33 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
         rank: idx + 1,
       }));
 
-      // Update UI optimistically
+      // Обновляем UI мгновенно
       setSelectedList({
         ...selectedList,
         items: reorderedItems,
       });
+      setLists(prev =>
+        prev.map(l => l.id === selectedList.id ? { ...l, items: reorderedItems } : l)
+      );
 
-      // Update database
+      // В БД пишем только те позиции, у которых ранг реально изменился
+      const changed = reorderedItems.filter((item, idx) =>
+        selectedList.items?.[idx]?.rank !== item.rank
+      );
+
       try {
         await Promise.all(
-          reorderedItems.map(item =>
+          changed.map(item =>
             supabase
               .from('top_list_items')
               .update({ rank: item.rank })
               .eq('id', item.id)
           )
         );
-        toast.success('Order updated');
+        toast.success('Порядок обновлён');
       } catch (error) {
         console.error('Error updating order:', error);
-        toast.error('Failed to update order');
+        toast.error('Не удалось обновить порядок');
         loadLists();
       }
     }
@@ -312,11 +377,187 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
         }
       }
       loadLists();
-      toast.success('Lists created!');
+      toast.success('Списки созданы!');
     } catch (error) {
       console.error('Error creating lists:', error);
     }
   };
+
+  /* ══════════ ADD ITEM VIA SEARCH ══════════ */
+
+  const openAddDialog = () => {
+    setAddSearchCategory(DB_TO_SEARCH[selectedList?.media_type || 'movie'] || 'movie');
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowAddDialog(true);
+  };
+
+  const searchContent = async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    try {
+      setSearching(true);
+      setSearchResults([]);
+
+      if (addSearchCategory === 'game') {
+        const res = await fetch(
+          `https://api.rawg.io/api/games?key=${RAWG_API_KEY}&search=${encodeURIComponent(q)}&page_size=24`
+        );
+        const data = await res.json();
+        setSearchResults(
+          (data.results || []).map((g: any) => ({
+            id: String(g.id),
+            title: g.name,
+            posterUrl: g.background_image || null,
+            year: g.released ? new Date(g.released).getFullYear().toString() : undefined,
+          }))
+        );
+      } else {
+        const endpoint = addSearchCategory === 'movie' ? 'search/movie' : 'search/tv';
+        const res = await fetch(
+          `https://api.themoviedb.org/3/${endpoint}?query=${encodeURIComponent(q)}&page=1&language=ru-RU`,
+          {
+            headers: {
+              'Authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJhOTgxYjNiYTBiMzQ1ZjU3OGZiOTE3ZWU3NGE5MGJmMyIsIm5iZiI6MTc1MjUyMjUxMy40MjcsInN1YiI6IjY4NzU1ZjExNzUzYjVjNTYwM2Y5MWJkMyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Trm6p4NqL6VPKlvUkGkRMKVjeH2KAklTAllVbnolV8w',
+              'Accept': 'application/json',
+            },
+          }
+        );
+        const data = await res.json();
+        setSearchResults(
+          (data.results || []).map((m: any) => ({
+            id: String(m.id),
+            title: m.title || m.name,
+            posterUrl: m.poster_path ? `https://image.tmdb.org/t/p/w342${m.poster_path}` : null,
+            year: (m.release_date || m.first_air_date || '').slice(0, 4) || undefined,
+          }))
+        );
+      }
+    } catch (error) {
+      console.error('Error searching content:', error);
+      toast.error('Ошибка поиска');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Живой поиск: результаты появляются сами по мере ввода
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      searchContent();
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchQuery, addSearchCategory]);
+
+  const addItemToList = async (result: SearchResultItem) => {
+    if (!isOwnProfile) return;
+    const dbMediaType = (Object.keys(DB_TO_SEARCH).find(
+      k => DB_TO_SEARCH[k] === addSearchCategory
+    ) || 'movie') as 'movie' | 'anime' | 'game';
+
+    try {
+      setAddingId(result.id);
+      let topListId: string | undefined;
+
+      const { data: existingList } = await supabase
+        .from('top_lists')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('media_type', dbMediaType)
+        .single();
+
+      if (existingList) {
+        topListId = existingList.id;
+      } else {
+        const { data: newList, error: createError } = await supabase
+          .from('top_lists')
+          .insert({
+            user_id: userId,
+            title: `Top 50 ${SEARCH_LABELS[addSearchCategory]}`,
+            media_type: dbMediaType,
+          })
+          .select('id')
+          .single();
+
+        if (createError) throw createError;
+        topListId = newList?.id;
+      }
+
+      if (!topListId) throw new Error('Failed to create or find top list');
+
+      // Дубликат + лимит — параллельно, чтобы не ждать два запроса подряд
+      const [{ data: existingItem }, { count }] = await Promise.all([
+        supabase
+          .from('top_list_items')
+          .select('id')
+          .eq('top_list_id', topListId)
+          .eq('item_id', result.id)
+          .maybeSingle(),
+        supabase
+          .from('top_list_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('top_list_id', topListId),
+      ]);
+
+      if (existingItem) {
+        toast.info('Уже в списке');
+        return;
+      }
+
+      if ((count || 0) >= MAX_ITEMS) {
+        toast.error(`Максимум ${MAX_ITEMS} позиций`);
+        return;
+      }
+
+      const nextRank = (count || 0) + 1;
+
+      const { error: insertError } = await supabase.from('top_list_items').insert({
+        top_list_id: topListId,
+        item_id: result.id,
+        rank: nextRank,
+        title: result.title,
+        poster_url: result.posterUrl || '',
+      });
+
+      if (insertError) throw insertError;
+
+      // Мгновенно обновляем UI без перезагрузки всего списка
+      const newItem = {
+        id: `tmp-${Date.now()}`,
+        rank: nextRank,
+        item_id: result.id,
+        title: result.title,
+        poster_url: result.posterUrl || '',
+      };
+      if (selectedList && selectedList.media_type === dbMediaType) {
+        setSelectedList({
+          ...selectedList,
+          items: [...(selectedList.items || []), newItem],
+        });
+      }
+      setLists(prev =>
+        prev.map(l => l.media_type === dbMediaType
+          ? { ...l, items: [...(l.items || []), newItem] }
+          : l
+        )
+      );
+      toast.success(`#${nextRank} — «${result.title}» добавлено в Топ`);
+    } catch (error) {
+      console.error('Error adding to top list:', error);
+      toast.error('Ошибка при добавлении');
+    } finally {
+      setAddingId(null);
+    }
+  };
+
+  const itemsCount = selectedList?.items?.length || 0;
+  const canAddMore = isOwnProfile && itemsCount < MAX_ITEMS;
 
   return (
     <>
@@ -342,19 +583,26 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
               <p className="font-pixel text-[9px] tracking-[0.25em] text-accent uppercase mb-3 drop-shadow-sm">
                 ★ Personal Ranking
               </p>
-              <h3 className="leading-[0.95]">
-                <span className="block font-script text-5xl md:text-7xl text-foreground/90 -mb-1 select-none">
+              <h3 className="leading-[0.85]">
+                <span className="block font-sloop text-[4.5rem] md:text-[7rem] bg-gradient-to-br from-accent via-primary to-accent bg-clip-text text-transparent -mb-3 md:-mb-5 pl-1 select-none [text-shadow:none] drop-shadow-[0_0_18px_hsl(var(--accent)/0.35)]">
                   My
                 </span>
-                <span className="block font-grotesk font-bold tracking-tight text-5xl md:text-7xl rxp-shine">
+                <span className="block font-grotesk font-bold tracking-tight text-4xl md:text-6xl rxp-shine pb-1">
                   TOP&nbsp;50
                 </span>
               </h3>
             </div>
 
-            {isOwnProfile && !lists.length && (
-              <Button onClick={createDefaultLists} variant="outline" size="sm" className="flex-shrink-0 mt-2">
-                Create Lists
+            {isOwnProfile && (
+              <Button onClick={canAddMore ? openAddDialog : createDefaultLists} variant="outline" size="sm" className="flex-shrink-0 mt-2 gap-1.5">
+                {canAddMore ? (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Добавить
+                  </>
+                ) : (
+                  'Create Lists'
+                )}
               </Button>
             )}
           </div>
@@ -362,13 +610,13 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
           {/* Прогресс заполнения топа */}
           <div className="relative z-10 flex items-center gap-4 mb-6 max-w-md">
             <span className="font-grotesk font-bold text-2xl text-foreground">
-              {selectedList?.items?.length || 0}
+              {itemsCount}
               <span className="text-muted-foreground text-base font-medium"> / 50</span>
             </span>
             <div className="rxp-fill-track">
               <div
                 className="rxp-fill-bar"
-                style={{ width: `${Math.min(100, ((selectedList?.items?.length || 0) / 50) * 100)}%` }}
+                style={{ width: `${Math.min(100, (itemsCount / MAX_ITEMS) * 100)}%` }}
               />
             </div>
           </div>
@@ -426,10 +674,10 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
 
         {/* ===== BODY ===== */}
         <div className="p-5 md:p-8">
-          {/* Info Text */}
+          {/* Info Text — только владельцу */}
           {isOwnProfile && (
             <p className="text-sm text-muted-foreground mb-6 text-center">
-              💡 Отмечайте фильмы сердечком, чтобы добавить их сюда • Перетаскивайте для сортировки
+              💡 Нажмите «+ Добавить», найдите фильм/сериал/игру и добавьте в свой Топ • Перетаскивайте для сортировки
             </p>
           )}
 
@@ -439,7 +687,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                 <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />
               ))}
             </div>
-          ) : (selectedList?.items?.length || 0) > 0 ? (
+          ) : itemsCount > 0 ? (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -449,10 +697,10 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                 items={(selectedList?.items || []).map(item => item.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {/* TOP-3 PODIUM — крупные постеры */}
-                {(selectedList?.items?.length || 0) > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 md:gap-6 mb-7">
-                    {(selectedList?.items || []).slice(0, 3).map((item) => (
+                {/* TOP-5 — крупные постеры */}
+                {itemsCount > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5 mb-7 pt-4">
+                    {(selectedList?.items || []).slice(0, 5).map((item) => (
                       <TopRankItem
                         key={item.id}
                         item={item}
@@ -466,9 +714,9 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                 )}
 
                 {/* Остальные позиции строками */}
-                {(selectedList?.items?.length || 0) > 3 && (
+                {itemsCount > 5 && (
                   <div className="space-y-2">
-                    {(selectedList?.items || []).slice(3, 10).map((item) => (
+                    {(selectedList?.items || []).slice(5, 10).map((item) => (
                       <SortableItem
                         key={item.id}
                         item={item}
@@ -479,26 +727,172 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                     ))}
                   </div>
                 )}
+
+                {/* Кнопка + в конце списка — только владельцу, если есть место */}
+                {isOwnProfile && canAddMore && (
+                  <button
+                    onClick={openAddDialog}
+                    disabled={!selectedList}
+                    className="mt-4 w-full h-14 rounded-xl border-2 border-dashed border-border/80 hover:border-primary/60 hover:bg-muted/30 transition-all flex items-center justify-center gap-2 text-muted-foreground hover:text-primary"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span className="text-sm font-medium">Добавить в Топ 50</span>
+                  </button>
+                )}
               </SortableContext>
             </DndContext>
           ) : (
-            <p className="text-muted-foreground text-center py-12">
-              {isOwnProfile ? 'Список пуст. Добавляйте фильмы через кнопку с сердечком!' : 'Пока нет позиций'}
-            </p>
+            /* Empty state — только владелец (для остальных секция скрыта полностью) */
+            isOwnProfile && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <button
+                  onClick={openAddDialog}
+                  disabled={!selectedList}
+                  className="w-20 h-20 rounded-full border-2 border-dashed border-primary/50 hover:border-primary hover:bg-primary/10 transition-all flex items-center justify-center group mb-6 disabled:opacity-40"
+                >
+                  <Plus className="w-9 h-9 text-primary/60 group-hover:text-primary group-hover:scale-110 transition-all" />
+                </button>
+                <p className="font-medium mb-1">Список пуст</p>
+                <p className="text-muted-foreground text-sm">Нажмите «+», чтобы найти и добавить первый тайтл</p>
+              </div>
+            )
           )}
 
-          {/* Show More Button */}
-          {(selectedList?.items?.length || 0) > 10 && (
+          {/* Show All Button */}
+          {itemsCount > 0 && (
             <Button
               onClick={() => setShowExpanded(true)}
-              className="w-full gap-2 mt-6 h-11 bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-grotesk"
+              className="w-full gap-2 mt-6 h-12 bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-grotesk shadow-lg shadow-primary/20"
             >
               <Expand className="w-4 h-4" />
-              Показать все {selectedList?.items?.length}
+              Смотреть все {itemsCount}
             </Button>
           )}
         </div>
       </Card>
+
+      {/* ===== Add Item Dialog ===== */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-primary" />
+              Добавить в Топ 50
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Category switcher */}
+          <div className="flex gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/50">
+            {(Object.keys(SEARCH_LABELS) as SearchCategory[]).map((cat) => (
+              <Button
+                key={cat}
+                variant={addSearchCategory === cat ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  setAddSearchCategory(cat);
+                  setSearchResults([]);
+                }}
+                className="flex-1 h-9 rounded-lg text-sm"
+              >
+                {SEARCH_LABELS[cat]}
+              </Button>
+            ))}
+          </div>
+
+          {/* Search input */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') searchContent();
+                }}
+                placeholder={`Найти ${SEARCH_LABELS[addSearchCategory].toLowerCase()}...`}
+                className="pl-9 pr-8"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded"
+                >
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+            <Button onClick={searchContent} disabled={searching || !searchQuery.trim()} className="gap-2">
+              {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              Искать
+            </Button>
+          </div>
+
+          {/* Results */}
+          <div className="flex-1 overflow-y-auto min-h-[200px] max-h-[50vh]">
+            {searching ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 py-4">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="aspect-[2/3] bg-muted animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : searchResults.length > 0 ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 py-4">
+                {searchResults.map((r) => {
+                  const alreadyAdded = selectedList?.items?.some(i => i.item_id === r.id) &&
+                    DB_TO_SEARCH[selectedList.media_type] === addSearchCategory;
+                  return (
+                    <button
+                      key={`${addSearchCategory}-${r.id}`}
+                      onClick={() => addItemToList(r)}
+                      disabled={addingId !== null || !!alreadyAdded}
+                      className={`group relative aspect-[2/3] rounded-lg overflow-hidden border transition-all text-left ${
+                        alreadyAdded
+                          ? 'border-emerald-500/60 opacity-70'
+                          : 'border-border/60 hover:border-primary hover:scale-[1.03]'
+                      } disabled:cursor-not-allowed`}
+                    >
+                      {r.posterUrl ? (
+                        <img src={r.posterUrl} alt={r.title} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full bg-muted flex items-center justify-center p-2 text-center text-xs text-muted-foreground">
+                          {r.title}
+                        </div>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 to-transparent p-2 pt-6">
+                        <p className="text-white text-xs font-medium line-clamp-2 leading-tight">{r.title}</p>
+                        {r.year && <p className="text-white/60 text-[10px]">{r.year}</p>}
+                      </div>
+                      {addingId === r.id && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <Loader2 className="w-6 h-6 animate-spin text-white" />
+                        </div>
+                      )}
+                      {alreadyAdded && (
+                        <div className="absolute top-1.5 right-1.5 bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                          ✓ В топе
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center">
+                <Search className="w-10 h-10 text-muted-foreground/40 mb-3" />
+                <p className="text-muted-foreground text-sm">
+                  {searchQuery.trim()
+                    ? 'Ничего не найдено'
+                    : `Введите название ${SEARCH_LABELS[addSearchCategory].toLowerCase()} и нажмите «Искать»`}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground text-center">
+            Добавлено в текущую категорию: {itemsCount} / {MAX_ITEMS}
+          </p>
+        </DialogContent>
+      </Dialog>
 
       {/* Expanded View Modal */}
       <Dialog open={showExpanded} onOpenChange={setShowExpanded}>
@@ -510,7 +904,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
               <span className="line-clamp-1">{selectedList?.title}</span>
             </DialogTitle>
             <p className="text-muted-foreground mt-1 md:mt-2 text-xs md:text-sm">
-              {selectedList?.items?.length === 0 ? 'Empty list' : `Showing ${selectedList?.items?.length} items`}
+              {itemsCount === 0 ? 'Empty list' : `Showing ${itemsCount} items`}
             </p>
           </div>
 
@@ -569,7 +963,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
               ) : (
                 <div className="flex items-center justify-center h-96">
                   <p className="text-muted-foreground text-base md:text-lg">
-                    {isOwnProfile ? 'Empty list. Add items by clicking the heart button!' : 'No items yet'}
+                    {isOwnProfile ? 'Список пуст. Нажмите «+ Добавить»!' : 'No items yet'}
                   </p>
                 </div>
               )}

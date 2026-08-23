@@ -104,8 +104,27 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  /* ── Uniform look across resolutions ─────────────────────────────
+     Root font-size scales linearly with viewport width:
+     16px @ 1920w, ~13px @ laptops, capped 21px @ 2K/4K.
+     All rem-based Tailwind sizes (text, p, gap, w) scale together,
+     so proportions stay identical on every screen. */
+  html {
+    font-size: clamp(13px, 0.8333vw, 21px);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Phones: fixed readable base, responsive grids handle layout */
+  @media (max-width: 767px) {
+    html {
+      font-size: 15px;
+    }
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    max-width: 100vw;
+    overflow-x: clip;
   }
 
   h1, h2, h3, h4, h5, h6 {
