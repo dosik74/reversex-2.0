@@ -3,7 +3,7 @@ import MovieCard from "@/components/MovieCard";
 import CatalogHeader from "@/components/CatalogHeader";
 import PosterRow from "@/components/PosterRow";
 import MovieCategoryFilter from "@/components/MovieCategoryFilter";
-import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS } from "@/components/MovieSortFilter";
+import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS, GENRE_LIST } from "@/components/MovieSortFilter";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { getPopularMovies, searchMovies, getTopRatedMovies } from "@/utils/tmdbApi";
 import { useTranslation } from "react-i18next";
@@ -134,9 +134,9 @@ const Movies = () => {
     return result;
   }, [allMovies, selectedCategory, sortBy, genreFilter]);
 
-  // Initialize display when allMovies loads
+  // Initialize display when allMovies loads (skip if grid already populated — background pages keep appending)
   useEffect(() => {
-    if (allMovies.length > 0) {
+    if (allMovies.length > 0 && displayMovies.length === 0) {
       setDisplayMovies(filteredAndSortedMovies.slice(0, MOVIES_PER_PAGE));
       setPage(1);
       setHasMore(filteredAndSortedMovies.length > MOVIES_PER_PAGE);
@@ -159,11 +159,13 @@ const Movies = () => {
     try {
       setLoading(true);
       const all: Movie[] = [];
+      const TOTAL_PAGES = 25; // ~500 movies
 
-      // Load 8 pages (~160 movies) for a rich catalog
-      for (let pageNum = 1; pageNum <= 8; pageNum++) {
+      for (let pageNum = 1; pageNum <= TOTAL_PAGES; pageNum++) {
         try {
           const { movies } = await getPopularMovies(pageNum);
+          if (movies.length === 0) break;
+
           const transformedMovies: Movie[] = movies
             .filter(m => m.poster_path)
             .map(m => ({
@@ -175,18 +177,21 @@ const Movies = () => {
               description: m.overview || '',
               genre_ids: m.genre_ids || []
             }));
+
           all.push(...transformedMovies);
-          if (movies.length === 0) break;
-          await new Promise(resolve => setTimeout(resolve, 150));
+
+          // Progressive render: UI is usable after first pages, rest loads in background
+          if (pageNum >= 3) setLoading(false);
+          setAllMovies([...all]);
+
+          await new Promise(resolve => setTimeout(resolve, 120));
         } catch (err) {
           console.warn(`Failed to load page ${pageNum}:`, err);
           break;
         }
       }
 
-      setAllMovies(all);
-      setDisplayMovies(all.slice(0, MOVIES_PER_PAGE));
-      setHasMore(all.length > MOVIES_PER_PAGE);
+      setAllMovies([...all]);
     } catch (error) {
       console.error('Error fetching movies:', error);
     } finally {
@@ -293,8 +298,16 @@ const Movies = () => {
     () => [...allMovies].sort((a, b) => b.rating - a.rating).slice(0, 20),
     [allMovies]
   );
-  const freshMovies = useMemo(
-    () => [...allMovies].sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)).slice(0, 20),
+
+  // Genre rows built from the loaded pool
+  const genreRows = useMemo(
+    () =>
+      GENRE_LIST.map((g) => ({
+        ...g,
+        items: allMovies
+          .filter((m) => m.genre_ids?.some((id) => GENRE_TMDB_IDS[g.id]?.movie.includes(id)))
+          .slice(0, 30),
+      })).filter((r) => r.items.length >= 6),
     [allMovies]
   );
 
@@ -362,7 +375,9 @@ const Movies = () => {
           <>
             <PosterRow title="Популярное сейчас" items={popularMovies} render={renderMovie} getKey={(m) => m.id} />
             <PosterRow title="Высокий рейтинг" items={topRatedMovies} render={renderMovie} getKey={(m) => m.id} />
-            <PosterRow title="Новинки" items={freshMovies} render={renderMovie} getKey={(m) => m.id} />
+            {genreRows.map((row) => (
+              <PosterRow key={row.id} title={row.name} items={row.items} render={renderMovie} getKey={(m) => m.id} />
+            ))}
           </>
         ) : (
         <>

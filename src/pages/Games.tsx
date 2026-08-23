@@ -101,9 +101,9 @@ const Games = () => {
     return result;
   }, [allGames, selectedGenres, sortBy]);
 
-  // Initialize display when allGames loads
+  // Initialize display when allGames loads (skip if grid already populated)
   useEffect(() => {
-    if (allGames.length > 0) {
+    if (allGames.length > 0 && displayGames.length === 0) {
       setDisplayGames(filteredAndSortedGames.slice(0, GAMES_PER_PAGE));
       setPage(1);
       setHasMore(filteredAndSortedGames.length > GAMES_PER_PAGE);
@@ -129,27 +129,43 @@ const Games = () => {
     try {
       setLoading(true);
       const apiKey = "c33c648c0d8f45c494af8da025d7b862";
-      
-      const response = await fetch(
-        `https://api.rawg.io/api/games?key=${apiKey}&page_size=100&ordering=-rating`
-      );
-      const data = await response.json();
+      const all: Game[] = [];
+      const TOTAL_PAGES = 5; // 5 × 100 = 500 games
 
-      const transformedGames: Game[] = data.results
-        .filter((g: any) => g.background_image)
-        .map((g: any) => ({
-          id: g.id,
-          title: g.name,
-          year: g.released?.split('-')[0] || 'Unknown',
-          rating: Math.round((g.rating || 0) * 10) / 10,
-          poster: g.background_image,
-          description: g.description || '',
-          genres: g.genres?.map((genre: any) => genre.name) || []
-        }));
+      for (let pageNum = 1; pageNum <= TOTAL_PAGES; pageNum++) {
+        try {
+          const response = await fetch(
+            `https://api.rawg.io/api/games?key=${apiKey}&page_size=100&page=${pageNum}&ordering=-rating`
+          );
+          const data = await response.json();
+          if (!data.results || data.results.length === 0) break;
 
-      setAllGames(transformedGames);
-      setDisplayGames(transformedGames.slice(0, GAMES_PER_PAGE));
-      setHasMore(transformedGames.length > GAMES_PER_PAGE);
+          const transformedGames: Game[] = data.results
+            .filter((g: any) => g.background_image)
+            .map((g: any) => ({
+              id: g.id,
+              title: g.name,
+              year: g.released?.split('-')[0] || 'Unknown',
+              rating: Math.round((g.rating || 0) * 10) / 10,
+              poster: g.background_image,
+              description: g.description || '',
+              genres: g.genres?.map((genre: any) => genre.name) || []
+            }));
+
+          all.push(...transformedGames);
+
+          // Progressive render
+          if (pageNum >= 1) setLoading(false);
+          setAllGames([...all]);
+
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (err) {
+          console.warn(`Failed to load games page ${pageNum}:`, err);
+          break;
+        }
+      }
+
+      setAllGames([...all]);
     } catch (error) {
       console.error('Error fetching games:', error);
     } finally {
@@ -230,8 +246,17 @@ const Games = () => {
   const rowsMode = !searchQuery.trim() && selectedGenres.length === 0;
 
   const topGames = useMemo(() => allGames.slice(0, 20), [allGames]);
-  const freshGames = useMemo(
-    () => [...allGames].sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)).slice(0, 20),
+
+  // Genre rows built from the loaded pool
+  const genreRows = useMemo(
+    () =>
+      GAME_GENRES.map((genre) => ({
+        id: genre,
+        name: genre,
+        items: allGames
+          .filter((g) => g.genres?.some((x) => x.toLowerCase() === genre.toLowerCase()))
+          .slice(0, 30),
+      })).filter((r) => r.items.length >= 6),
     [allGames]
   );
 
@@ -313,7 +338,9 @@ const Games = () => {
       ) : rowsMode ? (
         <>
           <PosterRow title="Лучшие игры" items={topGames} render={(g) => <GameCard game={g} />} getKey={(g) => g.id} />
-          <PosterRow title="Новинки" items={freshGames} render={(g) => <GameCard game={g} />} getKey={(g) => g.id} />
+          {genreRows.map((row) => (
+            <PosterRow key={row.id} title={row.name} items={row.items} render={(g) => <GameCard game={g} />} getKey={(g) => g.id} />
+          ))}
         </>
       ) : displayGames.length > 0 ? (
         <>

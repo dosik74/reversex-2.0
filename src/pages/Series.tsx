@@ -3,7 +3,7 @@ import SeriesCard from "@/components/SeriesCard";
 import CatalogHeader from "@/components/CatalogHeader";
 import PosterRow from "@/components/PosterRow";
 import SeriesCategoryFilter from "@/components/SeriesCategoryFilter";
-import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS } from "@/components/MovieSortFilter";
+import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS, GENRE_LIST } from "@/components/MovieSortFilter";
 import { getPopularSeries, searchSeries, getMoviePosterUrl } from "@/utils/tmdbApi";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useTranslation } from "react-i18next";
@@ -125,9 +125,9 @@ const SeriesPage = () => {
     return result;
   }, [allSeries, selectedCategory, sortBy, genreFilter]);
 
-  // Initialize display when allSeries loads
+  // Initialize display when allSeries loads (skip if grid already populated)
   useEffect(() => {
-    if (allSeries.length > 0) {
+    if (allSeries.length > 0 && displaySeries.length === 0) {
       setDisplaySeries(filteredAndSortedSeries.slice(0, SERIES_PER_PAGE));
       setPage(1);
       setHasMore(filteredAndSortedSeries.length > SERIES_PER_PAGE);
@@ -189,11 +189,13 @@ const SeriesPage = () => {
     try {
       setLoading(true);
       const all: Series[] = [];
+      const TOTAL_PAGES = 25; // ~500 series
 
-      // Load 8 pages (~160 series) for a rich catalog
-      for (let pageNum = 1; pageNum <= 8; pageNum++) {
+      for (let pageNum = 1; pageNum <= TOTAL_PAGES; pageNum++) {
         try {
           const results = await getPopularSeries(pageNum);
+          if (results.results.length === 0) break;
+
           const transformed = results.results
             .filter((s: any) => s.poster_path)
             .map((series: any) => ({
@@ -205,18 +207,21 @@ const SeriesPage = () => {
               description: series.overview,
               genre_ids: series.genre_ids || []
             }));
+
           all.push(...transformed);
-          if (results.results.length === 0) break;
-          await new Promise(resolve => setTimeout(resolve, 150));
+
+          // Progressive render
+          if (pageNum >= 3) setLoading(false);
+          setAllSeries([...all]);
+
+          await new Promise(resolve => setTimeout(resolve, 120));
         } catch (err) {
           console.warn(`Failed to load page ${pageNum}:`, err);
           break;
         }
       }
 
-      setAllSeries(all);
-      setDisplaySeries(all.slice(0, SERIES_PER_PAGE));
-      setHasMore(all.length > SERIES_PER_PAGE);
+      setAllSeries([...all]);
     } catch (error) {
       console.error('Error fetching series:', error);
     } finally {
@@ -243,8 +248,16 @@ const SeriesPage = () => {
     () => [...allSeries].sort((a, b) => b.rating - a.rating).slice(0, 20),
     [allSeries]
   );
-  const freshSeries = useMemo(
-    () => [...allSeries].sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)).slice(0, 20),
+
+  // Genre rows built from the loaded pool
+  const genreRows = useMemo(
+    () =>
+      GENRE_LIST.map((g) => ({
+        ...g,
+        items: allSeries
+          .filter((s) => s.genre_ids?.some((id) => GENRE_TMDB_IDS[g.id]?.tv.includes(id)))
+          .slice(0, 30),
+      })).filter((r) => r.items.length >= 6),
     [allSeries]
   );
 
@@ -286,7 +299,9 @@ const SeriesPage = () => {
         <>
           <PosterRow title="Популярные сериалы" items={popularSeries} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
           <PosterRow title="Высокий рейтинг" items={topRatedSeries} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
-          <PosterRow title="Новинки" items={freshSeries} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
+          {genreRows.map((row) => (
+            <PosterRow key={row.id} title={row.name} items={row.items} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
+          ))}
         </>
       ) : (
         <>

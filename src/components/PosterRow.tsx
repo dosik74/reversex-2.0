@@ -17,9 +17,10 @@ export default function PosterRow<T>({ title, items, render, getKey }: PosterRow
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <section className="mb-10">
+    <section className="pr-section mb-10">
       <style>{`
         .pr-in { animation: pr-fade .4s ease both; }
+        .pr-section { content-visibility: auto; contain-intrinsic-size: auto 500px; }
         @keyframes pr-fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 

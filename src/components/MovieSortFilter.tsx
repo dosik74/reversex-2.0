@@ -35,6 +35,8 @@ const GENRES = [
   { id: 'animation', name: 'Мультфильмы' },
 ];
 
+export const GENRE_LIST = GENRES.filter((g) => g.id !== 'all');
+
 export default function MovieSortFilter({
   sortBy,
   onSortChange,
