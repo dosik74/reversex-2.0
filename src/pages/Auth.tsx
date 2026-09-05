@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Film, QrCode } from "lucide-react";
 import QRAuthModal from "@/components/QRAuthModal";
+import { getAuthRedirectUrl } from "@/lib/authRedirect";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ const Auth = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: getAuthRedirectUrl(),
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -85,7 +86,7 @@ const Auth = () => {
           data: {
             username,
           },
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: getAuthRedirectUrl(),
         },
       });
       if (error) throw error;

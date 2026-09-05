@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, LogIn, UserPlus, CheckCircle } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
+import { getAuthRedirectUrl } from '@/lib/authRedirect';
 import { TRANSLATIONS } from '../constants';
 
 interface AuthModalProps {
@@ -26,7 +27,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ language, onClose }) => {
         provider: 'google',
         options: {
             // Ensures user comes back to the correct page
-            redirectTo: window.location.origin, 
+            redirectTo: getAuthRedirectUrl(), 
             queryParams: {
                 access_type: 'offline',
                 prompt: 'consent',
@@ -51,7 +52,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ language, onClose }) => {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: getAuthRedirectUrl() } });
         if (error) throw error;
         setSuccessMsg(language === 'ru' ? "Проверьте почту для подтверждения!" : "Check your email for confirmation!");
       } else {
