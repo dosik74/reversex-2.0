@@ -8,9 +8,14 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const FALLBACK_URL = "https://dxbbresrxkyeprrxlwye.supabase.co";
 const FALLBACK_ANON_KEY = "sb_publishable_IRiCdCDuHTimH-Wx7PngVg_BfnnjlqH";
 
-// Берём URL и ключ из .env, иначе fallback
+// Берём URL и ключ из .env, иначе fallback.
+// Новый формат Supabase использует VITE_SUPABASE_PUBLISHABLE_KEY —
+// принимаем и его, и старый VITE_SUPABASE_ANON_KEY (одно и то же значение).
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || FALLBACK_ANON_KEY;
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  FALLBACK_ANON_KEY;
 
 // Mock builder для метод-чейнинга
 const createMockQueryBuilder = () => {
