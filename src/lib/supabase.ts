@@ -1,12 +1,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Канонический проект (совпадает с прод-токеном sb-thhefxrmnejoxcftdpvq-auth-token
-// и бывшими хардкод-клиентами PinkGlass/Batr). Используется как fallback,
-// чтобы прод-билд на Vercel работал даже если VITE_* переменные не заданы
-// (Vite вшивает их только на этапе build, а .env в .gitignore/.vercelignore).
-const FALLBACK_URL = "https://thhefxrmnejoxcftdpvq.supabase.co";
-const FALLBACK_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRoaGVmeHJtbmVqb3hjZnRkcHZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1NjM2ODUsImV4cCI6MjA3ODEzOTY4NX0.rH2IK94T09cnWAMm00PtH0jvUTCnLqKLbTpdZ8FSX0k";
+// Канонический проект — тот, что открыт у тебя в дашборде на скриншоте:
+// dxbbresrxkyeprrxlwye (2.0REVERSE / reverse 2-0), Site URL уже правильный.
+// Fallback нужен, чтобы прод-билд на Vercel работал даже если VITE_*
+// переменные не заданы (Vite вшивает их только на этапе build,
+// а .env в .gitignore/.vercelignore).
+const FALLBACK_URL = "https://dxbbresrxkyeprrxlwye.supabase.co";
+const FALLBACK_ANON_KEY = "sb_publishable_IRiCdCDuHTimH-Wx7PngVg_BfnnjlqH";
 
 // Берём URL и ключ из .env, иначе fallback
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL;
