@@ -1,8 +1,16 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Берём URL и ключ из .env
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Канонический проект (совпадает с прод-токеном sb-thhefxrmnejoxcftdpvq-auth-token
+// и бывшими хардкод-клиентами PinkGlass/Batr). Используется как fallback,
+// чтобы прод-билд на Vercel работал даже если VITE_* переменные не заданы
+// (Vite вшивает их только на этапе build, а .env в .gitignore/.vercelignore).
+const FALLBACK_URL = "https://thhefxrmnejoxcftdpvq.supabase.co";
+const FALLBACK_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRoaGVmeHJtbmVqb3hjZnRkcHZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1NjM2ODUsImV4cCI6MjA3ODEzOTY4NX0.rH2IK94T09cnWAMm00PtH0jvUTCnLqKLbTpdZ8FSX0k";
+
+// Берём URL и ключ из .env, иначе fallback
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || FALLBACK_ANON_KEY;
 
 // Mock builder для метод-чейнинга
 const createMockQueryBuilder = () => {
@@ -91,11 +99,32 @@ const createMockQueryBuilder = () => {
 };
 
 // Создаём клиент Supabase только если переменные установлены
-let supabase: any = null;
+// Синглтон через globalThis: защита от Multiple GoTrueClient instances
+// (HMR + параллельные импорты) и от Navigator LockManager конфликтов.
+declare global {
+  // eslint-disable-next-line no-var
+  var __reversex_supabase: SupabaseClient | undefined;
+}
+
+let supabase: any;
 
 if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
-  console.log("✅ Supabase клиент инициализирован с URL:", supabaseUrl);
+  if (!globalThis.__reversex_supabase) {
+    globalThis.__reversex_supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: "pkce",
+        storageKey: "sb-reversex-auth-token",
+      },
+    });
+    console.log("✅ Supabase клиент инициализирован с URL:", supabaseUrl);
+    if (!import.meta.env.VITE_SUPABASE_URL) {
+      console.warn("⚠️ VITE_SUPABASE_URL не задан — использован встроенный fallback. Задайте переменные в Vercel > Settings > Environment Variables и сделайте Redeploy.");
+    }
+  }
+  supabase = globalThis.__reversex_supabase;
 } else {
   console.warn("⚠️  Supabase переменные окружения не установлены. Используется mock клиент.");
   console.warn("📝 Убедитесь что установлены переменные окружения:");
