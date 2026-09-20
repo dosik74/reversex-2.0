@@ -100,13 +100,15 @@ const Auth = () => {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleVerifyOtp = async (e?: React.FormEvent<HTMLFormElement>, codeOverride?: string) => {
+    e?.preventDefault();
+    const code = (codeOverride ?? otpCode).replace(/\D/g, '');
+    if (code.length !== 6 || loading) return;
     try {
       setLoading(true);
       const { data, error } = await supabase.auth.verifyOtp({
         email: otpEmail,
-        token: otpCode.trim(),
+        token: code,
         type: 'email',
       });
       if (error) throw error;
@@ -117,6 +119,15 @@ const Auth = () => {
       toast.error(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOtpCodeChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 6);
+    setOtpCode(digits);
+    // Код ввёлся сам: как только 6 цифр — проверяем без кнопки
+    if (digits.length === 6) {
+      handleVerifyOtp(undefined, digits);
     }
   };
 
@@ -393,15 +404,19 @@ const Auth = () => {
                         id="otp-code"
                         type="text"
                         inputMode="numeric"
+                        autoComplete="one-time-code"
                         placeholder="123456"
                         required
                         value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value)}
+                        onChange={(e) => handleOtpCodeChange(e.target.value)}
                       />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
                       {loading ? 'Проверяем...' : 'Войти'}
                     </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Ещё проще: нажмите ссылку «Войти» прямо в письме — код вводить не нужно.
+                    </p>
                     <button
                       type="button"
                       className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"

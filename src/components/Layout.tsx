@@ -26,19 +26,33 @@ const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Вернулись из OAuth (Google) с незавершённым QR-подтверждением —
-  // везём обратно на экран approve, раз сессия уже есть
+  // Вернулись из OAuth или по magic-ссылке из письма с незавершённым
+  // QR-подтверждением — везём обратно на экран approve, раз сессия уже есть.
+  // Слушаем и смену роутов, и позднее появление сессии (обмен кода идёт асинхронно).
   useEffect(() => {
     if (location.pathname === '/qr-auth') return;
-    const pending = sessionStorage.getItem('qr_pending_session');
-    if (!pending) return;
-    // Локальное чтение сессии: getUser() ходит в сеть и на мобильном часто врёт
-    ensureSession().then((session) => {
-      if (session?.user) {
-        sessionStorage.removeItem('qr_pending_session');
-        navigate(`/qr-auth?session=${pending}`);
+    let cancelled = false;
+    const rescue = async () => {
+      const pending = sessionStorage.getItem('qr_pending_session');
+      if (!pending || cancelled) return;
+      try {
+        const session = await ensureSession();
+        if (session?.user && !cancelled) {
+          sessionStorage.removeItem('qr_pending_session');
+          navigate(`/qr-auth?session=${pending}`);
+        }
+      } catch {
+        /* ignore */
       }
-    }).catch(() => {});
+    };
+    rescue();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') rescue();
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [location.pathname, navigate]);
 
   const navItems = [

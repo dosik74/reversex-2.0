@@ -40,6 +40,7 @@ const deviceLabel = (): string => {
 const QRAuthModal = ({ open, onClose, onSuccess }: QRAuthModalProps) => {
   const [phase, setPhase] = useState<Phase>('creating');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [pairCode, setPairCode] = useState<string>('');
   const [qrImg, setQrImg] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number>(0);
   const [now, setNow] = useState(() => Date.now());
@@ -66,15 +67,18 @@ const QRAuthModal = ({ open, onClose, onSuccess }: QRAuthModalProps) => {
     setQrImg(null);
     setErrorText('');
     try {
+      // Короткий код сопряжения: 6 цифр без ноля в начале
+      const code = String(100000 + Math.floor(crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
       const { data, error } = await supabase
         .from('qr_login_sessions')
-        .insert({ device_label: deviceLabel() })
+        .insert({ device_label: deviceLabel(), pair_code: code })
         .select('id, expires_at')
         .single();
       if (error || !data) throw error || new Error('no session');
 
       sessionRef.current = data.id;
       setSessionId(data.id);
+      setPairCode(code);
       setExpiresAt(new Date(data.expires_at).getTime());
 
       // QR в <img> через dataURL — надёжнее canvas в модалке (чинился белый квадрат)
@@ -98,11 +102,13 @@ const QRAuthModal = ({ open, onClose, onSuccess }: QRAuthModalProps) => {
     if (open) {
       sessionRef.current = null;
       setSessionId(null);
+      setPairCode('');
       createSession();
     } else {
       setPhase('creating');
       setQrImg(null);
       setSessionId(null);
+      setPairCode('');
     }
   }, [open, createSession]);
 
@@ -245,6 +251,17 @@ const QRAuthModal = ({ open, onClose, onSuccess }: QRAuthModalProps) => {
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </Button>
               </div>
+
+              {pairCode && (
+                <div className="w-full text-center rounded-xl bg-white/[0.04] border border-white/[0.08] px-4 py-3">
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Код для приложения: Профиль → Привязать устройство
+                  </p>
+                  <p className="font-mono text-3xl font-bold tracking-[0.35em] tabular-nums">
+                    {pairCode}
+                  </p>
+                </div>
+              )}
 
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
