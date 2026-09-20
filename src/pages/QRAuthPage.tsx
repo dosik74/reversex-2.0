@@ -55,6 +55,8 @@ const QRAuthPage = () => {
       setPhase('login-required');
       return;
     }
+    // Вход есть — отложенный возврат больше не нужен
+    sessionStorage.removeItem('qr_pending_session');
     setEmail(user.email || '');
 
     const { data, error } = await supabase
@@ -82,6 +84,11 @@ const QRAuthPage = () => {
 
   useEffect(() => {
     loadSession();
+    // Если вход завершат в соседней вкладке — подхватим сами, без кнопок
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') loadSession();
+    });
+    return () => subscription.unsubscribe();
   }, [loadSession]);
 
   const handleApprove = async () => {
@@ -168,10 +175,13 @@ const QRAuthPage = () => {
             QR-вход подтверждает аккаунт, в который вы вошли на этом устройстве
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <Button onClick={goLogin} className="w-full">
             <LogIn className="w-4 h-4 mr-2" />
             Войти
+          </Button>
+          <Button variant="ghost" onClick={() => loadSession()} className="w-full">
+            Я уже вошёл — проверить снова
           </Button>
         </CardContent>
       </>

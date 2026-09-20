@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon } from "lucide-react";
@@ -24,6 +24,21 @@ const Layout = () => {
   const [showMessages, setShowMessages] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Вернулись из OAuth (Google) с незавершённым QR-подтверждением —
+  // везём обратно на экран approve, раз сессия уже есть
+  useEffect(() => {
+    if (location.pathname === '/qr-auth') return;
+    const pending = sessionStorage.getItem('qr_pending_session');
+    if (!pending) return;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        sessionStorage.removeItem('qr_pending_session');
+        navigate(`/qr-auth?session=${pending}`);
+      }
+    }).catch(() => {});
+  }, [location.pathname, navigate]);
 
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
