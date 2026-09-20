@@ -4,7 +4,7 @@ import supabase from "@/utils/supabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Check, X, ShieldCheck, Smartphone, LogIn } from "lucide-react";
+import { Check, X, ShieldCheck, Smartphone, LogIn, TriangleAlert } from "lucide-react";
 
 interface QrSession {
   id: string;
@@ -107,13 +107,26 @@ const QRAuthPage = () => {
           setPhase('expired');
           return;
         }
-        throw new Error((data as any)?.error || 'approve failed');
+        if (status === 404) {
+          // Edge-функция не задеплоена — дело не в коде, а в сервере
+          setErrorText('QR-вход не настроен на сервере: функция qr-approve не задеплоена.');
+          setPhase('error');
+          return;
+        }
+        const serverMsg = (data as any)?.error;
+        setErrorText(
+          typeof serverMsg === 'string' && serverMsg
+            ? `Сервер отклонил вход: ${serverMsg}`
+            : 'Нет связи с сервером. Проверьте интернет и попробуйте снова.'
+        );
+        setPhase('error');
+        return;
       }
       setPhase('done');
       toast.success('Вход подтверждён!');
     } catch (e) {
       console.error('QR approve failed:', e);
-      setErrorText('Не удалось подтвердить. Возможно, код истёк — отсканируйте новый.');
+      setErrorText('Нет связи с сервером. Проверьте интернет и попробуйте снова.');
       setPhase('error');
     }
   };
@@ -199,9 +212,15 @@ const QRAuthPage = () => {
 
   if (phase === 'error') {
     return shell(
-      <CardContent className="pt-6 text-center">
-        <p className="text-destructive mb-4">{errorText}</p>
-        <Button variant="outline" onClick={() => loadSession()}>Попробовать снова</Button>
+      <CardContent className="pt-10 pb-8 text-center">
+        <span className="inline-flex w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 items-center justify-center mb-4">
+          <TriangleAlert className="w-7 h-7 text-red-400" />
+        </span>
+        <p className="font-semibold text-lg mb-1">Не получилось подтвердить</p>
+        <p className="text-sm text-muted-foreground mb-5 max-w-xs mx-auto">{errorText}</p>
+        <Button onClick={() => loadSession()} className="w-full">
+          Попробовать снова
+        </Button>
       </CardContent>
     );
   }

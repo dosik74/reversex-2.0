@@ -204,7 +204,7 @@ const QRAuthModal = ({ open, onClose, onSuccess }: QRAuthModalProps) => {
     toast.success('Ссылка скопирована!');
   };
 
-  const secsLeft = Math.max(0, Math.round((expiresAt - now) / 1000));
+  const secsLeft = Math.min(180, Math.max(0, Math.round((expiresAt - now) / 1000)));
   const mmss = `${Math.floor(secsLeft / 60)}:${String(secsLeft % 60).padStart(2, '0')}`;
 
   return (
