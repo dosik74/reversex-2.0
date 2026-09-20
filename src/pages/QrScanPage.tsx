@@ -29,16 +29,39 @@ const QrScanPage = () => {
     startedRef.current = true;
 
     const qr = new Html5Qrcode('qr-reader');
+    let alive = true;
+
+    // stop() кидает СИНХРОННО, если сканер не стартовал (нет камеры/прав) —
+    // без этого гарда падает весь рендер в ErrorBoundary
+    const safeStop = () => {
+      try {
+        const p = qr.stop() as unknown as Promise<void> | undefined;
+        if (p && typeof (p as any).catch === 'function') {
+          (p as Promise<void>).catch(() => {});
+        }
+      } catch {
+        /* сканер не был запущен — нечего останавливать */
+      }
+      try {
+        qr.clear();
+      } catch {
+        /* ignore */
+      }
+    };
+
     qr.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: { width: 250, height: 250 } },
       (decodedText) => {
+        if (!alive) return;
         try {
           const url = new URL(decodedText);
           const sid = url.searchParams.get('session');
           if (url.pathname === '/qr-auth' && sid) {
             setScanned(true);
-            qr.stop().catch(() => {}).finally(() => navigate(`/qr-auth?session=${sid}`));
+            alive = false;
+            safeStop();
+            navigate(`/qr-auth?session=${sid}`);
           } else {
             setError('Это не код входа ReverseX. Наведите камеру на QR с экрана входа.');
           }
@@ -60,12 +83,8 @@ const QrScanPage = () => {
     });
 
     return () => {
-      qr.stop().catch(() => {});
-      try {
-        qr.clear();
-      } catch {
-        /* ignore */
-      }
+      alive = false;
+      safeStop();
     };
   }, [loggedIn, navigate]);
 
