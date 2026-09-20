@@ -1,1 +1,15 @@
 /// <reference types="vite/client" />
+
+declare module "qrcode" {
+  interface QRCodeOptions {
+    errorCorrectionLevel?: "L" | "M" | "Q" | "H";
+    margin?: number;
+    width?: number;
+    color?: { dark?: string; light?: string };
+  }
+  const QRCode: {
+    toDataURL(text: string, options?: QRCodeOptions): Promise<string>;
+    toCanvas(canvas: HTMLCanvasElement, text: string, options?: QRCodeOptions): Promise<HTMLCanvasElement>;
+  };
+  export default QRCode;
+}

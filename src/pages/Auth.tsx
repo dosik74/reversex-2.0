@@ -15,6 +15,8 @@ const Auth = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showQRAuth, setShowQRAuth] = useState(false);
+  const [tab, setTab] = useState('signin');
+  const [prefillEmail, setPrefillEmail] = useState('');
 
   const handleGoogleSignIn = async () => {
     try {
@@ -47,26 +49,20 @@ const Auth = () => {
     }
   };
 
-  const handleQRAuthSuccess = async (userId: string) => {
-    try {
-      // userId comes from QRAuthPage (the account ID)
-      // Retrieve the stored account info
-      const accountKey = `qr_account_${userId}`;
-      const accountData = localStorage.getItem(accountKey);
-      
-      if (!accountData) {
-        throw new Error('Account data not found');
-      }
-      
-      const account = JSON.parse(accountData);
-      
-      // Store the authenticated user ID for reference
-      localStorage.setItem('qr_auth_user', userId);
-      
-      toast.success(`Вы вошли как ${account.email}!`);
+  const handleQRAuthSuccess = async () => {
+    // Сессия уже установлена модалкой через verifyOtp — просто заходим
+    toast.success('Вы вошли через QR!');
+    navigate('/');
+  };
+
+  /** После обычного логина возвращаемся к ожидающему QR-подтверждению, если оно есть */
+  const redirectAfterLogin = () => {
+    const pending = sessionStorage.getItem('qr_pending_session');
+    if (pending) {
+      sessionStorage.removeItem('qr_pending_session');
+      navigate(`/qr-auth?session=${pending}`);
+    } else {
       navigate('/');
-    } catch (error: any) {
-      toast.error('Ошибка при входе: ' + error.message);
     }
   };
 
@@ -90,7 +86,16 @@ const Auth = () => {
         },
       });
       if (error) throw error;
-      
+
+      // Если в проекте включено подтверждение email — сессии не будет.
+      // Честно говорим проверить почту, а не делаем вид, что вошли.
+      if (!data.session) {
+        setPrefillEmail(email);
+        setTab('signin');
+        toast.info('Аккаунт создан! Подтвердите email по ссылке из письма, затем войдите.');
+        return;
+      }
+
       // Save account for QR auth
       if (data.user) {
         const accountKey = `qr_account_${data.user.id}`;
@@ -103,9 +108,17 @@ const Auth = () => {
       }
       
       toast.success('Account created successfully!');
-      navigate('/');
+      redirectAfterLogin();
     } catch (error: any) {
-      toast.error(error.message);
+      // Email уже занят — это не баг, а штатный ответ Supabase (422).
+      // Не ругаемся, а мягко ведём на вход с подставленным email.
+      if (/already registered|already exists|duplicate/i.test(error.message || '')) {
+        setPrefillEmail(email);
+        setTab('signin');
+        toast.info('Этот email уже зарегистрирован — войдите с паролем.');
+      } else {
+        toast.error(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -143,7 +156,7 @@ const Auth = () => {
       }
       
       toast.success('Вы успешно вошли!');
-      navigate('/');
+      redirectAfterLogin();
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -198,7 +211,7 @@ const Auth = () => {
               </div>
             </div>
 
-            <Tabs defaultValue="signin">
+            <Tabs value={tab} onValueChange={setTab} defaultValue="signin">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -214,6 +227,8 @@ const Auth = () => {
                       type="email"
                       placeholder="you@example.com"
                       required
+                      key={prefillEmail}
+                      defaultValue={prefillEmail}
                     />
                   </div>
                   <div className="space-y-2">
