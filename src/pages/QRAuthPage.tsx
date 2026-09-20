@@ -111,8 +111,10 @@ const QRAuthPage = () => {
           /* ignore */
         }
         if (status === 401) {
-          sessionStorage.setItem('qr_pending_session', sessionId);
-          setPhase('login-required');
+          // Токен телефона протух/отозван: сервер нас не узнал.
+          // Молча кидать на экран входа нельзя — человек решит, что «всё равно не вошли».
+          setErrorText('Сессия телефона устарела. Войдите заново (быстрее всего — таб «Код» на странице входа) и подтвердите ещё раз.');
+          setPhase('error');
           return;
         }
         if (status === 410) {
@@ -178,6 +180,8 @@ const QRAuthPage = () => {
     } catch {
       sbKeyNames = ['storage-blocked'];
     }
+    const buildSha =
+      (import.meta as any).env?.VITE_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local';
     const sbHost = (() => {
       try {
         return new URL((supabase as any).supabaseUrl || '').host || '?';
@@ -207,7 +211,8 @@ const QRAuthPage = () => {
             <p className="mt-1 font-mono break-all">
               сайт: {window.location.host}<br />
               база: {sbHost}<br />
-              ключи: {sbKeyNames.length ? sbKeyNames.join(', ') : '—'}
+              ключи: {sbKeyNames.length ? sbKeyNames.join(', ') : '—'}<br />
+              сборка: {buildSha}
             </p>
           </details>
         </CardContent>

@@ -33,6 +33,8 @@ const Auth = () => {
   const [otpEmail, setOtpEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  // Постоянная ошибка (тосты исчезают — эта остаётся, чтобы было что скинуть)
+  const [authError, setAuthError] = useState('');
 
   const handleGoogleSignIn = async () => {
     try {
@@ -71,7 +73,11 @@ const Auth = () => {
     navigate('/');
   };
 
-  /** После обычного логина возвращаемся к ожидающему QR-подтверждению, если оно есть */
+  /** Ошибка входа: тост + постоянная плашка (тосты исчезают — плашка остаётся для скриншота) */
+  const fail = (message: string) => {
+    toast.error(message);
+    setAuthError(message);
+  };
   const redirectAfterLogin = () => {
     const pending = sessionStorage.getItem('qr_pending_session');
     if (pending) {
@@ -94,7 +100,7 @@ const Auth = () => {
       setOtpSent(true);
       toast.success('Код отправлен на почту!');
     } catch (error: any) {
-      toast.error(error.message);
+      fail(error.message);
     } finally {
       setLoading(false);
     }
@@ -116,7 +122,7 @@ const Auth = () => {
       toast.success('Вы успешно вошли!');
       redirectAfterLogin();
     } catch (error: any) {
-      toast.error(error.message);
+      fail(error.message);
     } finally {
       setLoading(false);
     }
@@ -182,7 +188,7 @@ const Auth = () => {
         setTab('signin');
         toast.info('Этот email уже зарегистрирован — войдите с паролем.');
       } else {
-        toast.error(error.message);
+        fail(error.message);
       }
     } finally {
       setLoading(false);
@@ -223,7 +229,7 @@ const Auth = () => {
       toast.success('Вы успешно вошли!');
       redirectAfterLogin();
     } catch (error: any) {
-      toast.error(error.message);
+      fail(error.message);
     } finally {
       setLoading(false);
     }
@@ -301,6 +307,12 @@ const Auth = () => {
                 <span className="bg-card px-2 text-muted-foreground">Or</span>
               </div>
             </div>
+
+            {authError && (
+              <div className="mb-4 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {authError}
+              </div>
+            )}
 
             <Tabs value={tab} onValueChange={setTab} defaultValue="signin">
               <TabsList className="grid w-full grid-cols-3">
