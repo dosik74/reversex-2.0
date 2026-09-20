@@ -17,6 +17,8 @@ export interface TMDBMovie {
   runtime: number;
   budget: number;
   revenue: number;
+  status?: string;
+  production_companies?: Array<{ id: number; name: string; logo_path: string | null; origin_country: string }>;
 }
 
 export interface TMDBMovieResponse {
@@ -31,6 +33,7 @@ export interface TMDBMovieResponse {
     vote_average: number;
     vote_count: number;
     genre_ids: number[];
+    popularity?: number;
   }>;
   total_pages: number;
   total_results: number;
@@ -100,12 +103,57 @@ export const searchMovies = async (
 };
 
 /**
+ * TMDB отдаёт русские названия жанров со строчной буквы («документальный»).
+ * Приводим к нормальному виду для бейджей: «Документальный».
+ */
+export const formatGenreName = (name: string): string =>
+  name ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+
+/** Статус фильма/сериала по-русски (TMDB отдаёт английский) */
+const STATUS_RU: Record<string, string> = {
+  Released: 'Выпущен',
+  Rumored: 'По слухам',
+  Planned: 'Запланирован',
+  'In Production': 'В производстве',
+  'Post Production': 'Постпродакшн',
+  Canceled: 'Отменён',
+  Cancelled: 'Отменён',
+  'Returning Series': 'Выходит',
+  Ended: 'Завершён',
+  Pilot: 'Пилот',
+};
+
+export const statusRu = (status?: string): string =>
+  status ? STATUS_RU[status] || status : '';
+
+/** 129 → «2 ч 9 мин», 45 → «45 мин» */
+export const formatRuntime = (minutes?: number): string => {
+  if (!minutes || minutes <= 0) return '';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h <= 0) return `${m} мин`;
+  return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
+};
+
+/** 160000000 → «$160 млн», 1132723226 → «$1,13 млрд» */
+export const formatMoney = (value?: number): string => {
+  if (!value || value <= 0) return '';
+  if (value >= 1_000_000_000) {
+    return `$${(value / 1_000_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} млрд`;
+  }
+  if (value >= 1_000_000) {
+    return `$${Math.round(value / 1_000_000).toLocaleString('ru-RU')} млн`;
+  }
+  return `$${value.toLocaleString('ru-RU')}`;
+};
+
+/**
  * Get movie details including runtime, budget, revenue
  */
-export const getMovieDetails = async (movieId: number): Promise<TMDBMovie> => {
+export const getMovieDetails = async (movieId: number, language: string = 'ru-RU'): Promise<TMDBMovie> => {
   try {
     const response = await fetch(
-      `${TMDB_BASE_URL}/movie/${movieId}?language=ru-RU`,
+      `${TMDB_BASE_URL}/movie/${movieId}?language=${language}`,
       { headers }
     );
 
@@ -239,7 +287,7 @@ export const getMovieVideos = async (movieId: number): Promise<Array<{
  * Get movie credits (cast and crew)
  */
 export const getMovieCredits = async (movieId: number): Promise<{
-  cast: Array<{ id: number; name: string; character: string; profile_path: string | null }>;
+  cast: Array<{ id: number; name: string; character: string; profile_path: string | null; order?: number }>;
   crew: Array<{ id: number; name: string; job: string; profile_path: string | null }>;
 }> => {
   try {
@@ -334,10 +382,10 @@ export const searchSeries = async (query: string, page: number = 1): Promise<TMD
 /**
  * Get TV series details
  */
-export const getSeriesDetails = async (seriesId: number): Promise<TMDBMovie> => {
+export const getSeriesDetails = async (seriesId: number, language: string = 'ru-RU'): Promise<TMDBMovie> => {
   try {
     const response = await fetch(
-      `${TMDB_BASE_URL}/tv/${seriesId}?language=ru-RU`,
+      `${TMDB_BASE_URL}/tv/${seriesId}?language=${language}`,
       { headers }
     );
 
@@ -361,7 +409,8 @@ export const getSeriesDetails = async (seriesId: number): Promise<TMDBMovie> => 
       runtime: data.episode_run_time?.[0] || 0,
       budget: 0,
       revenue: 0,
-      genres: data.genres || []
+      genres: data.genres || [],
+      production_companies: data.production_companies || []
     };
   } catch (error) {
     console.error('Error fetching series details:', error);
@@ -398,10 +447,11 @@ export const getSeriesVideos = async (seriesId: number): Promise<Array<{
 };
 
 /**
- * Get TV series cast
+ * Get TV series cast + crew (полный состав, без обрезки — сортировка на клиенте)
  */
 export const getSeriesCredits = async (seriesId: number): Promise<{
-  cast: Array<{ id: number; name: string; character: string; profile_path: string | null; }>;
+  cast: Array<{ id: number; name: string; character: string; profile_path: string | null; order?: number; total_episode_count?: number; }>;
+  crew: Array<{ id: number; name: string; job: string; profile_path: string | null; }>;
 }> => {
   try {
     const response = await fetch(
@@ -415,16 +465,17 @@ export const getSeriesCredits = async (seriesId: number): Promise<{
 
     const data = await response.json();
     return {
-      cast: (data.cast || []).slice(0, 20)
+      cast: data.cast || [],
+      crew: data.crew || []
     };
   } catch (error) {
     console.error('Error fetching series credits:', error);
-    return { cast: [] };
+    return { cast: [], crew: [] };
   }
 };
 
 /**
- * Get similar TV series
+ * Get similar TV series (нормализуем tv-поля к виду { title, release_date })
  */
 export const getSimilarSeries = async (seriesId: number): Promise<{ series: TMDBMovieResponse['results']; }> => {
   try {
@@ -437,12 +488,242 @@ export const getSimilarSeries = async (seriesId: number): Promise<{ series: TMDB
       throw new Error(`TMDB API error: ${response.status}`);
     }
 
-    const data: TMDBMovieResponse = await response.json();
+    const data = await response.json();
     return {
-      series: data.results
+      series: (data.results || []).map(normalizeTvItem)
     };
   } catch (error) {
     console.error('Error fetching similar series:', error);
     return { series: [] };
   }
+};
+
+/** Приводим tv-объект (name/first_air_date) к movie-виду (title/release_date) */
+export const normalizeTvItem = (s: any): TMDBMovieResponse['results'][number] => ({
+  id: s.id,
+  title: s.name || s.original_name || s.title || 'Без названия',
+  original_title: s.original_name || '',
+  release_date: s.first_air_date || s.release_date || '',
+  poster_path: s.poster_path || null,
+  backdrop_path: s.backdrop_path || null,
+  overview: s.overview || '',
+  vote_average: s.vote_average || 0,
+  vote_count: s.vote_count || 0,
+  genre_ids: s.genre_ids || [],
+  popularity: s.popularity || 0,
+});
+
+/**
+ * Рекомендации TMDB — второй источник «похожего».
+ * Для малоизвестных тайтлов /similar часто отдаёт мусор,
+ * recommendations + ранжирование по жанрам дают заметно чище выдачу.
+ */
+export const getMovieRecommendations = async (movieId: number): Promise<{ movies: TMDBMovieResponse['results']; }> => {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/movie/${movieId}/recommendations?language=ru-RU`,
+      { headers }
+    );
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+    const data: TMDBMovieResponse = await response.json();
+    return { movies: data.results || [] };
+  } catch (error) {
+    console.error('Error fetching movie recommendations:', error);
+    return { movies: [] };
+  }
+};
+
+export const getSeriesRecommendations = async (seriesId: number): Promise<{ series: TMDBMovieResponse['results']; }> => {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/tv/${seriesId}/recommendations?language=ru-RU`,
+      { headers }
+    );
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+    const data = await response.json();
+    return { series: (data.results || []).map(normalizeTvItem) };
+  } catch (error) {
+    console.error('Error fetching series recommendations:', error);
+    return { series: [] };
+  }
+};
+
+/**
+ * Добивка: популярные тайтлы тех же жанров, если похожего набралось мало.
+ */
+export const discoverMoviesByGenres = async (genreIds: number[]): Promise<TMDBMovieResponse['results']> => {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/discover/movie?with_genres=${genreIds.join(',')}&sort_by=vote_count.desc&vote_count.gte=25&page=1&language=ru-RU`,
+      { headers }
+    );
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+    const data: TMDBMovieResponse = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error('Error discovering movies by genres:', error);
+    return [];
+  }
+};
+
+export const discoverSeriesByGenres = async (genreIds: number[]): Promise<TMDBMovieResponse['results']> => {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/discover/tv?with_genres=${genreIds.join(',')}&sort_by=vote_count.desc&vote_count.gte=15&page=1&language=ru-RU`,
+      { headers }
+    );
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+    const data = await response.json();
+    return (data.results || []).map(normalizeTvItem);
+  } catch (error) {
+    console.error('Error discovering series by genres:', error);
+    return [];
+  }
+};
+
+/**
+ * Ранжирование «похожих»: отсекаем мусор без голосов и без общих жанров,
+ * сортируем по совпадению жанров, затем по числу голосов.
+ */
+export const rankBySimilarity = <
+  T extends { id: number; genre_ids?: number[]; vote_count?: number; popularity?: number }
+>(
+  genreIds: number[],
+  items: T[]
+): T[] => {
+  const wanted = new Set(genreIds);
+  const seen = new Set<number>();
+  return items
+    .filter((m) => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    })
+    .map((m) => ({
+      m,
+      overlap: (m.genre_ids || []).filter((g) => wanted.has(g)).length,
+      votes: m.vote_count || 0,
+    }))
+    .filter((x) => x.votes >= 10 || x.overlap >= 2)
+    .sort(
+      (a, b) =>
+        b.overlap - a.overlap ||
+        b.votes - a.votes ||
+        (b.m.popularity || 0) - (a.m.popularity || 0)
+    )
+    .map((x) => x.m);
+};
+
+/** Ключевые профессии — первыми, без фото не показываем */
+const KEY_CREW_JOBS = [
+  'Director',
+  'Screenplay',
+  'Writer',
+  'Producer',
+  'Executive Producer',
+  'Novel',
+  'Characters',
+  'Director of Photography',
+  'Original Music Composer',
+  'Editor',
+];
+
+export const orderCrew = <T extends { job: string; profile_path: string | null }>(crew: T[]): T[] => {
+  const rank = (job: string) => {
+    const i = KEY_CREW_JOBS.indexOf(job);
+    return i === -1 ? KEY_CREW_JOBS.length : i;
+  };
+  return crew
+    .filter((c) => c.profile_path)
+    .sort((a, b) => rank(a.job) - rank(b.job));
+};
+
+// ── Wiki: персоны (актёры, режиссёры) ─────────────────────────────────────
+
+export interface TMDBPerson {
+  id: number;
+  name: string;
+  biography: string;
+  birthday: string | null;
+  deathday: string | null;
+  place_of_birth: string | null;
+  profile_path: string | null;
+  known_for_department: string;
+  popularity: number;
+}
+
+export interface TMDBCredit {
+  id: number;
+  title?: string;
+  name?: string;
+  original_title?: string;
+  original_name?: string;
+  poster_path: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  vote_average: number;
+  character?: string;
+  job?: string;
+  department?: string;
+  media_type?: string;
+}
+
+export const getPersonDetails = async (personId: number, language: string = 'ru-RU'): Promise<TMDBPerson> => {
+  const response = await fetch(
+    `${TMDB_BASE_URL}/person/${personId}?language=${language}`,
+    { headers }
+  );
+  if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+  return response.json();
+};
+
+export const getPersonMovieCredits = async (personId: number): Promise<{ cast: TMDBCredit[]; crew: TMDBCredit[] }> => {
+  const response = await fetch(
+    `${TMDB_BASE_URL}/person/${personId}/movie_credits?language=ru-RU`,
+    { headers }
+  );
+  if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+  const data = await response.json();
+  return { cast: data.cast || [], crew: data.crew || [] };
+};
+
+export const getPersonTvCredits = async (personId: number): Promise<{ cast: TMDBCredit[]; crew: TMDBCredit[] }> => {
+  const response = await fetch(
+    `${TMDB_BASE_URL}/person/${personId}/tv_credits?language=ru-RU`,
+    { headers }
+  );
+  if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+  const data = await response.json();
+  return { cast: data.cast || [], crew: data.crew || [] };
+};
+
+// ── Wiki: кинокомпании ────────────────────────────────────────────────────
+
+export interface TMDBCompany {
+  id: number;
+  name: string;
+  description: string;
+  headquarters: string;
+  homepage: string;
+  logo_path: string | null;
+  origin_country: string;
+}
+
+export const getCompanyDetails = async (companyId: number): Promise<TMDBCompany> => {
+  const response = await fetch(`${TMDB_BASE_URL}/company/${companyId}`, { headers });
+  if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+  return response.json();
+};
+
+export const getCompanyMovies = async (
+  companyId: number,
+  page: number = 1
+): Promise<{ movies: TMDBMovieResponse['results']; totalPages: number }> => {
+  const response = await fetch(
+    `${TMDB_BASE_URL}/discover/movie?with_companies=${companyId}&sort_by=popularity.desc&page=${page}&language=ru-RU`,
+    { headers }
+  );
+  if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+  const data: TMDBMovieResponse = await response.json();
+  return { movies: data.results, totalPages: data.total_pages };
 };

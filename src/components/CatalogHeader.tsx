@@ -8,7 +8,7 @@ interface CatalogHeaderProps {
   searchPlaceholder?: string;
   searchValue?: string;
   onSearchChange?: (v: string) => void;
-  /** tailwind gradient classes for the glow blob, e.g. "from-amber-400 to-orange-500" */
+  /** tailwind gradient classes for the glow blob, e.g. "from-amber-200 to-orange-500" */
   glow?: string;
   accent?: string;
   children?: ReactNode;
@@ -21,54 +21,79 @@ export default function CatalogHeader({
   searchPlaceholder = 'Поиск...',
   searchValue,
   onSearchChange,
-  glow = 'from-purple-500 to-violet-600',
-  accent = 'text-purple-400',
+  glow = 'from-amber-200 to-orange-500',
+  accent = 'text-amber-200/90',
   children,
 }: CatalogHeaderProps) {
   return (
-    <div className="relative overflow-hidden mb-8">
+    <header className="relative overflow-hidden mb-10 rounded-3xl border border-white/[0.07] bg-white/[0.015]">
       <style>{`
-        .cat-in { animation: cat-fade .5s cubic-bezier(.16,1,.3,1) both; }
-        @keyframes cat-fade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        .cat-in { animation: cat-fade .55s cubic-bezier(.16,1,.3,1) both; }
+        @keyframes cat-fade { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        .spot-beam { background: linear-gradient(to bottom, rgba(252,211,77,0.14), rgba(252,211,77,0.03) 55%, transparent 80%); clip-path: polygon(38% 0, 62% 0, 100% 100%, 0% 100%); }
       `}</style>
 
-      {/* Glow blob */}
-      <div className={`absolute -top-40 left-1/3 -translate-x-1/2 w-[34rem] h-[34rem] rounded-full blur-[130px] opacity-[0.18] bg-gradient-to-br ${glow} pointer-events-none`} />
+      {/* Зал: тёплый спотлайт сверху + мягкое свечение */}
+      <div className="spot-beam absolute inset-x-0 top-0 h-72 pointer-events-none" />
+      <div className={`absolute -top-48 left-1/2 -translate-x-1/2 w-[42rem] h-[42rem] rounded-full blur-[140px] opacity-[0.16] bg-gradient-to-br ${glow} pointer-events-none`} />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-100/40 to-transparent pointer-events-none" />
 
-      <div className="relative pt-8">
-        <p className={`font-script text-2xl sm:text-3xl ${accent} cat-in`} style={{ animationDelay: '0ms' }}>
+      <div className="relative px-5 sm:px-8 pt-9 pb-7">
+        <p className={`flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.28em] ${accent} cat-in`}>
+          <span className="h-px w-7 bg-current opacity-60" />
           {scriptLabel}
         </p>
-        <h1 className="font-grotesk text-4xl sm:text-5xl font-bold text-white tracking-tight mt-1 mb-2 cat-in" style={{ animationDelay: '60ms' }}>
+        <h1
+          className="font-grotesk font-bold tracking-tight leading-[0.95] mt-3 mb-3 text-5xl sm:text-6xl bg-gradient-to-b from-white via-white to-zinc-400 bg-clip-text text-transparent cat-in"
+          style={{ animationDelay: '70ms' }}
+        >
           {title}
         </h1>
         {subtitle && (
-          <p className="text-sm text-zinc-500 mb-6 cat-in" style={{ animationDelay: '120ms' }}>{subtitle}</p>
+          <p className="cat-in" style={{ animationDelay: '130ms' }}>
+            <span className="inline-flex items-center gap-2 text-[13px] text-zinc-400 bg-white/[0.04] border border-white/[0.07] rounded-full pl-2.5 pr-3.5 py-1.5">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-60" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-300" />
+              </span>
+              {subtitle}
+            </span>
+          </p>
         )}
 
         {onSearchChange !== undefined && (
-          <div className="relative max-w-lg mb-6 cat-in" style={{ animationDelay: '180ms' }}>
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              type="text"
-              value={searchValue}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={searchPlaceholder}
-              className="w-full pl-11 pr-10 py-3 bg-white/[0.05] border border-white/10 rounded-2xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-            />
-            {searchValue && (
-              <button
-                onClick={() => onSearchChange('')}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md hover:bg-white/10 transition-colors"
-              >
-                <X className="w-4 h-4 text-zinc-500" />
-              </button>
-            )}
+          <div className="relative max-w-xl mt-6 cat-in group" style={{ animationDelay: '190ms' }}>
+            <div className="absolute -inset-px rounded-full bg-gradient-to-r from-amber-200/0 via-amber-200/25 to-amber-200/0 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none" />
+            <div className="relative flex items-center">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-amber-200 transition-colors" />
+              <input
+                type="text"
+                value={searchValue}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full pl-12 pr-12 h-12 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-[15px] text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-200/40 focus:ring-4 focus:ring-amber-200/10 transition-all"
+              />
+              {searchValue ? (
+                <button
+                  onClick={() => onSearchChange('')}
+                  aria-label="Очистить поиск"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center transition-colors"
+                >
+                  <X className="w-3.5 h-3.5 text-zinc-400" />
+                </button>
+              ) : (
+                <kbd className="absolute right-5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-zinc-600 border border-white/10 rounded-md px-1.5 py-0.5 pointer-events-none">
+                  /
+                </kbd>
+              )}
+            </div>
           </div>
         )}
 
-        {children}
+        {children && <div className="mt-6 cat-in" style={{ animationDelay: '240ms' }}>{children}</div>}
       </div>
-    </div>
+
+      <div className="relative h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+    </header>
   );
 }

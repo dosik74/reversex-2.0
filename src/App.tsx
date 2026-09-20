@@ -17,6 +17,9 @@ import ExploreMovies from "./pages/ExploreMovies";
 import MovieDetail from "./pages/MovieDetail";
 import SeriesPage from "./pages/Series";
 import SeriesDetail from "./pages/SeriesDetail";
+import PersonPage from "./pages/PersonPage";
+import CompanyPage from "./pages/CompanyPage";
+import StudioPage from "./pages/StudioPage";
 import WSHome from "./pages/ws/WSHome";
 import WSShowPage from "./pages/ws/WSShowPage";
 import Games from "./pages/Games";
@@ -190,6 +193,9 @@ const App = () => {
                   <Route path="/movie/:id" element={<MovieDetail />} />
                   <Route path="/series" element={<SeriesPage />} />
                   <Route path="/series/:id" element={<SeriesDetail />} />
+                  <Route path="/person/:id" element={<PersonPage />} />
+                  <Route path="/company/:id" element={<CompanyPage />} />
+                  <Route path="/studio/:type/:id" element={<StudioPage />} />
                   <Route path="/ws" element={<WSHome />} />
                   <Route path="/ws/show/:id" element={<WSShowPage />} />
                   <Route path="/profile/:userId" element={<Profile />} />

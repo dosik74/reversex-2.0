@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import MovieCard from "@/components/MovieCard";
 import CatalogHeader from "@/components/CatalogHeader";
+import CinemaNav from "@/components/CinemaNav";
 import PosterRow from "@/components/PosterRow";
 import MovieCategoryFilter from "@/components/MovieCategoryFilter";
 import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS, GENRE_LIST } from "@/components/MovieSortFilter";
@@ -331,16 +332,18 @@ const Movies = () => {
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
+        <CinemaNav active="movies" />
         <CatalogHeader
           scriptLabel="Кинотеатр"
-          title={tab === 'trending' ? 'Исследуйте фильмы' : 'Лучшие всех времён'}
+          title="Фильмы"
           subtitle={tab === 'trending'
-            ? `Популярное сейчас · ${allMovies.length} фильмов`
-            : `Топ 1000 · ${allMovies.length} фильмов`}
+            ? `Популярное сейчас · ${allMovies.length} в каталоге`
+            : `Топ 1000 всех времён · ${allMovies.length} в каталоге`}
           searchPlaceholder={tab === 'trending' ? 'Поиск фильмов...' : 'Поиск в топ 1000...'}
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
-          glow={tab === 'trending' ? 'from-purple-500 to-violet-600' : 'from-amber-400 to-orange-500'}
+          glow="from-amber-200 to-orange-500"
+          accent="text-amber-200/90"
         >
           {/* Tab pills */}
           <div className="flex gap-2 mb-5">
@@ -351,11 +354,9 @@ const Movies = () => {
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 border ${
+                className={`px-4 py-2 rounded-full text-xs font-semibold transition-colors duration-200 border ${
                   tab === key
-                    ? key === 'top1000'
-                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-black/90 border-transparent shadow-lg shadow-orange-500/25 scale-[1.03]'
-                      : 'bg-gradient-to-r from-purple-500 to-violet-600 text-white border-transparent shadow-lg shadow-purple-500/25 scale-[1.03]'
+                    ? 'bg-white text-black border-transparent'
                     : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'
                 }`}
               >

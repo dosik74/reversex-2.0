@@ -1,5 +1,54 @@
 const translationCache = new Map<string, string>();
 
+/** Режем длинный текст на куски, чтобы GET-запрос к Google не раздувался */
+const splitChunks = (text: string, maxLen: number = 1000): string[] => {
+  const parts = text.split(/\n\s*\n|(?<=[.!?])\s+/);
+  const chunks: string[] = [];
+  let cur = '';
+  for (const p of parts) {
+    if ((cur + ' ' + p).trim().length > maxLen && cur) {
+      chunks.push(cur.trim());
+      cur = p;
+    } else {
+      cur = (cur + ' ' + p).trim();
+    }
+  }
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks.length ? chunks : [text];
+};
+
+/**
+ * Браузерный перевод через публичный Google-эндпоинт (CORS открыт).
+ * Без Node-зависимостей — в отличие от пакета translatte, который
+ * в браузере не работает (got/tunnel/querystring).
+ */
+export const translateGoogleFree = async (
+  text: string,
+  to: string = 'ru',
+  from: string = 'en'
+): Promise<string> => {
+  if (!text?.trim()) return text;
+
+  const chunks = splitChunks(text);
+  const out: string[] = [];
+
+  for (const chunk of chunks) {
+    const url =
+      'https://translate.googleapis.com/translate_a/single?' +
+      new URLSearchParams({ client: 'gtx', sl: from, tl: to, dt: 't', q: chunk }).toString();
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Google translate error: ${res.status}`);
+    const data = await res.json();
+    const translated = ((data?.[0] || []) as any[])
+      .map((seg) => seg?.[0] || '')
+      .join('');
+    if (!translated.trim()) throw new Error('Google translate: empty response');
+    out.push(translated);
+  }
+
+  return out.join('\n\n');
+};
+
 export const translateText = async (text: string, targetLanguage: string = 'ru'): Promise<string> => {
   if (!text || text.trim().length === 0) {
     return text;

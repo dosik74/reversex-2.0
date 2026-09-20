@@ -3,15 +3,21 @@ import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import ContentActionsButton from "@/components/ContentActionsButton";
+import { formatVotes } from "@/utils/rawgApi";
 
 interface Game {
   id: number;
   title: string;
   year: string;
   rating: number;
+  ratingsCount?: number;
   poster: string;
   description: string;
 }
+
+/** RAWG-шкала 0–5 (не 0–10 как у TMDB) */
+const ratingColor = (r: number) =>
+  r >= 4.3 ? 'bg-green-500' : r >= 3.4 ? 'bg-yellow-500' : 'bg-red-500';
 
 const FALLBACK_IMAGE = 'https://placehold.co/342x513/1a1a2e/ffffff?text=No+Image';
 
@@ -35,11 +41,13 @@ const GameCard = ({ game }: { game: Game }) => {
               e.currentTarget.src = FALLBACK_IMAGE;
             }}
           />
+          {/* Бейдж — только если оценок достаточно, иначе это шум */}
           {(() => {
+            const votes = game.ratingsCount || 0;
+            if (votes < 10) return null;
             const r = Number(game.rating);
-            const color = r >= 7 ? 'bg-green-500' : r >= 5 ? 'bg-yellow-500' : 'bg-red-500';
             return (
-              <span className={`absolute bottom-2 right-2 z-10 ${color} text-black text-sm font-bold px-2 py-0.5 rounded-md shadow-lg group-hover:opacity-0 transition-opacity`}>
+              <span className={`absolute bottom-2 right-2 z-10 ${ratingColor(r)} text-black text-sm font-bold px-2 py-0.5 rounded-md shadow-lg group-hover:opacity-0 transition-opacity`}>
                 {r.toFixed(1)}
               </span>
             );
@@ -61,8 +69,11 @@ const GameCard = ({ game }: { game: Game }) => {
             <div className="flex items-center gap-1 text-yellow-400 mb-1">
               <Star className="w-4 h-4 fill-current" />
               <span className="text-sm font-semibold">{Number(game.rating).toFixed(1)}</span>
+              {(game.ratingsCount || 0) > 0 && (
+                <span className="text-xs text-white/60">· {formatVotes(game.ratingsCount)} оценок</span>
+              )}
             </div>
-            <h3 className="font-script text-base font-semibold text-white line-clamp-2">{game.title}</h3>
+            <h3 className="text-base font-semibold text-white line-clamp-2">{game.title}</h3>
             <p className="text-xs text-white/70">{game.year}</p>
           </div>
         </div>

@@ -41,9 +41,21 @@ export default function PosterRow<T>({ title, items, render, getKey }: PosterRow
         @keyframes pr-rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 
-      <h2 className="font-grotesk text-xl sm:text-2xl font-bold text-white mb-4 flex items-center gap-2">
-        {title}
-      </h2>
+      <div className="flex items-end justify-between gap-4 mb-4">
+        <h2 className="font-grotesk text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-3 min-w-0">
+          <span className="truncate">{title}</span>
+          <span className="flex-shrink-0 text-[11px] font-semibold text-zinc-400 bg-white/[0.05] border border-white/[0.08] rounded-full px-2.5 py-1">
+            {items.length}
+          </span>
+        </h2>
+        <button
+          onClick={() => setExpanded(true)}
+          className="flex-shrink-0 inline-flex items-center gap-1 text-[13px] font-semibold text-zinc-400 hover:text-amber-200 transition-colors"
+        >
+          Все
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
 
       <div className="flex gap-3 overflow-x-auto kp-scroll pb-2 -mx-1 px-1">
         {items.map((item) => (
@@ -54,12 +66,13 @@ export default function PosterRow<T>({ title, items, render, getKey }: PosterRow
         {/* Посмотреть все */}
         <button
           onClick={() => setExpanded(true)}
-          className="shrink-0 w-[150px] sm:w-[170px] lg:w-[185px] aspect-[2/3] rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/[0.08] hover:border-purple-500/50 hover:from-purple-500/10 flex flex-col items-center justify-center gap-2 text-zinc-400 hover:text-white transition-all group"
+          className="shrink-0 w-[150px] sm:w-[170px] lg:w-[185px] aspect-[2/3] rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.08] border-dashed hover:border-amber-200/50 hover:from-amber-200/[0.08] flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-amber-100 transition-all group"
         >
-          <span className="w-12 h-12 rounded-full bg-white/[0.06] group-hover:bg-purple-500/30 flex items-center justify-center transition-colors">
+          <span className="w-12 h-12 rounded-full bg-white/[0.06] group-hover:bg-amber-300/20 flex items-center justify-center transition-colors">
             <ChevronRight className="w-6 h-6" />
           </span>
           <span className="text-sm font-semibold px-3 text-center leading-tight">Посмотреть все</span>
+          <span className="text-[11px] text-zinc-600 group-hover:text-amber-200/70 transition-colors">{items.length} шт.</span>
         </button>
       </div>
 
@@ -67,17 +80,17 @@ export default function PosterRow<T>({ title, items, render, getKey }: PosterRow
       {expanded && (
         <div className="pr-overlay fixed inset-0 z-[100] bg-zinc-950 overflow-y-auto">
           {/* Ambient glow */}
-          <div className="fixed -top-48 left-1/2 -translate-x-1/2 w-[60rem] h-[60rem] rounded-full blur-[160px] opacity-[0.15] bg-gradient-to-br from-purple-500 to-violet-700 pointer-events-none" />
+          <div className="fixed -top-48 left-1/2 -translate-x-1/2 w-[60rem] h-[60rem] rounded-full blur-[160px] opacity-[0.12] bg-gradient-to-br from-amber-200 to-orange-500 pointer-events-none" />
 
           {/* Hero header */}
           <div className="sticky top-0 z-20 bg-zinc-950/85 backdrop-blur-xl border-b border-white/[0.06]">
             <div className="max-w-[1600px] mx-auto px-4 sm:px-8 py-5 flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="font-pixel text-[9px] tracking-[0.3em] text-purple-400 uppercase mb-1.5 flex items-center gap-1.5">
+                <p className="font-pixel text-[9px] tracking-[0.3em] text-amber-200/80 uppercase mb-1.5 flex items-center gap-1.5">
                   <Sparkles className="w-3 h-3" /> Коллекция
                 </p>
                 <h1 className="font-grotesk text-2xl sm:text-4xl font-bold text-white tracking-tight truncate">
-                  <span className="font-script text-3xl sm:text-5xl text-purple-300 mr-3">{title}</span>
+                  <span className="font-script text-3xl sm:text-5xl text-amber-100 mr-3">{title}</span>
                 </h1>
               </div>
               <div className="flex items-center gap-4 flex-shrink-0">

@@ -102,6 +102,20 @@
   font-family: "Sloop Script Three", "Monplesir Script", "Martina Script", "Segoe Script", cursive;
 }
 
+/* ---- Нейтральный стек для детальных страниц ----
+   Epic Pro умеет только латиницу, поэтому смешанные строки
+   («MARVEL STUDIOS», «$160M», «28.06.2019») выглядели ломано.
+   font-ui даёт единый спокойный шрифт; CardTitle (h3) тоже
+   возвращаем к нему, декоративные font-script/font-grotesk не трогаем. */
+.font-ui {
+  font-family: "Soyuz Grotesk", "Space Grotesk", "Inter", ui-sans-serif, system-ui,
+    sans-serif;
+}
+
+.font-ui h3 {
+  font-family: inherit;
+}
+
 /* ---- Профильные декоративные элементы ---- */
 
 /* Градиентное кольцо вокруг аватара */

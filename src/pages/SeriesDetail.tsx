@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getSeriesDetails, getSeriesVideos, getSeriesCredits, getSimilarSeries, getMoviePosterUrl } from "@/utils/tmdbApi";
-import { Button } from "@/components/ui/button";
+import { getSeriesDetails, getSeriesVideos, getSeriesCredits, getSimilarSeries, getSeriesRecommendations, discoverSeriesByGenres, rankBySimilarity, orderCrew, getMoviePosterUrl, formatGenreName, statusRu, formatRuntime } from "@/utils/tmdbApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Star, Play } from "lucide-react";
+import { Star, Play, ChevronRight } from "lucide-react";
 import ContentActionsButton from "@/components/ContentActionsButton";
+import BackButton from "@/components/BackButton";
 
 interface SeriesDetails {
   id: number;
@@ -21,6 +21,7 @@ interface SeriesDetails {
   revenue: number;
   status: string;
   genres: Array<{ id: number; name: string }>;
+  production_companies?: Array<{ id: number; name: string; logo_path: string | null; origin_country: string }>;
 }
 
 interface Video {
@@ -36,6 +37,15 @@ interface Cast {
   name: string;
   character: string;
   profile_path: string | null;
+  order?: number;
+  total_episode_count?: number;
+}
+
+interface Crew {
+  id: number;
+  name: string;
+  job: string;
+  profile_path: string | null;
 }
 
 interface SimilarSeries {
@@ -44,6 +54,8 @@ interface SimilarSeries {
   poster_path: string | null;
   release_date: string;
   vote_average: number;
+  genre_ids?: number[];
+  vote_count?: number;
 }
 
 const SeriesDetail = () => {
@@ -51,6 +63,8 @@ const SeriesDetail = () => {
   const [series, setSeries] = useState<SeriesDetails | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [cast, setCast] = useState<Cast[]>([]);
+  const [crew, setCrew] = useState<Crew[]>([]);
+  const [castExpanded, setCastExpanded] = useState(false);
   const [similarSeries, setSimilarSeries] = useState<SimilarSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,17 +78,46 @@ const SeriesDetail = () => {
         const seriesId = parseInt(id);
 
         // Fetch all data in parallel
-        const [seriesData, videosData, creditsData, similarData] = await Promise.all([
+        const [seriesData, videosData, creditsData, similarData, recData] = await Promise.all([
           getSeriesDetails(seriesId),
           getSeriesVideos(seriesId),
           getSeriesCredits(seriesId),
-          getSimilarSeries(seriesId)
+          getSimilarSeries(seriesId),
+          getSeriesRecommendations(seriesId)
         ]);
 
         setSeries(seriesData as SeriesDetails);
+        // Если русского описания нет — подтягиваем английское, чтобы не было пустой страницы
+        if (!seriesData.overview?.trim()) {
+          getSeriesDetails(seriesId, 'en-US')
+            .then((en) => {
+              if (en.overview?.trim()) setSeries((prev) => (prev ? { ...prev, overview: en.overview } : prev));
+            })
+            .catch(() => {});
+        }
         setVideos(videosData.filter(v => v.site === 'YouTube'));
-        setCast(creditsData.cast.slice(0, 10));
-        setSimilarSeries(similarData.series.filter((s: any) => s.poster_path).slice(0, 6));
+        setCast(
+          [...creditsData.cast]
+            .sort((a, b) =>
+              (b.total_episode_count ?? -1) - (a.total_episode_count ?? -1) ||
+              (a.order ?? 999) - (b.order ?? 999)
+            )
+            .slice(0, 30)
+        );
+        setCastExpanded(false);
+        setCrew(creditsData.crew || []);
+        // Умные «похожие»: similar + recommendations, ранжируем по жанрам,
+        // мусор без голосов выкидываем, нехватку добиваем топом тех же жанров
+        const genreIds = (seriesData.genres || []).map(g => g.id);
+        let ranked = rankBySimilarity(
+          genreIds,
+          [...similarData.series, ...recData.series].filter(s => s.id !== seriesId && s.poster_path)
+        );
+        if (ranked.length < 6 && genreIds.length > 0) {
+          const extra = await discoverSeriesByGenres(genreIds.slice(0, 2));
+          ranked = rankBySimilarity(genreIds, [...ranked, ...extra.filter(s => s.id !== seriesId && s.poster_path)]);
+        }
+        setSimilarSeries(ranked.slice(0, 12));
       } catch (err) {
         console.error('Error fetching series details:', err);
         setError('Failed to load series details');
@@ -105,9 +148,7 @@ const SeriesDetail = () => {
         <Card className="border-destructive/50">
           <CardContent className="pt-6 text-center">
             <p className="text-destructive mb-4">{error || 'Сериал не найден'}</p>
-            <Link to="/series">
-              <Button variant="outline">← Вернуться к сериалам</Button>
-            </Link>
+            <BackButton fallback="/series" label="Вернуться к сериалам" />
           </CardContent>
         </Card>
       </div>
@@ -118,7 +159,7 @@ const SeriesDetail = () => {
   const releaseYear = series.release_date ? new Date(series.release_date).getFullYear() : '';
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen font-ui">
       {/* Hero Section */}
       <div
         className="h-[500px] bg-cover bg-center relative"
@@ -154,15 +195,15 @@ const SeriesDetail = () => {
                   <span className="text-sm text-muted-foreground">/10</span>
                 </div>
 
-                {series.runtime && (
-                  <div className="bg-card/80 px-4 py-2 rounded-lg text-sm">
-                    ⏱️ {series.runtime} мин
+                {series.runtime ? (
+                  <div className="bg-card/80 px-4 py-2 rounded-lg text-sm tabular-nums">
+                    ⏱️ {formatRuntime(series.runtime)} / серия
                   </div>
-                )}
+                ) : null}
 
                 {series.genres && series.genres.length > 0 && (
                   <div className="bg-card/80 px-4 py-2 rounded-lg text-sm">
-                    {series.genres.map(g => g.name).join(', ')}
+                    {series.genres.map(g => formatGenreName(g.name)).join(', ')}
                   </div>
                 )}
 
@@ -232,8 +273,8 @@ const SeriesDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                    {cast.map((actor) => (
-                      <div key={actor.id} className="text-center">
+                    {(castExpanded ? cast : cast.slice(0, 10)).map((actor) => (
+                      <Link key={actor.id} to={`/person/${actor.id}`} className="text-center group">
                         <img
                           src={
                             actor.profile_path
@@ -241,11 +282,52 @@ const SeriesDetail = () => {
                               : 'https://placehold.co/200x300/1a1a2e/ffffff?text=No+Image'
                           }
                           alt={actor.name}
-                          className="w-full aspect-[2/3] object-cover rounded-lg mb-2"
+                          loading="lazy"
+                          className="w-full aspect-[2/3] object-cover rounded-lg mb-2 group-hover:ring-2 group-hover:ring-primary/60 transition-all"
                         />
-                        <p className="font-semibold text-sm truncate">{actor.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{actor.character}</p>
-                      </div>
+                        <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{actor.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {[actor.character, actor.total_episode_count ? `${actor.total_episode_count} эп.` : ''].filter(Boolean).join(' · ')}
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+                  {cast.length > 10 && (
+                    <div className="flex justify-center mt-6">
+                      <button
+                        onClick={() => setCastExpanded(!castExpanded)}
+                        className="px-6 py-2 rounded-full text-xs font-semibold bg-white/[0.05] border border-white/10 text-zinc-300 hover:bg-white/[0.1] hover:text-white transition-colors"
+                      >
+                        {castExpanded ? 'Свернуть' : `Показать всех · ${cast.length}`}
+                      </button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Crew: создатели и команда */}
+            {crew.length > 0 && (
+              <Card className="animate-fade-up card-glow" style={{ animationDelay: '0.35s' }}>
+                <CardHeader>
+                  <CardTitle>Съёмочная группа</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                    {orderCrew(crew).slice(0, 10).map((member, i) => (
+                      <Link key={`${member.id}-${member.job}-${i}`} to={`/person/${member.id}`} className="text-center group">
+                        <img
+                          src={
+                            member.profile_path
+                              ? `https://image.tmdb.org/t/p/w342${member.profile_path}`
+                              : 'https://placehold.co/200x300/1a1a2e/ffffff?text=No+Image'
+                          }
+                          alt={member.name}
+                          className="w-full aspect-[2/3] object-cover rounded-lg mb-2 group-hover:ring-2 group-hover:ring-primary/60 transition-all"
+                        />
+                        <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{member.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{member.job}</p>
+                      </Link>
                     ))}
                   </div>
                 </CardContent>
@@ -293,44 +375,78 @@ const SeriesDetail = () => {
 
           {/* Sidebar */}
           <div className="space-y-4">
+            {series.production_companies && series.production_companies.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Студии</CardTitle>
+                </CardHeader>
+                <CardContent className="!pt-2">
+                  <div className="divide-y divide-white/[0.06]">
+                  {series.production_companies.map((c) => (
+                    <Link
+                      key={c.id}
+                      to={`/company/${c.id}`}
+                      className="flex items-center gap-3 py-2.5 group"
+                    >
+                      {c.logo_path ? (
+                        <img
+                          src={`https://image.tmdb.org/t/p/w92${c.logo_path}`}
+                          alt={c.name}
+                          className="w-9 h-9 object-contain rounded-lg bg-white/[0.07] p-1 flex-shrink-0"
+                        />
+                      ) : (
+                        <span className="w-9 h-9 rounded-lg bg-white/[0.07] flex items-center justify-center text-sm font-bold text-muted-foreground flex-shrink-0">
+                          {c.name[0]}
+                        </span>
+                      )}
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors truncate flex-1">
+                        {c.name}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                    </Link>
+                  ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-2">
                 <CardTitle className="text-lg">О сериале</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 text-sm">
+              <CardContent className="!pt-2 text-sm">
+                <dl className="divide-y divide-white/[0.06]">
                 {series.original_title && series.original_title !== series.title && (
-                  <div>
-                    <p className="text-muted-foreground">Оригинальное название</p>
-                    <p className="font-semibold">{series.original_title}</p>
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground flex-shrink-0">Оригинальное название</dt>
+                    <dd className="font-semibold text-right truncate">{series.original_title}</dd>
                   </div>
                 )}
                 {series.release_date && (
-                  <div>
-                    <p className="text-muted-foreground">Дата выпуска</p>
-                    <p className="font-semibold">{new Date(series.release_date).toLocaleDateString('ru-RU')}</p>
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground flex-shrink-0">Дата выпуска</dt>
+                    <dd className="font-semibold tabular-nums text-right">
+                      {new Date(series.release_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </dd>
                   </div>
                 )}
-                {series.runtime && (
-                  <div>
-                    <p className="text-muted-foreground">Продолжительность серии</p>
-                    <p className="font-semibold">{series.runtime} минут</p>
+                {series.runtime ? (
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground flex-shrink-0">Серия</dt>
+                    <dd className="font-semibold tabular-nums">{formatRuntime(series.runtime)}</dd>
                   </div>
-                )}
+                ) : null}
                 {series.status && (
-                  <div>
-                    <p className="text-muted-foreground">Статус</p>
-                    <p className="font-semibold">{series.status}</p>
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground flex-shrink-0">Статус</dt>
+                    <dd className="font-semibold">{statusRu(series.status)}</dd>
                   </div>
                 )}
+                </dl>
               </CardContent>
             </Card>
 
             <div>
-              <Link to="/series" className="w-full block">
-                <Button variant="outline" className="w-full">
-                  ← Вернуться к сериалам
-                </Button>
-              </Link>
+              <BackButton fallback="/series" label="Вернуться к сериалам" className="w-full" />
             </div>
           </div>
         </div>

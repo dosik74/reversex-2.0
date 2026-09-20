@@ -2,20 +2,32 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Search, X } from "lucide-react";
 import GameCard from "@/components/GameCard";
 import CatalogHeader from "@/components/CatalogHeader";
+import CinemaNav from "@/components/CinemaNav";
 import PosterRow from "@/components/PosterRow";
 import MovieSortFilter, { SortOption } from "@/components/MovieSortFilter";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useTranslation } from "react-i18next";
+import { fetchRawg, gameGenreRu, RAWG_API_KEY } from "@/utils/rawgApi";
 
 interface Game {
   id: number;
   title: string;
   year: string;
   rating: number;
+  ratingsCount?: number;
   poster: string;
   description: string;
   genres?: string[];
 }
+
+/** Одна игра — одна карточка: склеиваем дубли по id (RAWG отдаёт повторы между страницами) */
+const dedupeGames = (games: Game[]): Game[] => {
+  const map = new Map<number, Game>();
+  for (const g of games) {
+    if (!map.has(g.id)) map.set(g.id, g);
+  }
+  return [...map.values()];
+};
 
 const GAMES_PER_PAGE = 20;
 
@@ -128,44 +140,44 @@ const Games = () => {
   const fetchPopularGames = async () => {
     try {
       setLoading(true);
-      const apiKey = "c33c648c0d8f45c494af8da025d7b862";
-      const all: Game[] = [];
-      const TOTAL_PAGES = 5; // 5 × 100 = 500 games
+      // ordering=-added: реально популярные игры. -rating у RAWG забит
+      // ноунеймом с 5 голосами 5★ — отсюда «одинаковые» 4.8 у всех.
+      const byId = new Map<number, Game>();
+      const TOTAL_PAGES = 6; // 6 × 40 = до 240 игр
 
       for (let pageNum = 1; pageNum <= TOTAL_PAGES; pageNum++) {
         try {
-          const response = await fetch(
-            `https://api.rawg.io/api/games?key=${apiKey}&page_size=100&page=${pageNum}&ordering=-rating`
+          const data = await fetchRawg(
+            `https://api.rawg.io/api/games?key=${RAWG_API_KEY}&page_size=40&page=${pageNum}&ordering=-added`
           );
-          const data = await response.json();
           if (!data.results || data.results.length === 0) break;
 
-          const transformedGames: Game[] = data.results
-            .filter((g: any) => g.background_image)
-            .map((g: any) => ({
+          for (const g of data.results) {
+            if (!g.background_image || byId.has(g.id)) continue;
+            byId.set(g.id, {
               id: g.id,
               title: g.name,
               year: g.released?.split('-')[0] || 'Unknown',
               rating: Math.round((g.rating || 0) * 10) / 10,
+              ratingsCount: g.ratings_count || 0,
               poster: g.background_image,
               description: g.description || '',
               genres: g.genres?.map((genre: any) => genre.name) || []
-            }));
-
-          all.push(...transformedGames);
+            });
+          }
 
           // Progressive render
           if (pageNum >= 1) setLoading(false);
-          setAllGames([...all]);
+          setAllGames([...byId.values()]);
 
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, 150));
         } catch (err) {
           console.warn(`Failed to load games page ${pageNum}:`, err);
-          break;
+          continue; // одна упавшая страница не роняет весь каталог
         }
       }
 
-      setAllGames([...all]);
+      setAllGames([...byId.values()]);
     } catch (error) {
       console.error('Error fetching games:', error);
     } finally {
@@ -176,9 +188,7 @@ const Games = () => {
   const performSearch = async () => {
     try {
       setLoading(true);
-      const apiKey = "c33c648c0d8f45c494af8da025d7b862";
-      
-      let url = `https://api.rawg.io/api/games?key=${apiKey}&page_size=40`;
+      let url = `https://api.rawg.io/api/games?key=${RAWG_API_KEY}&page_size=40`;
       
       if (searchQuery.trim()) {
         url += `&search=${encodeURIComponent(searchQuery)}`;
@@ -205,20 +215,20 @@ const Games = () => {
         url += `&genres=${genreIds}`;
       }
 
-      const response = await fetch(url);
-      const data = await response.json();
+      const data = await fetchRawg(url);
 
-      const transformedGames: Game[] = data.results
+      const transformedGames: Game[] = dedupeGames(data.results
         .filter((g: any) => g.background_image)
         .map((g: any) => ({
           id: g.id,
           title: g.name,
           year: g.released?.split('-')[0] || 'Unknown',
           rating: Math.round((g.rating || 0) * 10) / 10,
+          ratingsCount: g.ratings_count || 0,
           poster: g.background_image,
           description: g.description || '',
           genres: g.genres?.map((genre: any) => genre.name) || []
-        }));
+        })));
 
       setAllGames(transformedGames);
       setDisplayGames(transformedGames.slice(0, GAMES_PER_PAGE));
@@ -261,7 +271,7 @@ const Games = () => {
             if (items.length >= 30) break;
           }
         }
-        return { id: genre, name: genre, items };
+        return { id: genre, name: gameGenreRu(genre), items };
       }).filter((r) => r.items.length >= 6);
     },
     [allGames, topGames]
@@ -282,15 +292,16 @@ const Games = () => {
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
+        <CinemaNav active="games" />
         <CatalogHeader
-          scriptLabel="Геймин"
+          scriptLabel="Кинотеатр"
           title="Игры"
           subtitle={`Лучшие игры · ${allGames.length} в каталоге`}
           searchPlaceholder="Поиск игр..."
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
-          glow="from-emerald-400 to-teal-500"
-          accent="text-emerald-400"
+          glow="from-amber-200 to-orange-500"
+          accent="text-amber-200/90"
         >
           {/* Genre pills */}
           <div className="mb-5">
@@ -313,13 +324,13 @@ const Games = () => {
                   <button
                     key={genre}
                     onClick={() => toggleGenre(genre)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors duration-200 border ${
                       active
-                        ? 'bg-gradient-to-r from-emerald-400 to-teal-500 text-black/90 border-transparent shadow-lg shadow-emerald-500/25 scale-[1.03]'
+                        ? 'bg-white text-black border-transparent'
                         : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'
                     }`}
                   >
-                    {genre}
+                    {gameGenreRu(genre)}
                   </button>
                 );
               })}

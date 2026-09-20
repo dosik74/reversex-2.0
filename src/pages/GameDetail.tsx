@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Star, ArrowLeft } from "lucide-react";
-import { getGameDescriptionFromSteam } from "@/lib/translationToggle";
+import { Star } from "lucide-react";
+import { getGameDescriptionRu } from "@/lib/translationToggle";
+import BackButton from "@/components/BackButton";
+import ContentActionsButton from "@/components/ContentActionsButton";
+import { gameGenreRu, formatVotes, fetchRawg, RAWG_API_KEY } from "@/utils/rawgApi";
 
 interface GameDetails {
   id: number;
@@ -11,11 +14,12 @@ interface GameDetails {
   description: string;
   released: string;
   rating: number;
+  ratings_count?: number;
   background_image: string;
   genres: Array<{ id: number; name: string }>;
   platforms: Array<{ platform: { id: number; name: string } }>;
-  developers: Array<{ name: string }>;
-  publishers: Array<{ name: string }>;
+  developers: Array<{ id?: number; name: string; slug?: string }>;
+  publishers: Array<{ id?: number; name: string; slug?: string }>;
   website: string;
   metacritic: number;
   playtime: number;
@@ -24,7 +28,8 @@ interface GameDetails {
 const GameDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [game, setGame] = useState<GameDetails | null>(null);
-  const [rusDescription, setRusDescription] = useState<string | null>(null);
+  const [rusDescription, setRusDescription] = useState<{ text: string; machine: boolean } | null>(null);
+  const [trStatus, setTrStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [isTranslated, setIsTranslated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,15 +40,18 @@ const GameDetail = () => {
 
       try {
         setLoading(true);
-        const apiKey = "c33c648c0d8f45c494af8da025d7b862";
-        const response = await fetch(
-          `https://api.rawg.io/api/games/${id}?key=${apiKey}`
+        setError(null);
+        // fetchRawg: ретраи при 429, кидает при ошибке — error-JSON в стейт не попадёт
+        const data = await fetchRawg(
+          `https://api.rawg.io/api/games/${id}?key=${RAWG_API_KEY}`
         );
-        const data = await response.json();
+        if (!data || typeof data.id !== 'number') {
+          throw new Error('Игра не найдена');
+        }
         setGame(data);
       } catch (err) {
         console.error('Error fetching game details:', err);
-        setError('Failed to load game details');
+        setError('Не удалось загрузить игру. Возможно, API перегружен — попробуйте обновить страницу.');
       } finally {
         setLoading(false);
       }
@@ -52,21 +60,33 @@ const GameDetail = () => {
     fetchGame();
   }, [id]);
 
-  // Fetch Russian description in background (non-blocking)
+  // Загружаем русское описание в фоне: Steam → автоперевод → сдаёмся
   useEffect(() => {
-    if (game?.id) {
-      // Don't await - let it load in background
-      getGameDescriptionFromSteam(game.id)
-        .then(desc => {
-          if (desc) {
-            setRusDescription(desc);
-            console.log(`[GameDetail] Loaded Russian description for game ${game.id}`);
-          }
-        })
-        .catch(error => {
-          console.warn('[GameDetail] Error loading translation:', error);
-        });
-    }
+    if (!game?.id) return;
+    const gid = game.id;
+    const englishHtml = game.description;
+    let cancelled = false;
+    setTrStatus('loading');
+    setRusDescription(null);
+
+    getGameDescriptionRu(gid, englishHtml)
+      .then(desc => {
+        if (cancelled) return;
+        if (desc) {
+          setRusDescription(desc);
+          setTrStatus('ready');
+          console.log(`[GameDetail] RU description ready for game ${gid} (machine: ${desc.machine})`);
+        } else {
+          setTrStatus('failed');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTrStatus('failed');
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [game?.id]);
 
   if (loading) {
@@ -87,26 +107,18 @@ const GameDetail = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <p className="text-red-500 mb-4">{error || 'Игра не найдена'}</p>
-          <Link to="/games">
-            <Button variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Вернуться к играм
-            </Button>
-          </Link>
+          <BackButton fallback="/games" label="Вернуться к играм" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 font-ui">
       {/* Back Button */}
-      <Link to="/games" className="mb-6 inline-block">
-        <Button variant="outline" size="sm">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Вернуться к играм
-        </Button>
-      </Link>
+      <div className="mb-6 inline-block">
+        <BackButton fallback="/games" label="Вернуться к играм" />
+      </div>
 
       {/* Hero Section */}
       <div className="mb-8">
@@ -122,7 +134,7 @@ const GameDetail = () => {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 bg-black/50 px-4 py-2 rounded-lg">
                 <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                <span className="text-xl font-bold text-white">{game.rating.toFixed(1)}</span>
+                <span className="text-xl font-bold text-white">{(game.rating ?? 0).toFixed(1)}</span>
               </div>
               <ContentActionsButton
                 contentId={game.id.toString()}
@@ -130,7 +142,7 @@ const GameDetail = () => {
                 top50MediaType="game"
                 title={game.name}
                 posterUrl={game.background_image}
-                externalRating={game.rating}
+                externalRating={game.rating ?? 0}
                 genre={game.genres?.map((g: any) => g.name).join(', ')}
                 synopsis={game.description}
                 variant="detail"
@@ -147,22 +159,27 @@ const GameDetail = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Описание</CardTitle>
-              <Button
-                variant={isTranslated ? "default" : "outline"}
-                size="sm"
-                onClick={() => setIsTranslated(!isTranslated)}
-                className="ml-4"
-              >
-                {isTranslated ? '🇷🇺 Русский' : '🇬🇧 English'}
-              </Button>
+              {trStatus !== 'failed' && (
+                <Button
+                  variant={isTranslated ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsTranslated(!isTranslated)}
+                  className="ml-4"
+                >
+                  {isTranslated ? '🇷🇺 Русский' : '🇬🇧 English'}
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               <div
                 className="prose dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: isTranslated && rusDescription ? rusDescription : (game?.description || 'Описание недоступно') }}
+                dangerouslySetInnerHTML={{ __html: isTranslated && rusDescription ? rusDescription.text : (game?.description || 'Описание недоступно') }}
               />
-              {isTranslated && !rusDescription && (
+              {isTranslated && trStatus === 'loading' && (
                 <p className="text-muted-foreground italic">Русский перевод загружается...</p>
+              )}
+              {isTranslated && rusDescription?.machine && (
+                <p className="text-xs text-muted-foreground mt-2">Автоматический перевод</p>
               )}
             </CardContent>
           </Card>
@@ -180,7 +197,7 @@ const GameDetail = () => {
                       key={genre.id}
                       className="px-3 py-1 bg-primary/20 text-primary rounded-full text-sm font-medium"
                     >
-                      {genre.name}
+                      {gameGenreRu(genre.name)}
                     </span>
                   ))}
                 </div>
@@ -232,6 +249,13 @@ const GameDetail = () => {
                 </div>
               )}
 
+              {(game.ratings_count || 0) > 0 && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Оценок игроков</p>
+                  <p className="font-semibold">{formatVotes(game.ratings_count)}</p>
+                </div>
+              )}
+
               {game.playtime && (
                 <div>
                   <p className="text-sm text-muted-foreground">Среднее время прохождения</p>
@@ -261,8 +285,20 @@ const GameDetail = () => {
               <CardHeader>
                 <CardTitle className="text-lg">Разработчик</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="font-semibold">{game.developers[0]?.name || 'Неизвестно'}</p>
+              <CardContent className="space-y-2">
+                {game.developers.map((d, i) => (
+                  d.id ? (
+                    <Link
+                      key={d.id}
+                      to={`/studio/developer/${d.id}`}
+                      className="block font-semibold hover:text-primary hover:underline transition-colors"
+                    >
+                      {d.name}
+                    </Link>
+                  ) : (
+                    <p key={i} className="font-semibold">{d.name}</p>
+                  )
+                ))}
               </CardContent>
             </Card>
           )}
@@ -273,8 +309,20 @@ const GameDetail = () => {
               <CardHeader>
                 <CardTitle className="text-lg">Издатель</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="font-semibold">{game.publishers[0]?.name || 'Неизвестно'}</p>
+              <CardContent className="space-y-2">
+                {game.publishers.map((p, i) => (
+                  p.id ? (
+                    <Link
+                      key={p.id}
+                      to={`/studio/publisher/${p.id}`}
+                      className="block font-semibold hover:text-primary hover:underline transition-colors"
+                    >
+                      {p.name}
+                    </Link>
+                  ) : (
+                    <p key={i} className="font-semibold">{p.name}</p>
+                  )
+                ))}
               </CardContent>
             </Card>
           )}

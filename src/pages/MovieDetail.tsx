@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getMovieDetails, getMovieVideos, getMovieCredits, getSimilarMovies, getMoviePosterUrl } from "@/utils/tmdbApi";
-import { Button } from "@/components/ui/button";
+import { getMovieDetails, getMovieVideos, getMovieCredits, getSimilarMovies, getMovieRecommendations, discoverMoviesByGenres, rankBySimilarity, orderCrew, getMoviePosterUrl, formatGenreName, statusRu, formatRuntime, formatMoney } from "@/utils/tmdbApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Star, Play } from "lucide-react";
+import { Star, Play, ChevronRight } from "lucide-react";
 import { useIMDbRating } from "@/hooks/useIMDbRating";
 import CommunityRating from "@/components/CommunityRating";
 import ContentActionsButton from "@/components/ContentActionsButton";
+import BackButton from "@/components/BackButton";
 
 interface MovieDetails {
   id: number;
@@ -21,8 +21,9 @@ interface MovieDetails {
   runtime: number;
   budget: number;
   revenue: number;
-  status: string;
+  status?: string;
   genres: Array<{ id: number; name: string }>;
+  production_companies?: Array<{ id: number; name: string; logo_path: string | null; origin_country: string }>;
 }
 
 interface Video {
@@ -37,6 +38,14 @@ interface Cast {
   id: number;
   name: string;
   character: string;
+  profile_path: string | null;
+  order?: number;
+}
+
+interface Crew {
+  id: number;
+  name: string;
+  job: string;
   profile_path: string | null;
 }
 
@@ -53,6 +62,8 @@ const MovieDetail = () => {
   const [movie, setMovie] = useState<MovieDetails | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [cast, setCast] = useState<Cast[]>([]);
+  const [crew, setCrew] = useState<Crew[]>([]);
+  const [castExpanded, setCastExpanded] = useState(false);
   const [similarMovies, setSimilarMovies] = useState<SimilarMovie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,17 +83,40 @@ const MovieDetail = () => {
         const movieId = parseInt(id);
 
         // Fetch all data in parallel
-        const [movieData, videosData, creditsData, similarData] = await Promise.all([
+        const [movieData, videosData, creditsData, similarData, recData] = await Promise.all([
           getMovieDetails(movieId),
           getMovieVideos(movieId),
           getMovieCredits(movieId),
-          getSimilarMovies(movieId)
+          getSimilarMovies(movieId),
+          getMovieRecommendations(movieId)
         ]);
 
         setMovie(movieData);
+        // Если русского описания нет — подтягиваем английское, чтобы не было пустой страницы
+        if (!movieData.overview?.trim()) {
+          getMovieDetails(movieId, 'en-US')
+            .then((en) => {
+              if (en.overview?.trim()) setMovie((prev) => (prev ? { ...prev, overview: en.overview } : prev));
+            })
+            .catch(() => {});
+        }
         setVideos(videosData.filter(v => v.site === 'YouTube'));
-        setCast(creditsData.cast.slice(0, 10));
-        setSimilarMovies(similarData.movies.filter((m: any) => m.poster_path).slice(0, 6));
+        // Главные роли — первыми (порядок в титрах), берём до 30
+        setCast([...creditsData.cast].sort((a, b) => (a.order ?? 999) - (b.order ?? 999)).slice(0, 30));
+        setCastExpanded(false);
+        setCrew(creditsData.crew || []);
+        // Умные «похожие»: similar + recommendations, ранжируем по жанрам,
+        // мусор без голосов выкидываем, нехватку добиваем топом тех же жанров
+        const genreIds = (movieData.genres || []).map(g => g.id);
+        let ranked = rankBySimilarity(
+          genreIds,
+          [...similarData.movies, ...recData.movies].filter(m => m.id !== movieId && m.poster_path)
+        );
+        if (ranked.length < 6 && genreIds.length > 0) {
+          const extra = await discoverMoviesByGenres(genreIds.slice(0, 2));
+          ranked = rankBySimilarity(genreIds, [...ranked, ...extra.filter(m => m.id !== movieId && m.poster_path)]);
+        }
+        setSimilarMovies(ranked.slice(0, 12));
       } catch (err) {
         console.error('Error fetching movie details:', err);
         setError('Failed to load movie details');
@@ -113,9 +147,7 @@ const MovieDetail = () => {
         <Card className="border-destructive/50">
           <CardContent className="pt-6 text-center">
             <p className="text-destructive mb-4">{error || 'Фильм не найден'}</p>
-            <Link to="/movies">
-              <Button variant="outline">← Вернуться к фильмам</Button>
-            </Link>
+            <BackButton fallback="/movies" label="Вернуться к фильмам" />
           </CardContent>
         </Card>
       </div>
@@ -126,7 +158,7 @@ const MovieDetail = () => {
   const releaseYear = movie.release_date ? new Date(movie.release_date).getFullYear() : '';
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen font-ui">
       {/* Hero Section */}
       <div
         className="h-[500px] bg-cover bg-center relative"
@@ -175,15 +207,15 @@ const MovieDetail = () => {
                   </div>
                 )}
 
-                {movie.runtime && (
-                  <div className="bg-card/80 px-4 py-2 rounded-lg text-sm">
-                    ⏱️ {movie.runtime} мин
+                {movie.runtime ? (
+                  <div className="bg-card/80 px-4 py-2 rounded-lg text-sm tabular-nums">
+                    ⏱️ {formatRuntime(movie.runtime)}
                   </div>
-                )}
+                ) : null}
 
                 {movie.genres && movie.genres.length > 0 && (
                   <div className="bg-card/80 px-4 py-2 rounded-lg text-sm">
-                    {movie.genres.map(g => g.name).join(', ')}
+                    {movie.genres.map(g => formatGenreName(g.name)).join(', ')}
                   </div>
                 )}
 
@@ -227,17 +259,17 @@ const MovieDetail = () => {
                   <CardTitle>Финансы</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-6">
                     {movie.budget ? (
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Бюджет</p>
-                        <p className="text-lg font-semibold">${(movie.budget / 1000000).toFixed(0)}M</p>
+                      <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-5 py-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Бюджет</p>
+                        <p className="text-2xl font-bold tabular-nums">{formatMoney(movie.budget)}</p>
                       </div>
                     ) : null}
                     {movie.revenue ? (
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Кассовые сборы</p>
-                        <p className="text-lg font-semibold">${(movie.revenue / 1000000).toFixed(0)}M</p>
+                      <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-5 py-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Кассовые сборы</p>
+                        <p className="text-2xl font-bold tabular-nums text-amber-200">{formatMoney(movie.revenue)}</p>
                       </div>
                     ) : null}
                   </div>
@@ -278,8 +310,8 @@ const MovieDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                    {cast.map((actor) => (
-                      <div key={actor.id} className="text-center">
+                    {(castExpanded ? cast : cast.slice(0, 10)).map((actor) => (
+                      <Link key={actor.id} to={`/person/${actor.id}`} className="text-center group">
                         <img
                           src={
                             actor.profile_path
@@ -287,11 +319,50 @@ const MovieDetail = () => {
                               : 'https://placehold.co/200x300/1a1a2e/ffffff?text=No+Image'
                           }
                           alt={actor.name}
-                          className="w-full aspect-[2/3] object-cover rounded-lg mb-2"
+                          loading="lazy"
+                          className="w-full aspect-[2/3] object-cover rounded-lg mb-2 group-hover:ring-2 group-hover:ring-primary/60 transition-all"
                         />
-                        <p className="font-semibold text-sm truncate">{actor.name}</p>
+                        <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{actor.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{actor.character}</p>
-                      </div>
+                      </Link>
+                    ))}
+                  </div>
+                  {cast.length > 10 && (
+                    <div className="flex justify-center mt-6">
+                      <button
+                        onClick={() => setCastExpanded(!castExpanded)}
+                        className="px-6 py-2 rounded-full text-xs font-semibold bg-white/[0.05] border border-white/10 text-zinc-300 hover:bg-white/[0.1] hover:text-white transition-colors"
+                      >
+                        {castExpanded ? 'Свернуть' : `Показать всех · ${cast.length}`}
+                      </button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Crew: режиссёры и команда */}
+            {crew.length > 0 && (
+              <Card className="animate-fade-up card-glow" style={{ animationDelay: '0.35s' }}>
+                <CardHeader>
+                  <CardTitle>Съёмочная группа</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                    {orderCrew(crew).slice(0, 10).map((member, i) => (
+                      <Link key={`${member.id}-${member.job}-${i}`} to={`/person/${member.id}`} className="text-center group">
+                        <img
+                          src={
+                            member.profile_path
+                              ? `https://image.tmdb.org/t/p/w342${member.profile_path}`
+                              : 'https://placehold.co/200x300/1a1a2e/ffffff?text=No+Image'
+                          }
+                          alt={member.name}
+                          className="w-full aspect-[2/3] object-cover rounded-lg mb-2 group-hover:ring-2 group-hover:ring-primary/60 transition-all"
+                        />
+                        <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{member.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{member.job}</p>
+                      </Link>
                     ))}
                   </div>
                 </CardContent>
@@ -339,44 +410,78 @@ const MovieDetail = () => {
 
           {/* Sidebar */}
           <div className="space-y-4">
+            {movie.production_companies && movie.production_companies.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Студии</CardTitle>
+                </CardHeader>
+                <CardContent className="!pt-2">
+                  <div className="divide-y divide-white/[0.06]">
+                  {movie.production_companies.map((c) => (
+                    <Link
+                      key={c.id}
+                      to={`/company/${c.id}`}
+                      className="flex items-center gap-3 py-2.5 group"
+                    >
+                      {c.logo_path ? (
+                        <img
+                          src={`https://image.tmdb.org/t/p/w92${c.logo_path}`}
+                          alt={c.name}
+                          className="w-9 h-9 object-contain rounded-lg bg-white/[0.07] p-1 flex-shrink-0"
+                        />
+                      ) : (
+                        <span className="w-9 h-9 rounded-lg bg-white/[0.07] flex items-center justify-center text-sm font-bold text-muted-foreground flex-shrink-0">
+                          {c.name[0]}
+                        </span>
+                      )}
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors truncate flex-1">
+                        {c.name}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                    </Link>
+                  ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-2">
                 <CardTitle className="text-lg">О фильме</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 text-sm">
+              <CardContent className="!pt-2 text-sm">
+                <dl className="divide-y divide-white/[0.06]">
                 {movie.original_title && movie.original_title !== movie.title && (
-                  <div>
-                    <p className="text-muted-foreground">Оригинальное название</p>
-                    <p className="font-semibold">{movie.original_title}</p>
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground flex-shrink-0">Оригинальное название</dt>
+                    <dd className="font-semibold text-right truncate">{movie.original_title}</dd>
                   </div>
                 )}
                 {movie.release_date && (
-                  <div>
-                    <p className="text-muted-foreground">Дата выпуска</p>
-                    <p className="font-semibold">{new Date(movie.release_date).toLocaleDateString('ru-RU')}</p>
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground flex-shrink-0">Дата выпуска</dt>
+                    <dd className="font-semibold tabular-nums text-right">
+                      {new Date(movie.release_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </dd>
                   </div>
                 )}
-                {movie.runtime && (
-                  <div>
-                    <p className="text-muted-foreground">Продолжительность</p>
-                    <p className="font-semibold">{movie.runtime} минут</p>
+                {movie.runtime ? (
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground flex-shrink-0">Продолжительность</dt>
+                    <dd className="font-semibold tabular-nums">{formatRuntime(movie.runtime)}</dd>
                   </div>
-                )}
+                ) : null}
                 {movie.status && (
-                  <div>
-                    <p className="text-muted-foreground">Статус</p>
-                    <p className="font-semibold">{movie.status}</p>
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground flex-shrink-0">Статус</dt>
+                    <dd className="font-semibold">{statusRu(movie.status)}</dd>
                   </div>
                 )}
+                </dl>
               </CardContent>
             </Card>
 
             <div>
-              <Link to="/movies" className="w-full block">
-                <Button variant="outline" className="w-full">
-                  ← Вернуться к фильмам
-                </Button>
-              </Link>
+              <BackButton fallback="/movies" label="Вернуться к фильмам" className="w-full" />
             </div>
           </div>
         </div>

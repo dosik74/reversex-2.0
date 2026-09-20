@@ -71,7 +71,7 @@ const fetchSteamDescription = async (steamAppId: string): Promise<string | null>
 
   try {
     const steamResponse = await fetch(
-      `https://steamcommunity.com/api/appdetails?appids=${steamAppId}&l=russian`,
+      `https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=russian`,
       { signal: controller.signal }
     );
 
@@ -211,4 +211,51 @@ export const preloadTranslations = async (gameIds: number[]): Promise<void> => {
 export const clearTranslationCache = () => {
   memoryCache.clear();
   console.log('[Translation] Memory cache cleared');
+};
+
+const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ]);
+
+/**
+ * Русское описание игры: сначала официальное из Steam,
+ * если нет — машинный перевод английского описания RAWG.
+ * Возвращает null только если оба пути не сработали.
+ */
+export const getGameDescriptionRu = async (
+  gameId: number,
+  englishHtml?: string
+): Promise<{ text: string; machine: boolean } | null> => {
+  try {
+    const steam = await getGameDescriptionFromSteam(gameId);
+    if (steam?.trim()) return { text: steam, machine: false };
+  } catch {
+    /* идём к фолбэку */
+  }
+
+  if (englishHtml?.trim()) {
+    try {
+      const { translateGoogleFree } = await import('./translate');
+      // Google отдаёт текст — HTML-теги RAWG снимаем, абзацы сохраняем
+      const tmp = document.createElement('div');
+      tmp.innerHTML = englishHtml;
+      const plain = (tmp.textContent || '').replace(/\s+\n/g, '\n').trim();
+      if (plain.length >= 3) {
+        const translated = await withTimeout(translateGoogleFree(plain, 'ru', 'en'), 20000);
+        if (translated?.trim()) {
+          const paras = translated
+            .split(/\n\s*\n/)
+            .map((p) => `<p>${p.trim()}</p>`)
+            .join('');
+          return { text: paras || `<p>${translated}</p>`, machine: true };
+        }
+      }
+    } catch (e) {
+      console.warn('[Translation] Machine translation failed:', e);
+    }
+  }
+
+  return null;
 };

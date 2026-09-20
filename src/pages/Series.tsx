@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import SeriesCard from "@/components/SeriesCard";
 import CatalogHeader from "@/components/CatalogHeader";
+import CinemaNav from "@/components/CinemaNav";
 import PosterRow from "@/components/PosterRow";
 import SeriesCategoryFilter from "@/components/SeriesCategoryFilter";
 import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS, GENRE_LIST } from "@/components/MovieSortFilter";
@@ -279,15 +280,16 @@ const SeriesPage = () => {
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
+        <CinemaNav active="series" />
         <CatalogHeader
-          scriptLabel="�������"
-          title="���������� �������"
-          subtitle={`���������� ������ � ${allSeries.length} ��������`}
-          searchPlaceholder="����� ��������..."
+          scriptLabel="Кинотеатр"
+          title="Сериалы"
+          subtitle={`Популярное сейчас · ${allSeries.length} в каталоге`}
+          searchPlaceholder="Поиск сериалов..."
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
-          glow="from-sky-400 to-indigo-500"
-          accent="text-sky-400"
+          glow="from-amber-200 to-orange-500"
+          accent="text-amber-200/90"
         >
           {/* Category Filter */}
           <SeriesCategoryFilter
