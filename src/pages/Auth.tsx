@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import supabase from "@/utils/supabase";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,18 @@ const Auth = () => {
   const [showQRAuth, setShowQRAuth] = useState(false);
   const [tab, setTab] = useState('signin');
   const [prefillEmail, setPrefillEmail] = useState('');
+  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
+
+  // Если уже залогинен — показываем это явно, а не форму входа
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) setCurrentEmail(session.user.email);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setCurrentEmail(session?.user?.email || null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   // Вход по коду из письма (без пароля — заодно подтверждает email)
   const [otpEmail, setOtpEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -219,6 +231,32 @@ const Auth = () => {
           <p className="text-muted-foreground">Track movies, games, music, books and more</p>
         </div>
 
+        {currentEmail ? (
+          <Card className="card-glow">
+            <CardHeader className="text-center">
+              <span className="inline-flex w-14 h-14 rounded-full bg-green-500/15 items-center justify-center mx-auto mb-2">
+                <span className="text-2xl">✓</span>
+              </span>
+              <CardTitle>Вы вошли</CardTitle>
+              <CardDescription className="break-all">{currentEmail}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button className="w-full" onClick={() => redirectAfterLogin()}>
+                Продолжить
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  setCurrentEmail(null);
+                }}
+              >
+                Выйти
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
         <Card className="card-glow">
           <CardHeader>
             <CardTitle>Welcome</CardTitle>
@@ -377,6 +415,7 @@ const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
 
