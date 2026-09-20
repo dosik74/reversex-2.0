@@ -17,6 +17,10 @@ const Auth = () => {
   const [showQRAuth, setShowQRAuth] = useState(false);
   const [tab, setTab] = useState('signin');
   const [prefillEmail, setPrefillEmail] = useState('');
+  // Вход по коду из письма (без пароля — заодно подтверждает email)
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -63,6 +67,44 @@ const Auth = () => {
       navigate(`/qr-auth?session=${pending}`);
     } else {
       navigate('/');
+    }
+  };
+
+  const handleSendOtp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithOtp({
+        email: otpEmail,
+        options: { emailRedirectTo: getAuthRedirectUrl() },
+      });
+      if (error) throw error;
+      setOtpSent(true);
+      toast.success('Код отправлен на почту!');
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: otpEmail,
+        token: otpCode.trim(),
+        type: 'email',
+      });
+      if (error) throw error;
+      if (!data.session) throw new Error('Не удалось войти. Запросите код заново.');
+      toast.success('Вы успешно вошли!');
+      redirectAfterLogin();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -212,9 +254,10 @@ const Auth = () => {
             </div>
 
             <Tabs value={tab} onValueChange={setTab} defaultValue="signin">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="otp">Код</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
@@ -281,6 +324,55 @@ const Auth = () => {
                     {loading ? 'Creating account...' : 'Sign Up'}
                   </Button>
                 </form>
+              </TabsContent>
+
+              <TabsContent value="otp">
+                {!otpSent ? (
+                  <form onSubmit={handleSendOtp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="otp-email">Email</Label>
+                      <Input
+                        id="otp-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        required
+                        value={otpEmail}
+                        onChange={(e) => setOtpEmail(e.target.value)}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? 'Отправляем...' : 'Получить код'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Придёт 6-значный код. Пароль не нужен — заодно подтвердит почту.
+                    </p>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyOtp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="otp-code">Код из письма ({otpEmail})</Label>
+                      <Input
+                        id="otp-code"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="123456"
+                        required
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? 'Проверяем...' : 'Войти'}
+                    </Button>
+                    <button
+                      type="button"
+                      className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => { setOtpSent(false); setOtpCode(''); }}
+                    >
+                      Отправить код заново
+                    </button>
+                  </form>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>

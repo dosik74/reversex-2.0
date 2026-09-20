@@ -170,6 +170,20 @@ const QRAuthPage = () => {
   }
 
   if (phase === 'login-required') {
+    // Диагностика для скриншота: только факты, без секретов
+    let sbKeys = 0;
+    try {
+      sbKeys = Object.keys(localStorage).filter((k) => k.startsWith('sb-')).length;
+    } catch {
+      sbKeys = -1;
+    }
+    const sbHost = (() => {
+      try {
+        return new URL((supabase as any).supabaseUrl || '').host || '?';
+      } catch {
+        return '?';
+      }
+    })();
     return shell(
       <>
         <CardHeader className="text-center">
@@ -187,6 +201,14 @@ const QRAuthPage = () => {
           <Button variant="ghost" onClick={() => loadSession()} className="w-full">
             Я уже вошёл — проверить снова
           </Button>
+          <details className="text-[11px] text-muted-foreground/70 pt-1">
+            <summary className="cursor-pointer select-none">Диагностика (для скриншота)</summary>
+            <p className="mt-1 font-mono break-all">
+              сайт: {window.location.host}<br />
+              база: {sbHost}<br />
+              сессий в хранилище: {sbKeys}
+            </p>
+          </details>
         </CardContent>
       </>
     );
