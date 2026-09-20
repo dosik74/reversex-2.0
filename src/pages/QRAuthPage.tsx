@@ -48,7 +48,11 @@ const QRAuthPage = () => {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // Сессию читаем ЛОКАЛЬНО (getSession), а не через сеть (getUser):
+    // на мобильном интернете запрос user часто отваливается и «вход пропадает».
+    // Настоящая проверка всё равно будет на сервере в момент approve.
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) {
       // Запомним, куда вернуться после входа
       sessionStorage.setItem('qr_pending_session', sessionId);

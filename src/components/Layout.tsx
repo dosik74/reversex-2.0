@@ -32,8 +32,9 @@ const Layout = () => {
     if (location.pathname === '/qr-auth') return;
     const pending = sessionStorage.getItem('qr_pending_session');
     if (!pending) return;
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
+    // Локальное чтение сессии: getUser() ходит в сеть и на мобильном часто врёт
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
         sessionStorage.removeItem('qr_pending_session');
         navigate(`/qr-auth?session=${pending}`);
       }
