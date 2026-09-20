@@ -1,2 +1,2 @@
 // Шим для обратной совместимости - переиспортируем из lib
-export { default } from "@/lib/supabase";
+export { default, ensureSession } from "@/lib/supabase";

@@ -156,3 +156,45 @@ if (supabaseUrl && supabaseAnonKey) {
 }
 
 export default supabase;
+
+/**
+ * Гарантированная сессия: сначала обычное чтение, а если пусто —
+ * подбираем сессию из legacy-ключа старых бандлов (sb-<ref>-auth-token),
+ * которые писали туда вход до переезда на кастомный storageKey.
+ * Ключи ЧУЖИХ проектов (другой ref в имени) не трогаем.
+ * Возвращает session или null.
+ */
+export const ensureSession = async (): Promise<any | null> => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) return session;
+
+    if (typeof supabase.auth.setSession !== 'function') return null;
+
+    const m = String(supabaseUrl || '').match(/https:\/\/([^.]+)\.supabase\.co/);
+    const ref = m?.[1];
+    if (!ref || typeof localStorage === 'undefined') return null;
+
+    const raw = localStorage.getItem(`sb-${ref}-auth-token`);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw);
+      const access_token = parsed?.access_token;
+      const refresh_token = parsed?.refresh_token;
+      if (!access_token || !refresh_token) return null;
+
+      const { data } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (data.session?.user) {
+        // Переехали на новый ключ — старый чистим, чтобы не плодить дубли
+        localStorage.removeItem(`sb-${ref}-auth-token`);
+        return data.session;
+      }
+    } catch {
+      /* битый legacy-ключ — игнорируем */
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+};

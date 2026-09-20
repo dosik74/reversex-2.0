@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import supabase from "@/utils/supabase";
+import supabase, { ensureSession } from "@/utils/supabase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -50,8 +50,9 @@ const QRAuthPage = () => {
 
     // Сессию читаем ЛОКАЛЬНО (getSession), а не через сеть (getUser):
     // на мобильном интернете запрос user часто отваливается и «вход пропадает».
+    // ensureSession заодно подбирает вход из legacy-ключа старых версий приложения.
     // Настоящая проверка всё равно будет на сервере в момент approve.
-    const { data: { session } } = await supabase.auth.getSession();
+    const session = await ensureSession();
     const user = session?.user;
     if (!user) {
       // Запомним, куда вернуться после входа
@@ -170,12 +171,12 @@ const QRAuthPage = () => {
   }
 
   if (phase === 'login-required') {
-    // Диагностика для скриншота: только факты, без секретов
-    let sbKeys = 0;
+    // Диагностика для скриншота: только факты, без секретов (значений нет, только имена ключей)
+    let sbKeyNames: string[] = [];
     try {
-      sbKeys = Object.keys(localStorage).filter((k) => k.startsWith('sb-')).length;
+      sbKeyNames = Object.keys(localStorage).filter((k) => k.startsWith('sb-'));
     } catch {
-      sbKeys = -1;
+      sbKeyNames = ['storage-blocked'];
     }
     const sbHost = (() => {
       try {
@@ -206,7 +207,7 @@ const QRAuthPage = () => {
             <p className="mt-1 font-mono break-all">
               сайт: {window.location.host}<br />
               база: {sbHost}<br />
-              сессий в хранилище: {sbKeys}
+              ключи: {sbKeyNames.length ? sbKeyNames.join(', ') : '—'}
             </p>
           </details>
         </CardContent>

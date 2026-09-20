@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import supabase from "@/utils/supabase";
+import supabase, { ensureSession } from "@/utils/supabase";
 import NotificationsPanelComponent from "./NotificationsPanelComponent";
 import MessagesPanelComponent from "./MessagesPanelComponent";
 import { useTheme } from "@/context/ThemeContext";
@@ -33,7 +33,7 @@ const Layout = () => {
     const pending = sessionStorage.getItem('qr_pending_session');
     if (!pending) return;
     // Локальное чтение сессии: getUser() ходит в сеть и на мобильном часто врёт
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    ensureSession().then((session) => {
       if (session?.user) {
         sessionStorage.removeItem('qr_pending_session');
         navigate(`/qr-auth?session=${pending}`);
