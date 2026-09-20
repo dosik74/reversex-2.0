@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import supabase from "@/utils/supabase";
 import SettingsPanel from "@/components/SettingsPanel";
 import DataSettings from "@/components/DataSettings";
 import { Users, Settings as SettingsIcon } from "lucide-react";
 
 const Settings = () => {
+  const { t } = useTranslation();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,7 +30,7 @@ const Settings = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/20">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-muted-foreground">Loading settings...</p>
+          <p className="text-muted-foreground">{t("settings.loading")}</p>
         </div>
       </div>
     );
@@ -39,8 +41,8 @@ const Settings = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/20">
         <div className="text-center space-y-4">
           <Users className="w-24 h-24 text-muted-foreground mx-auto opacity-50" />
-          <h2 className="text-2xl font-bold">Not authenticated</h2>
-          <p className="text-muted-foreground">Please sign in to access settings</p>
+          <h2 className="text-2xl font-bold">{t("settings.notAuthTitle")}</h2>
+          <p className="text-muted-foreground">{t("settings.notAuthSub")}</p>
         </div>
       </div>
     );
@@ -52,9 +54,9 @@ const Settings = () => {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <SettingsIcon className="w-8 h-8 text-primary" />
-            <h1 className="text-4xl font-bold">Settings</h1>
+            <h1 className="text-4xl font-bold">{t("settings.title")}</h1>
           </div>
-          <p className="text-muted-foreground">Manage your application preferences and account settings</p>
+          <p className="text-muted-foreground">{t("settings.subtitle")}</p>
         </div>
 
         <div className="max-w-3xl mx-auto space-y-6">

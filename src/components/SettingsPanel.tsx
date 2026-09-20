@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import supabase from "@/utils/supabase";
 import { useTheme } from "@/context/ThemeContext";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,7 @@ const SettingToggle = ({
 
 const SettingsPanel = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { isDark, toggleTheme } = useTheme();
   const [settings, setSettings] = useState<AppSettings>({
     notifications: {
@@ -171,7 +173,7 @@ const SettingsPanel = () => {
 
   const saveSettings = async () => {
     if (!currentUserId) {
-      toast.error("User not authenticated");
+      toast.error(t("settings.notAuth"));
       return;
     }
 
@@ -189,10 +191,10 @@ const SettingsPanel = () => {
 
       if (error) throw error;
 
-      toast.success("✅ Settings saved successfully!");
+      toast.success(t("settings.savedOk"));
     } catch (error) {
       console.error("Error saving settings:", error);
-      toast.error("Failed to save settings");
+      toast.error(t("settings.savedErr"));
     } finally {
       setSaving(false);
     }
@@ -202,24 +204,22 @@ const SettingsPanel = () => {
     try {
       setSaving(true);
       await supabase.auth.signOut();
-      toast.success("Logged out successfully");
+      toast.success(t("settings.logoutOk"));
       setTimeout(() => navigate("/auth"), 500);
     } catch (error) {
       console.error("Error logging out:", error);
-      toast.error("Failed to logout");
+      toast.error(t("settings.logoutErr"));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteAccount = async () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete your account? This action cannot be undone."
-    );
+    const confirmed = window.confirm(t("settings.delConfirm"));
     if (!confirmed) return;
 
     if (!currentUserId) {
-      toast.error("User not authenticated");
+      toast.error(t("settings.notAuth"));
       return;
     }
 
@@ -234,11 +234,11 @@ const SettingsPanel = () => {
       // Sign out
       await supabase.auth.signOut();
 
-      toast.success("Account deleted successfully");
+      toast.success(t("settings.delOk"));
       setTimeout(() => navigate("/auth"), 500);
     } catch (error) {
       console.error("Error deleting account:", error);
-      toast.error("Failed to delete account");
+      toast.error(t("settings.delErr"));
     } finally {
       setSaving(false);
     }
@@ -269,7 +269,7 @@ const SettingsPanel = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-primary" />
-          Application Settings
+          {t("settings.appSettings")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -277,19 +277,19 @@ const SettingsPanel = () => {
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="notifications" className="text-xs sm:text-sm">
               <Bell className="w-4 h-4 mr-1" />
-              Notifications
+              {t("settings.tabNotifications")}
             </TabsTrigger>
             <TabsTrigger value="privacy" className="text-xs sm:text-sm">
               <Lock className="w-4 h-4 mr-1" />
-              Privacy
+              {t("settings.tabPrivacy")}
             </TabsTrigger>
             <TabsTrigger value="display" className="text-xs sm:text-sm">
               <Eye className="w-4 h-4 mr-1" />
-              Display
+              {t("settings.tabDisplay")}
             </TabsTrigger>
             <TabsTrigger value="account" className="text-xs sm:text-sm">
               <Shield className="w-4 h-4 mr-1" />
-              Account
+              {t("settings.tabAccount")}
             </TabsTrigger>
           </TabsList>
 
@@ -298,40 +298,40 @@ const SettingsPanel = () => {
             <div className="bg-muted/50 p-4 rounded-lg space-y-4">
               <SettingToggle
                 icon={<Mail className="w-4 h-4" />}
-                title="Email Notifications"
-                description="Receive important updates via email"
+                title={t("settings.emailN")}
+                description={t("settings.emailD")}
                 checked={settings.notifications.email}
                 onChange={() => toggleSetting("notifications", "email")}
               />
 
               <SettingToggle
                 icon={<Smartphone className="w-4 h-4" />}
-                title="Push Notifications"
-                description="Get instant notifications"
+                title={t("settings.pushN")}
+                description={t("settings.pushD")}
                 checked={settings.notifications.push}
                 onChange={() => toggleSetting("notifications", "push")}
               />
 
               <SettingToggle
                 icon={<Bell className="w-4 h-4" />}
-                title="Message Notifications"
-                description="Alert when you receive messages"
+                title={t("settings.msgN")}
+                description={t("settings.msgD")}
                 checked={settings.notifications.messages}
                 onChange={() => toggleSetting("notifications", "messages")}
               />
 
               <SettingToggle
                 icon={<Bell className="w-4 h-4" />}
-                title="Friend Requests"
-                description="Notify about new friend requests"
+                title={t("settings.frN")}
+                description={t("settings.frD")}
                 checked={settings.notifications.friendRequests}
                 onChange={() => toggleSetting("notifications", "friendRequests")}
               />
 
               <SettingToggle
                 icon={<Bell className="w-4 h-4" />}
-                title="Comments"
-                description="Notify about new comments on your content"
+                title={t("settings.comN")}
+                description={t("settings.comD")}
                 checked={settings.notifications.comments}
                 onChange={() => toggleSetting("notifications", "comments")}
               />
@@ -343,32 +343,32 @@ const SettingsPanel = () => {
             <div className="bg-muted/50 p-4 rounded-lg space-y-4">
               <SettingToggle
                 icon={<Eye className="w-4 h-4" />}
-                title="Public Profile"
-                description="Let others find and view your profile"
+                title={t("settings.pubN")}
+                description={t("settings.pubD")}
                 checked={settings.privacy.profilePublic}
                 onChange={() => toggleSetting("privacy", "profilePublic")}
               />
 
               <SettingToggle
                 icon={<Activity className="w-4 h-4" />}
-                title="Show Friends List"
-                description="Display your friends on your profile"
+                title={t("settings.friendsN")}
+                description={t("settings.friendsD")}
                 checked={settings.privacy.showFriendsList}
                 onChange={() => toggleSetting("privacy", "showFriendsList")}
               />
 
               <SettingToggle
                 icon={<Activity className="w-4 h-4" />}
-                title="Show Activity"
-                description="Let others see your watching activity"
+                title={t("settings.actN")}
+                description={t("settings.actD")}
                 checked={settings.privacy.showActivity}
                 onChange={() => toggleSetting("privacy", "showActivity")}
               />
 
               <SettingToggle
                 icon={<Mail className="w-4 h-4" />}
-                title="Allow Messages"
-                description="Receive direct messages from other users"
+                title={t("settings.dmN")}
+                description={t("settings.dmD")}
                 checked={settings.privacy.allowMessages}
                 onChange={() => toggleSetting("privacy", "allowMessages")}
               />
@@ -385,9 +385,9 @@ const SettingsPanel = () => {
                     {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                   </div>
                   <div>
-                    <div className="font-medium text-sm">Theme</div>
+                    <div className="font-medium text-sm">{t("settings.theme")}</div>
                     <div className="text-xs text-muted-foreground">
-                      {isDark ? 'Dark theme enabled' : 'Light theme enabled'}
+                      {isDark ? t("settings.darkOn") : t("settings.lightOn")}
                     </div>
                   </div>
                 </div>
@@ -413,24 +413,24 @@ const SettingsPanel = () => {
 
               <SettingToggle
                 icon={<Volume2 className="w-4 h-4" />}
-                title="Sound Effects"
-                description="Enable sound for interactions"
+                title={t("settings.soundN")}
+                description={t("settings.soundD")}
                 checked={settings.display.soundEnabled}
                 onChange={() => toggleSetting("display", "soundEnabled")}
               />
 
               <SettingToggle
                 icon={<Eye className="w-4 h-4" />}
-                title="Animations"
-                description="Show smooth animations"
+                title={t("settings.animN")}
+                description={t("settings.animD")}
                 checked={settings.display.animationsEnabled}
                 onChange={() => toggleSetting("display", "animationsEnabled")}
               />
 
               <SettingToggle
                 icon={<Eye className="w-4 h-4" />}
-                title="Compact Mode"
-                description="Use compact layout"
+                title={t("settings.compactN")}
+                description={t("settings.compactD")}
                 checked={settings.display.compactMode}
                 onChange={() => toggleSetting("display", "compactMode")}
               />
@@ -447,7 +447,7 @@ const SettingsPanel = () => {
                 disabled={saving}
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+                {t("settings.signOut")}
               </Button>
 
               <Button
@@ -456,7 +456,7 @@ const SettingsPanel = () => {
                 disabled
               >
                 <Lock className="w-4 h-4 mr-2" />
-                Change Password (Coming Soon)
+                {t("settings.changePass")} ({t("settings.soon")})
               </Button>
 
               <Button
@@ -465,12 +465,12 @@ const SettingsPanel = () => {
                 disabled
               >
                 <Shield className="w-4 h-4 mr-2" />
-                Two-Factor Authentication (Coming Soon)
+                {t("settings.tfa")} ({t("settings.soon")})
               </Button>
 
               <div className="mt-6 pt-6 border-t border-border">
                 <h4 className="font-semibold text-sm mb-3 text-red-500">
-                  Danger Zone
+                  {t("settings.danger")}
                 </h4>
                 <Button
                   variant="destructive"
@@ -479,10 +479,10 @@ const SettingsPanel = () => {
                   disabled={saving}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Account
+                  {t("settings.delAcc")}
                 </Button>
                 <p className="text-xs text-muted-foreground mt-2">
-                  This action cannot be undone. All your data will be permanently deleted.
+                  {t("settings.delWarn")}
                 </p>
               </div>
             </div>
@@ -497,14 +497,14 @@ const SettingsPanel = () => {
             className="flex-1 flex items-center justify-center gap-2"
           >
             <Save className="w-4 h-4" />
-            {saving ? "Saving..." : "Save Settings"}
+            {saving ? t("settings.saving") : t("settings.save")}
           </Button>
         </div>
 
         {/* Info Box */}
         <div className="mt-4 p-3 bg-blue-500/10 rounded-lg text-sm">
           <p className="text-muted-foreground">
-            💡 Your settings are automatically synced across all devices.
+            💡 {t("settings.syncNote")}
           </p>
         </div>
       </CardContent>
