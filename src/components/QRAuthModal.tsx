@@ -213,7 +213,8 @@ const QRAuthModal = ({ open, onClose, onSuccess }: QRAuthModalProps) => {
         <DialogHeader>
           <DialogTitle>Сканируй QR-код</DialogTitle>
           <DialogDescription>
-            Отсканируйте код камерой телефона, где вы уже вошли — вход подтвердится автоматически
+            Отсканируйте код камерой телефона, где вы уже вошли — вход подтвердится автоматически.
+            Удобнее из приложения: Профиль → Привязать устройство.
           </DialogDescription>
         </DialogHeader>
 

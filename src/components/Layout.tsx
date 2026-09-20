@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon } from "lucide-react";
+import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -223,6 +223,12 @@ const Layout = () => {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
+                        <Link to="/qr-scan" className="flex items-center gap-2">
+                          <Smartphone className="w-4 h-4" />
+                          Привязать устройство
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link to="/tier-lists" className="flex items-center gap-2">
                           <Crown className="w-4 h-4" />
                           Tier Lists
@@ -358,6 +364,12 @@ const Layout = () => {
                     <Link to={`/profile/${session.user.id}`} className="flex items-center gap-2">
                       <User className="w-4 h-4" />
                       Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/qr-scan" className="flex items-center gap-2">
+                      <Smartphone className="w-4 h-4" />
+                      Привязать устройство
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

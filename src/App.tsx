@@ -11,6 +11,7 @@ import { LanguageProvider } from "@/context/LanguageContext";
 
 import Auth from "./pages/Auth";
 import QRAuthPage from "./pages/QRAuthPage";
+import QrScanPage from "./pages/QrScanPage";
 import Layout from "./components/Layout";
 import Movies from "./pages/Movies";
 import ExploreMovies from "./pages/ExploreMovies";
@@ -202,6 +203,7 @@ const App = () => {
                   <Route path="/profile/:userId/edit" element={<ProfileEdit />} />
                   <Route path="/id/:slug" element={<ProfileBySlug />} />
                   <Route path="/bookmarks" element={<BookmarksNew />} />
+                  <Route path="/qr-scan" element={<QrScanPage />} />
                   <Route path="/recommendations" element={<Recommendations />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/tier-lists" element={<TierLists />} />
