@@ -275,6 +275,7 @@ export default function BookmarksNew() {
   const [typeFilter, setTypeFilter] = useState<ContentType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'rating' | 'title'>('date');
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const stats = useMemo(() => {
     const s: Record<ContentStatus, number> = { favorite: 0, watching: 0, planned: 0, watched: 0, postponed: 0, dropped: 0 };
@@ -347,19 +348,6 @@ export default function BookmarksNew() {
                 {total} сохранённых · {stats[activeTab]} в «{CONTENT_STATUS_CONFIG[activeTab].label}»
               </p>
             </div>
-
-            <div className="relative hidden sm:block">
-              <SlidersHorizontal className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="appearance-none pl-9 pr-8 py-2.5 bg-white/[0.05] border border-white/10 text-zinc-200 text-xs font-medium rounded-xl cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-200/30"
-              >
-                <option value="date">Недавние</option>
-                <option value="rating">По оценке</option>
-                <option value="title">По названию</option>
-              </select>
-            </div>
           </div>
 
           {/* Status pills */}
@@ -388,21 +376,8 @@ export default function BookmarksNew() {
             })}
           </div>
 
-          {/* Type filter + search */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06] self-start overflow-x-auto bkm-scroll">
-              {TYPE_FILTERS.map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => setTypeFilter(f.key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                    typeFilter === f.key ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  {f.icon}{f.label}
-                </button>
-              ))}
-            </div>
+          {/* Search + one filter button */}
+          <div className="flex gap-2.5">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
               <input
@@ -417,15 +392,51 @@ export default function BookmarksNew() {
                 </button>
               )}
             </div>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="sm:hidden appearance-none px-3 py-2.5 bg-white/[0.05] border border-white/10 text-zinc-200 text-xs rounded-xl"
-            >
-              <option value="date">Недавние</option>
-              <option value="rating">По оценке</option>
-              <option value="title">По названию</option>
-            </select>
+            <div className="relative">
+              <button
+                onClick={() => setFilterOpen(!filterOpen)}
+                title="Тип и сортировка"
+                className={`h-full aspect-square rounded-xl border flex items-center justify-center transition-colors ${filterOpen || typeFilter !== 'all' || sortBy !== 'date' ? 'bg-white text-black border-transparent' : 'bg-white/[0.05] border-white/10 text-zinc-300 hover:bg-white/[0.09]'}`}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
+
+              {filterOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setFilterOpen(false)} />
+                  <div className="absolute right-0 top-12 z-30 w-60 rounded-xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/60 py-1.5 bkc-modal">
+                    <p className="px-3.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500">Тип</p>
+                    {TYPE_FILTERS.map((f) => (
+                      <button
+                        key={f.key}
+                        onClick={() => { setTypeFilter(f.key); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-zinc-200 hover:bg-white/[0.06] transition-colors text-left"
+                      >
+                        <span className="text-zinc-500">{f.icon}</span>
+                        <span className="flex-1">{f.label}</span>
+                        {typeFilter === f.key && <Check className="w-3.5 h-3.5 text-amber-300" />}
+                      </button>
+                    ))}
+                    <div className="my-1.5 h-px bg-white/[0.07]" />
+                    <p className="px-3.5 pt-1 pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500">Сортировка</p>
+                    {([
+                      { key: 'date', label: 'Недавние' },
+                      { key: 'rating', label: 'По оценке' },
+                      { key: 'title', label: 'По названию' },
+                    ] as const).map((o) => (
+                      <button
+                        key={o.key}
+                        onClick={() => { setSortBy(o.key); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-zinc-200 hover:bg-white/[0.06] transition-colors text-left"
+                      >
+                        <span className="flex-1 pl-[26px]">{o.label}</span>
+                        {sortBy === o.key && <Check className="w-3.5 h-3.5 text-amber-300" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
