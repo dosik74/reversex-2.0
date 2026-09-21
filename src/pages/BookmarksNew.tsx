@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, X, Star, Trash2, Trophy, Bookmark as BookmarkIcon,
   Film, Tv, Gamepad2, Clapperboard, LayoutGrid, SlidersHorizontal, Sparkles,
-  MoreVertical, ExternalLink, Check, ChevronDown,
+  MoreVertical, ExternalLink, Check, ChevronDown, Play, CalendarClock,
+  CheckCheck, Pause, type LucideIcon,
 } from 'lucide-react';
 import { useBookmarks } from '@/context/BookmarkContext';
 import { ContentBookmark, ContentStatus, ContentType, CONTENT_STATUS_CONFIG } from '@/types/anime';
@@ -42,6 +43,16 @@ const EMPTY_TEXT: Record<ContentStatus, string> = {
   watched: 'Ничего не просмотрено',
   postponed: 'Нет отложенного',
   dropped: 'Ничего не брошено',
+};
+
+/* Векторные иконки статусов вместо эмодзи — стабильно на всех платформах */
+const STATUS_ICON: Record<ContentStatus, LucideIcon> = {
+  favorite: Star,
+  watching: Play,
+  planned: CalendarClock,
+  watched: CheckCheck,
+  postponed: Pause,
+  dropped: X,
 };
 
 /* ─────────── Row ─────────── */
@@ -194,7 +205,10 @@ function BookmarkRow({ bookmark, index }: { bookmark: ContentBookmark; index: nu
                     onClick={(e) => handleStatus(e, s)}
                     className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-zinc-200 hover:bg-white/[0.06] transition-colors text-left"
                   >
-                    <span className="text-sm w-4 text-center">{CONTENT_STATUS_CONFIG[s].icon}</span>
+                    {(() => {
+                      const Icon = STATUS_ICON[s];
+                      return <Icon className="w-4 h-4 text-zinc-400" />;
+                    })()}
                     <span className="flex-1">{CONTENT_STATUS_CONFIG[s].label}</span>
                     {bookmark.status === s && <Check className="w-3.5 h-3.5 text-amber-300" />}
                   </button>
@@ -356,6 +370,7 @@ export default function BookmarksNew() {
               const c = CONTENT_STATUS_CONFIG[s];
               const t = STATUS_THEME[s];
               const active = activeTab === s;
+              const Icon = STATUS_ICON[s];
               return (
                 <button
                   key={s}
@@ -366,8 +381,8 @@ export default function BookmarksNew() {
                       : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'
                   }`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${t.dot}`} />
-                  <span>{c.icon}</span>{c.label}
+                  <Icon className={`w-3.5 h-3.5 ${s === 'favorite' || s === 'watching' ? 'fill-current' : ''}`} />
+                  {c.label}
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold tabular-nums ${active ? 'bg-black/20' : 'bg-white/10'}`}>
                     {stats[s]}
                   </span>
@@ -462,7 +477,10 @@ export default function BookmarksNew() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className={`w-24 h-24 rounded-3xl mb-6 flex items-center justify-center bg-gradient-to-b from-amber-200 to-amber-500 shadow-2xl ${theme.glow} rotate-3`}>
-              <span className="text-4xl drop-shadow">{CONTENT_STATUS_CONFIG[activeTab].icon}</span>
+              {(() => {
+                const Icon = STATUS_ICON[activeTab];
+                return <Icon className="w-10 h-10 text-black/80 fill-black/20" />;
+              })()}
             </div>
             <h3 className="text-lg font-bold text-white mb-1">{EMPTY_TEXT[activeTab]}</h3>
             <p className="text-sm text-zinc-500 max-w-xs">
