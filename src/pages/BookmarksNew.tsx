@@ -113,7 +113,7 @@ function BookmarkRow({ bookmark, index }: { bookmark: ContentBookmark; index: nu
   return (
     <>
       <div
-        className="bkc group relative flex gap-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.07] p-3 hover:border-amber-200/25 hover:bg-white/[0.05] transition-all duration-300 cursor-pointer"
+        className={`bkc group relative flex gap-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.07] p-3 hover:border-amber-200/25 hover:bg-white/[0.05] transition-all duration-300 cursor-pointer ${menuOpen ? 'z-20' : ''}`}
         style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
         onClick={openDetail}
       >
@@ -345,7 +345,7 @@ export default function BookmarksNew() {
       `}</style>
 
       {/* Hero header */}
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-visible">
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] rounded-full blur-[120px] opacity-[0.14] bg-gradient-to-br from-amber-200 to-orange-500" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-100/40 to-transparent" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-6">
@@ -365,7 +365,7 @@ export default function BookmarksNew() {
           </div>
 
           {/* Status pills */}
-          <div className="flex gap-2 overflow-x-auto bkm-scroll pb-1 mb-4">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-4">
             {STATUS_ORDER.map((s) => {
               const c = CONTENT_STATUS_CONFIG[s];
               const t = STATUS_THEME[s];
@@ -375,7 +375,7 @@ export default function BookmarksNew() {
                 <button
                   key={s}
                   onClick={() => setActiveTab(s)}
-                  className={`flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors duration-200 border ${
+                  className={`flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-colors duration-200 border ${
                     active
                       ? `${t.soft} ${t.text} border-transparent ring-1 ring-white/20`
                       : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'

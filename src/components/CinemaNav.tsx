@@ -23,7 +23,7 @@ export default function CinemaNav({ active }: { active: CinemaSection }) {
 
       <nav
         aria-label="Разделы кинотеатра"
-        className="inline-flex items-center gap-1 p-1 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_8px_30px_-12px_rgba(0,0,0,0.8)]"
+        className="inline-flex items-center gap-1 p-1 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_8px_30px_-12px_rgba(0,0,0,0.8)] max-w-full overflow-x-auto no-scrollbar"
       >
         {TABS.map(({ key, label, path, icon: Icon }) => {
           const isActive = key === active;
@@ -32,7 +32,7 @@ export default function CinemaNav({ active }: { active: CinemaSection }) {
               key={key}
               to={path}
               aria-current={isActive ? 'page' : undefined}
-              className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
+              className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap shrink-0 transition-all duration-200 ${
                 isActive
                   ? 'bg-gradient-to-b from-amber-200 to-amber-400 text-black shadow-[0_4px_20px_-4px_rgba(251,191,36,0.5)]'
                   : 'text-zinc-400 hover:text-white hover:bg-white/[0.07]'

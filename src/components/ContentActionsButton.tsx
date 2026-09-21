@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Bookmark, BookmarkCheck, Trophy, Star, Check, Trash2, Loader2 } from 'lucide-react';
 import { ContentType, ContentStatus, CONTENT_STATUS_CONFIG } from '@/types/anime';
 import { useBookmarks } from '@/context/BookmarkContext';
@@ -46,20 +47,45 @@ export default function ContentActionsButton({
   const [showRateModal, setShowRateModal] = useState(false);
   const [ratingInput, setRatingInput] = useState('');
   const [pendingStatus, setPendingStatus] = useState<ContentStatus | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const bookmark = getBookmark(contentType, contentId);
   const inTop50 = top50MediaType ? isInTop50(top50MediaType, contentId) : false;
 
+  // Меню живёт в портале поверх всего: не режется overflow-hidden карточек
+  // и не перекрывается соседними рядами. Позиция от кнопки, закрытие —
+  // по клику мимо, скроллу, ресайзу и Escape.
   useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    if (!open) {
+      setMenuPos(null);
+      return;
+    }
+    const place = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const right = Math.max(8, window.innerWidth - rect.right);
+      const openUp = rect.bottom + 420 > window.innerHeight && rect.top > 420;
+      setMenuPos(
+        openUp
+          ? { bottom: Math.max(8, window.innerHeight - rect.top + 8), right }
+          : { top: rect.bottom + 8, right }
+      );
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    place();
+    const close = () => setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('scroll', close, { passive: true });
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('scroll', close);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   const handleStatus = (status: ContentStatus) => {
@@ -161,9 +187,14 @@ export default function ContentActionsButton({
         </button>
       )}
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/60 rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden act-menu">
+      {/* Dropdown (портал поверх всего) */}
+      {open && menuPos && createPortal(
+        <>
+          <div className="fixed inset-0 z-[90]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed w-56 bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/60 rounded-xl shadow-2xl shadow-black/60 z-[91] overflow-hidden act-menu"
+            style={{ right: menuPos.right, top: menuPos.top, bottom: menuPos.bottom }}
+          >
           {/* Top 50 */}
           <button
             onClick={handleTop50}
@@ -233,7 +264,9 @@ export default function ContentActionsButton({
               </button>
             </>
           )}
-        </div>
+          </div>
+        </>,
+        document.body
       )}
 
       {/* Rating modal */}

@@ -152,8 +152,7 @@ All colors MUST be HSL.
   .kp-scroll {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
-  }
-  .kp-scroll::-webkit-scrollbar {
+  }  .kp-scroll::-webkit-scrollbar {
     height: 4px;
   }
   .kp-scroll::-webkit-scrollbar-thumb {
@@ -162,5 +161,14 @@ All colors MUST be HSL.
   }
   .kp-scroll::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  /* Горизонтальные ряды пилюль без видимого скроллбара */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

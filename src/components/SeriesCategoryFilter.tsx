@@ -71,7 +71,7 @@ export default function SeriesCategoryFilter({
   const categories: (ContentStatus | 'all')[] = ['all', 'watched', 'watching', 'planned', 'postponed', 'dropped'];
 
   return (
-    <div className="flex flex-wrap gap-2 mb-6">
+    <div className="flex flex-nowrap gap-2 mb-6 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
       {categories.map((category) => {
         const isAll = category === 'all';
         const count = isAll ? 0 : stats[category as keyof CategoryStats];
@@ -81,7 +81,7 @@ export default function SeriesCategoryFilter({
           <button
             key={category}
             onClick={() => onCategoryChange(category)}
-            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
+            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap shrink-0 transition-all ${
               selectedCategory === category
                 ? `${config?.bgColor || 'bg-purple-500'} ${config?.color || 'text-purple-500'} text-white`
                 : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'

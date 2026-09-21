@@ -53,12 +53,12 @@ export default function MovieSortFilter({
   return (
     <div className="space-y-3">
       {/* Sort chips */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar pb-0.5 -mx-1 px-1">
         {SORTS.map((s) => (
           <button
             key={s.id}
             onClick={() => onSortChange(s.id)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-200 ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all duration-200 ${
               sortBy === s.id
                 ? 'bg-white text-black font-semibold'
                 : 'bg-white/[0.05] text-zinc-400 border border-white/[0.06] hover:bg-white/[0.1] hover:text-white'
@@ -71,14 +71,14 @@ export default function MovieSortFilter({
 
       {/* Genre chips */}
       {showGenres && (
-        <div className="flex items-center gap-2 overflow-x-auto kp-scroll pb-0.5">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 -mx-1 px-1">
           {GENRES.map((g) => {
             const active = genre === g.id;
             return (
               <button
                 key={g.id}
                 onClick={() => onGenreChange(g.id)}
-                className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 border ${
+                className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all duration-200 border ${
                   active
                     ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-black/90 border-transparent shadow-md shadow-orange-500/25'
                     : 'bg-white/[0.05] text-zinc-400 border-white/[0.06] hover:bg-white/[0.1] hover:text-white'

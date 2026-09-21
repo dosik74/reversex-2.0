@@ -317,14 +317,14 @@ const Games = () => {
                 </button>
               )}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
               {GAME_GENRES.map((genre) => {
                 const active = selectedGenres.includes(genre);
                 return (
                   <button
                     key={genre}
                     onClick={() => toggleGenre(genre)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors duration-200 border ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-colors duration-200 border ${
                       active
                         ? 'bg-white text-black border-transparent'
                         : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'
