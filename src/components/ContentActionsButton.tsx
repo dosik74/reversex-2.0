@@ -134,7 +134,7 @@ export default function ContentActionsButton({
       {variant === 'detail' ? (
         <button
           onClick={() => setOpen((v) => !v)}
-          className={`flex items-center gap-2.5 px-6 py-3 rounded-full font-semibold text-sm backdrop-blur-md transition-all duration-200 hover:scale-[1.04] active:scale-95 border ${
+          className={`flex items-center gap-2.5 px-6 py-3 rounded-full font-semibold text-sm whitespace-nowrap backdrop-blur-md transition-all duration-200 hover:scale-[1.04] active:scale-95 border ${
             bookmark
               ? 'bg-gradient-to-r from-purple-600 to-violet-600 border-transparent text-white shadow-lg shadow-purple-500/40'
               : 'bg-white/10 border-white/20 text-white hover:bg-white/20'

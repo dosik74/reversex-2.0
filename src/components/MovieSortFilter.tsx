@@ -58,7 +58,7 @@ export default function MovieSortFilter({
           <button
             key={s.id}
             onClick={() => onSortChange(s.id)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-200 ${
               sortBy === s.id
                 ? 'bg-white text-black font-semibold'
                 : 'bg-white/[0.05] text-zinc-400 border border-white/[0.06] hover:bg-white/[0.1] hover:text-white'

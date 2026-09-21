@@ -354,7 +354,7 @@ const Movies = () => {
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-colors duration-200 border ${
+                className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors duration-200 border ${
                   tab === key
                     ? 'bg-white text-black border-transparent'
                     : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'

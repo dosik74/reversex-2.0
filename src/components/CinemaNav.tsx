@@ -32,13 +32,13 @@ export default function CinemaNav({ active }: { active: CinemaSection }) {
               key={key}
               to={path}
               aria-current={isActive ? 'page' : undefined}
-              className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${
+              className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
                 isActive
                   ? 'bg-gradient-to-b from-amber-200 to-amber-400 text-black shadow-[0_4px_20px_-4px_rgba(251,191,36,0.5)]'
                   : 'text-zinc-400 hover:text-white hover:bg-white/[0.07]'
               }`}
             >
-              <Icon className="w-4 h-4" strokeWidth={isActive ? 2.4 : 2} />
+              <Icon className="w-4 h-4 shrink-0" strokeWidth={isActive ? 2.4 : 2} />
               {label}
             </Link>
           );

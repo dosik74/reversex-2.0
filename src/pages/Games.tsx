@@ -324,7 +324,7 @@ const Games = () => {
                   <button
                     key={genre}
                     onClick={() => toggleGenre(genre)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors duration-200 border ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors duration-200 border ${
                       active
                         ? 'bg-white text-black border-transparent'
                         : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'

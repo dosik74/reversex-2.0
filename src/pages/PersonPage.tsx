@@ -230,7 +230,7 @@ const PersonPage = () => {
                   {acted.length > 0 && (
                     <button
                       onClick={() => setTab('acted')}
-                      className={`px-4 py-2 rounded-full text-xs font-semibold border transition-colors ${
+                      className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors ${
                         tab === 'acted'
                           ? 'bg-white text-black border-transparent'
                           : 'bg-white/[0.04] text-zinc-400 border-white/[0.08] hover:text-white'
@@ -242,7 +242,7 @@ const PersonPage = () => {
                   {directed.length > 0 && (
                     <button
                       onClick={() => setTab('crew')}
-                      className={`px-4 py-2 rounded-full text-xs font-semibold border transition-colors ${
+                      className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors ${
                         tab === 'crew'
                           ? 'bg-white text-black border-transparent'
                           : 'bg-white/[0.04] text-zinc-400 border-white/[0.08] hover:text-white'

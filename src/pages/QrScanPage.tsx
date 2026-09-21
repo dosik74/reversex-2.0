@@ -177,13 +177,13 @@ const QrScanPage = () => {
         <div className="inline-flex items-center gap-1 p-1 rounded-full bg-white/[0.04] border border-white/[0.08]">
           <button
             onClick={() => { startedRef.current = false; setMode('camera'); setError(''); }}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${mode === 'camera' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${mode === 'camera' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}
           >
             Камера
           </button>
           <button
             onClick={() => { setMode('code'); setError(''); }}
-            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${mode === 'code' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${mode === 'code' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}
           >
             <Keyboard className="w-3.5 h-3.5" />
             Код
