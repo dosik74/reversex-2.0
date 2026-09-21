@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, X, Star, Trash2, Trophy, Bookmark as BookmarkIcon,
   Film, Tv, Gamepad2, Clapperboard, LayoutGrid, SlidersHorizontal, Sparkles,
-  MoreVertical, ExternalLink, Check,
+  MoreVertical, ExternalLink, Check, ChevronDown,
 } from 'lucide-react';
 import { useBookmarks } from '@/context/BookmarkContext';
 import { ContentBookmark, ContentStatus, ContentType, CONTENT_STATUS_CONFIG } from '@/types/anime';
@@ -166,9 +166,9 @@ function BookmarkRow({ bookmark, index }: { bookmark: ContentBookmark; index: nu
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
             title="Действия"
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${menuOpen ? 'bg-white/15 text-white' : 'text-zinc-500 hover:bg-white/10 hover:text-white'}`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${menuOpen ? 'bg-white/15 text-white' : 'text-zinc-400 hover:bg-white/10 hover:text-white active:bg-white/15'}`}
           >
-            <MoreVertical className="w-[18px] h-[18px]" />
+            <MoreVertical className="w-5 h-5" />
           </button>
 
           {menuOpen && (
@@ -396,9 +396,11 @@ export default function BookmarksNew() {
               <button
                 onClick={() => setFilterOpen(!filterOpen)}
                 title="Тип и сортировка"
-                className={`h-full aspect-square rounded-xl border flex items-center justify-center transition-colors ${filterOpen || typeFilter !== 'all' || sortBy !== 'date' ? 'bg-white text-black border-transparent' : 'bg-white/[0.05] border-white/10 text-zinc-300 hover:bg-white/[0.09]'}`}
+                className={`h-[46px] px-4 rounded-xl border flex items-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors ${filterOpen || typeFilter !== 'all' || sortBy !== 'date' ? 'bg-white text-black border-transparent' : 'bg-white/[0.05] border-white/10 text-zinc-200 hover:bg-white/[0.09]'}`}
               >
                 <SlidersHorizontal className="w-4 h-4" />
+                {TYPE_FILTERS.find((f) => f.key === typeFilter)?.label}
+                <ChevronDown className={`w-3.5 h-3.5 opacity-60 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {filterOpen && (
