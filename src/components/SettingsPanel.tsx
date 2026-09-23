@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import supabase from "@/utils/supabase";
 import { useTheme } from "@/context/ThemeContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +23,7 @@ import {
   Mail,
   Smartphone,
   Activity,
+  Languages,
 } from "lucide-react";
 
 interface AppSettings {
@@ -123,6 +125,9 @@ const SettingsPanel = () => {
   useEffect(() => {
     if (currentUserId) {
       loadSettings();
+    } else if (currentUserId === null) {
+      // Гостя сюда не пускает Settings.tsx, но на всякий случай не висим на спиннере
+      setLoading(false);
     }
   }, [currentUserId]);
 
@@ -378,6 +383,21 @@ const SettingsPanel = () => {
           {/* Display Tab */}
           <TabsContent value="display" className="space-y-4 mt-4">
             <div className="bg-muted/50 p-4 rounded-lg space-y-4">
+              {/* Язык: локальная настройка, работает и без входа, хранится в localStorage */}
+              <div className="flex items-center justify-between p-3 bg-card rounded-lg border border-border hover:border-primary/50 transition-colors">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="text-muted-foreground">
+                    <Languages className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-sm">{t("settings.language")}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t("settings.languageD")}
+                    </div>
+                  </div>
+                </div>
+                <LanguageSwitcher />
+              </div>
               {/* Theme Toggle with real effect */}
               <div className="flex items-center justify-between p-3 bg-card rounded-lg border border-border hover:border-primary/50 transition-colors">
                 <div className="flex items-center gap-3 flex-1">

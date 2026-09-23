@@ -1,7 +1,31 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-const storedLng = typeof window !== 'undefined' ? localStorage.getItem('lng') : null;
+export const LANG_KEY = 'lng';
+export const SUPPORTED_LANGS = ['ru', 'kk', 'en'] as const;
+
+const readStoredLng = (): string => {
+  if (typeof window === 'undefined') return 'ru';
+  // Единый ключ 'lng'. Старый ключ 'language' читаем для миграции.
+  const raw =
+    localStorage.getItem(LANG_KEY) ||
+    localStorage.getItem('language') ||
+    localStorage.getItem('i18nextLng');
+  const lng = (raw || 'ru').split('-')[0].toLowerCase();
+  return (SUPPORTED_LANGS as readonly string[]).includes(lng) ? lng : 'ru';
+};
+
+export const persistLng = (lng: string) => {
+  try {
+    localStorage.setItem(LANG_KEY, lng);
+    // Дублируем в старый ключ для совместимости, пока весь код не перейдёт на LANG_KEY
+    localStorage.setItem('language', lng);
+  } catch {
+    /* ignore */
+  }
+};
+
+const storedLng = readStoredLng();
 
 const resources = {
   ru: {
@@ -83,7 +107,48 @@ const resources = {
         logoutOk: 'Вы вышли',
         logoutErr: 'Не удалось выйти',
         delOk: 'Аккаунт удалён',
-        delErr: 'Не удалось удалить'
+        delErr: 'Не удалось удалить',
+        language: 'Язык',
+        languageD: 'Язык интерфейса приложения',
+        localSettings: 'Настройки на этом устройстве',
+        localDesc: 'Язык, тема и оформление работают без входа и хранятся в браузере.',
+        cloudSettings: 'Облачные настройки',
+        cloudDesc: 'Уведомления и приватность — только для вошедших, синхронизируются на устройствах.',
+        guestNote: 'Вы не вошли — облачные настройки недоступны, но язык и тему менять можно.',
+        goToLogin: 'Перейти ко входу'
+      },
+      auth: {
+        tagline: 'Отслеживайте фильмы, игры, музыку, книги и многое другое',
+        welcome: 'Добро пожаловать',
+        subtitle: 'Войдите или создайте аккаунт, чтобы начать',
+        continueGoogle: 'Продолжить с Google',
+        scanQr: 'Сканировать QR-код',
+        or: 'ИЛИ',
+        invalidCredentials: 'Неверный логин или пароль',
+        signIn: 'Вход',
+        signUp: 'Регистрация',
+        codeTab: 'Код',
+        email: 'Email',
+        password: 'Пароль',
+        username: 'Имя пользователя',
+        signingIn: 'Входим...',
+        creating: 'Создаём аккаунт...',
+        signInBtn: 'Войти',
+        signUpBtn: 'Зарегистрироваться',
+        getCode: 'Получить код',
+        sending: 'Отправляем...',
+        checking: 'Проверяем...',
+        enter: 'Войти',
+        loggedIn: 'Вы вошли',
+        continueBtn: 'Продолжить',
+        signOut: 'Выйти',
+        emailPlaceholder: 'you@example.com',
+        namePlaceholder: 'moviefan123',
+        otpHint: 'Придёт 6-значный код. Пароль не нужен — заодно подтвердит почту.',
+        otpMailHint: 'Ещё проще: нажмите ссылку «Войти» прямо в письме — код вводить не нужно.',
+        resendCode: 'Отправить код заново',
+        codeFromMail: 'Код из письма',
+        accountCreated: 'Аккаунт создан!'
       },
       workspace: {
         title: 'Workspace',
@@ -203,7 +268,48 @@ const resources = {
         logoutOk: 'Сіз шықтыңыз',
         logoutErr: 'Шығу сәтсіз',
         delOk: 'Аккаунт жойылды',
-        delErr: 'Жою сәтсіз'
+        delErr: 'Жою сәтсіз',
+        language: 'Тіл',
+        languageD: 'Қолданба интерфейсінің тілі',
+        localSettings: 'Осы құрылғыдағы параметрлер',
+        localDesc: 'Тіл, тақырып және көрініс кірмей-ақ жұмыс істейді, браузерде сақталады.',
+        cloudSettings: 'Бұлтты параметрлер',
+        cloudDesc: 'Хабарландырулар мен құпиялылық — кіргендерге ғана, құрылғыларда синхрондалады.',
+        guestNote: 'Сіз кірмедіңіз — бұлтты параметрлер қолжетімсіз, бірақ тіл мен тақырыпты өзгертуге болады.',
+        goToLogin: 'Кіруге өту'
+      },
+      auth: {
+        tagline: 'Фильмдерді, ойындарды, музыканы, кітаптарды және басқаларды бақылаңыз',
+        welcome: 'Қош келдіңіз',
+        subtitle: 'Бастау үшін кіріңіз немесе аккаунт жасаңыз',
+        continueGoogle: 'Google арқылы жалғастыру',
+        scanQr: 'QR-кодты сканерлеу',
+        or: 'НЕМЕСЕ',
+        invalidCredentials: 'Логин немесе құпиясөз қате',
+        signIn: 'Кіру',
+        signUp: 'Тіркелу',
+        codeTab: 'Код',
+        email: 'Email',
+        password: 'Құпиясөз',
+        username: 'Пайдаланушы аты',
+        signingIn: 'Кіруде...',
+        creating: 'Аккаунт жасалуда...',
+        signInBtn: 'Кіру',
+        signUpBtn: 'Тіркелу',
+        getCode: 'Код алу',
+        sending: 'Жіберілуде...',
+        checking: 'Тексерілуде...',
+        enter: 'Кіру',
+        loggedIn: 'Сіз кірдіңіз',
+        continueBtn: 'Жалғастыру',
+        signOut: 'Шығу',
+        emailPlaceholder: 'you@example.com',
+        namePlaceholder: 'moviefan123',
+        otpHint: '6 таңбалы код келеді. Құпиясөз қажет емес — поштаны да растайды.',
+        otpMailHint: 'Оңайырақ: хаттағы «Кіру» сілтемесін басыңыз — код енгізудің қажеті жоқ.',
+        resendCode: 'Кодты қайта жіберу',
+        codeFromMail: 'Хаттағы код',
+        accountCreated: 'Аккаунт жасалды!'
       },
       workspace: {
         title: 'Workspace',
@@ -323,7 +429,48 @@ const resources = {
         logoutOk: 'Logged out successfully',
         logoutErr: 'Failed to logout',
         delOk: 'Account deleted successfully',
-        delErr: 'Failed to delete account'
+        delErr: 'Failed to delete account',
+        language: 'Language',
+        languageD: 'Application interface language',
+        localSettings: 'Settings on this device',
+        localDesc: 'Language, theme and appearance work without sign-in and are stored in the browser.',
+        cloudSettings: 'Cloud settings',
+        cloudDesc: 'Notifications and privacy are for signed-in users only and sync across devices.',
+        guestNote: 'You are not signed in — cloud settings are unavailable, but you can change language and theme.',
+        goToLogin: 'Go to sign in'
+      },
+      auth: {
+        tagline: 'Track movies, games, music, books and more',
+        welcome: 'Welcome',
+        subtitle: 'Sign in or create an account to get started',
+        continueGoogle: 'Continue with Google',
+        scanQr: 'Scan QR code',
+        or: 'OR',
+        invalidCredentials: 'Invalid login credentials',
+        signIn: 'Sign In',
+        signUp: 'Sign Up',
+        codeTab: 'Code',
+        email: 'Email',
+        password: 'Password',
+        username: 'Username',
+        signingIn: 'Signing in...',
+        creating: 'Creating account...',
+        signInBtn: 'Sign In',
+        signUpBtn: 'Sign Up',
+        getCode: 'Get code',
+        sending: 'Sending...',
+        checking: 'Checking...',
+        enter: 'Sign In',
+        loggedIn: 'You are signed in',
+        continueBtn: 'Continue',
+        signOut: 'Sign Out',
+        emailPlaceholder: 'you@example.com',
+        namePlaceholder: 'moviefan123',
+        otpHint: 'A 6-digit code will arrive. No password needed — it also verifies your email.',
+        otpMailHint: 'Even easier: click the "Sign in" link right in the email — no code needed.',
+        resendCode: 'Resend code',
+        codeFromMail: 'Code from email',
+        accountCreated: 'Account created!'
       },
       workspace: {
         title: 'Workspace',
@@ -370,11 +517,21 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: storedLng || 'ru',
+    lng: storedLng,
     fallbackLng: 'ru',
     interpolation: {
       escapeValue: false,
     },
   });
+
+// Миграция старого ключа + синхронизация: всё приложение пишет через persistLng
+if (typeof window !== 'undefined') {
+  persistLng(storedLng);
+  // Если какой-то код поменял язык напрямую через i18n — сохраняем
+  i18n.on('languageChanged', (lng) => {
+    const base = (lng || 'ru').split('-')[0].toLowerCase();
+    persistLng((SUPPORTED_LANGS as readonly string[]).includes(base) ? base : 'ru');
+  });
+}
 
 export default i18n;

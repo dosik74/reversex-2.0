@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import supabase from "@/utils/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Film, QrCode } from "lucide-react";
 import QRAuthModal from "@/components/QRAuthModal";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { getAuthRedirectUrl } from "@/lib/authRedirect";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [showQRAuth, setShowQRAuth] = useState(false);
   const [tab, setTab] = useState('signin');
@@ -75,8 +78,11 @@ const Auth = () => {
 
   /** Ошибка входа: тост + постоянная плашка (тосты исчезают — плашка остаётся для скриншота) */
   const fail = (message: string) => {
-    toast.error(message);
-    setAuthError(message);
+    const mapped = /invalid login credentials/i.test(message || '')
+      ? t('auth.invalidCredentials')
+      : message;
+    toast.error(mapped);
+    setAuthError(mapped);
   };
   const redirectAfterLogin = () => {
     const pending = sessionStorage.getItem('qr_pending_session');
@@ -178,7 +184,7 @@ const Auth = () => {
         }));
       }
       
-      toast.success('Account created successfully!');
+      toast.success(t('auth.accountCreated'));
       redirectAfterLogin();
     } catch (error: any) {
       // Email уже занят — это не баг, а штатный ответ Supabase (422).
@@ -239,13 +245,16 @@ const Auth = () => {
     <>
       <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+        <div className="flex justify-end mb-4">
+          <LanguageSwitcher />
+        </div>
         <div className="text-center mb-8">
           <img 
             src="/logo.png"
             alt="ReverseX"
             className="h-24 w-auto mx-auto mb-4"
           />
-          <p className="text-muted-foreground">Track movies, games, music, books and more</p>
+          <p className="text-muted-foreground">{t('auth.tagline')}</p>
         </div>
 
         {currentEmail ? (
@@ -254,12 +263,12 @@ const Auth = () => {
               <span className="inline-flex w-14 h-14 rounded-full bg-green-500/15 items-center justify-center mx-auto mb-2">
                 <span className="text-2xl">✓</span>
               </span>
-              <CardTitle>Вы вошли</CardTitle>
+              <CardTitle>{t('auth.loggedIn')}</CardTitle>
               <CardDescription className="break-all">{currentEmail}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button className="w-full" onClick={() => redirectAfterLogin()}>
-                Продолжить
+                {t('auth.continueBtn')}
               </Button>
               <Button
                 variant="outline"
@@ -269,15 +278,15 @@ const Auth = () => {
                   setCurrentEmail(null);
                 }}
               >
-                Выйти
+                {t('auth.signOut')}
               </Button>
             </CardContent>
           </Card>
         ) : (
         <Card className="card-glow">
           <CardHeader>
-            <CardTitle>Welcome</CardTitle>
-            <CardDescription>Sign in or create an account to get started</CardDescription>
+            <CardTitle>{t('auth.welcome')}</CardTitle>
+            <CardDescription>{t('auth.subtitle')}</CardDescription>
           </CardHeader>
           <CardContent>
             <Button
@@ -286,7 +295,7 @@ const Auth = () => {
               className="w-full mb-3"
               variant="outline"
             >
-              Continue with Google
+              {t('auth.continueGoogle')}
             </Button>
 
             <Button
@@ -296,7 +305,7 @@ const Auth = () => {
               variant="outline"
             >
               <QrCode className="w-4 h-4 mr-2" />
-              Сканировать QR-код
+              {t('auth.scanQr')}
             </Button>
 
             <div className="relative mb-6">
@@ -304,7 +313,7 @@ const Auth = () => {
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or</span>
+                <span className="bg-card px-2 text-muted-foreground">{t('auth.or')}</span>
               </div>
             </div>
 
@@ -316,27 +325,27 @@ const Auth = () => {
 
             <Tabs value={tab} onValueChange={setTab} defaultValue="signin">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-                <TabsTrigger value="otp">Код</TabsTrigger>
+                <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
+                <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
+                <TabsTrigger value="otp">{t('auth.codeTab')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
+                    <Label htmlFor="signin-email">{t('auth.email')}</Label>
                     <Input
                       id="signin-email"
                       name="email"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder={t('auth.emailPlaceholder')}
                       required
                       key={prefillEmail}
                       defaultValue={prefillEmail}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
+                    <Label htmlFor="signin-password">{t('auth.password')}</Label>
                     <Input
                       id="signin-password"
                       name="password"
@@ -345,7 +354,7 @@ const Auth = () => {
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Signing in...' : 'Sign In'}
+                    {loading ? t('auth.signingIn') : t('auth.signInBtn')}
                   </Button>
                 </form>
               </TabsContent>
@@ -353,27 +362,27 @@ const Auth = () => {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-username">Username</Label>
+                    <Label htmlFor="signup-username">{t('auth.username')}</Label>
                     <Input
                       id="signup-username"
                       name="username"
                       type="text"
-                      placeholder="moviefan123"
+                      placeholder={t('auth.namePlaceholder')}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
+                    <Label htmlFor="signup-email">{t('auth.email')}</Label>
                     <Input
                       id="signup-email"
                       name="email"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder={t('auth.emailPlaceholder')}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
+                    <Label htmlFor="signup-password">{t('auth.password')}</Label>
                     <Input
                       id="signup-password"
                       name="password"
@@ -382,7 +391,7 @@ const Auth = () => {
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Creating account...' : 'Sign Up'}
+                    {loading ? t('auth.creating') : t('auth.signUpBtn')}
                   </Button>
                 </form>
               </TabsContent>
@@ -391,27 +400,27 @@ const Auth = () => {
                 {!otpSent ? (
                   <form onSubmit={handleSendOtp} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="otp-email">Email</Label>
+                      <Label htmlFor="otp-email">{t('auth.email')}</Label>
                       <Input
                         id="otp-email"
                         type="email"
-                        placeholder="you@example.com"
+                        placeholder={t('auth.emailPlaceholder')}
                         required
                         value={otpEmail}
                         onChange={(e) => setOtpEmail(e.target.value)}
                       />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? 'Отправляем...' : 'Получить код'}
+                      {loading ? t('auth.sending') : t('auth.getCode')}
                     </Button>
                     <p className="text-xs text-muted-foreground text-center">
-                      Придёт 6-значный код. Пароль не нужен — заодно подтвердит почту.
+                      {t('auth.otpHint')}
                     </p>
                   </form>
                 ) : (
                   <form onSubmit={handleVerifyOtp} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="otp-code">Код из письма ({otpEmail})</Label>
+                      <Label htmlFor="otp-code">{t('auth.codeFromMail')} ({otpEmail})</Label>
                       <Input
                         id="otp-code"
                         type="text"
@@ -424,17 +433,17 @@ const Auth = () => {
                       />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? 'Проверяем...' : 'Войти'}
+                      {loading ? t('auth.checking') : t('auth.enter')}
                     </Button>
                     <p className="text-xs text-muted-foreground text-center">
-                      Ещё проще: нажмите ссылку «Войти» прямо в письме — код вводить не нужно.
+                      {t('auth.otpMailHint')}
                     </p>
                     <button
                       type="button"
                       className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
                       onClick={() => { setOtpSent(false); setOtpCode(''); }}
                     >
-                      Отправить код заново
+                      {t('auth.resendCode')}
                     </button>
                   </form>
                 )}
