@@ -36,6 +36,13 @@ const Auth = () => {
   const [otpEmail, setOtpEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  // Сброс пароля: email → код из письма → новый пароль
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetCodeSent, setResetCodeSent] = useState(false);
+  const [resetVerified, setResetVerified] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [newPassword2, setNewPassword2] = useState('');
   // Постоянная ошибка (тосты исчезают — эта остаётся, чтобы было что скинуть)
   const [authError, setAuthError] = useState('');
 
@@ -141,6 +148,98 @@ const Auth = () => {
     if (digits.length === 6) {
       handleVerifyOtp(undefined, digits);
     }
+  };
+
+  // --- Сброс пароля через код из письма ---
+  const handleSendResetCode = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setAuthError('');
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: getAuthRedirectUrl(),
+      });
+      if (error) throw error;
+      setResetCodeSent(true);
+      setResetCode('');
+      setResetVerified(false);
+      toast.success(t('auth.getCode'));
+    } catch (error: any) {
+      fail(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyResetCode = async (e?: React.FormEvent<HTMLFormElement>, codeOverride?: string) => {
+    e?.preventDefault();
+    const code = (codeOverride ?? resetCode).replace(/\D/g, '');
+    if (code.length !== 6 || loading) return;
+    try {
+      setLoading(true);
+      setAuthError('');
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: resetEmail,
+        token: code,
+        type: 'recovery',
+      });
+      if (error) throw error;
+      if (!data.session) throw new Error(t('auth.invalidCredentials'));
+      setResetVerified(true);
+      toast.success(t('auth.enter'));
+    } catch (error: any) {
+      fail(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetCodeChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 6);
+    setResetCode(digits);
+    if (digits.length === 6) {
+      handleVerifyResetCode(undefined, digits);
+    }
+  };
+
+  const handleSetNewPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (newPassword !== newPassword2) {
+      fail(t('auth.passMismatch'));
+      return;
+    }
+    if (newPassword.length < 6) {
+      fail(t('auth.passShort'));
+      return;
+    }
+    try {
+      setLoading(true);
+      setAuthError('');
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success(t('auth.resetOk'));
+      // Чистим состояние сброса и заходим
+      setResetEmail('');
+      setResetCode('');
+      setResetCodeSent(false);
+      setResetVerified(false);
+      setNewPassword('');
+      setNewPassword2('');
+      redirectAfterLogin();
+    } catch (error: any) {
+      fail(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetResetFlow = () => {
+    setResetCodeSent(false);
+    setResetVerified(false);
+    setResetCode('');
+    setNewPassword('');
+    setNewPassword2('');
+    setAuthError('');
   };
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -323,11 +422,12 @@ const Auth = () => {
               </div>
             )}
 
-            <Tabs value={tab} onValueChange={setTab} defaultValue="signin">
-              <TabsList className="grid w-full grid-cols-3">
+            <Tabs value={tab} onValueChange={(v) => { setTab(v); setAuthError(''); }} defaultValue="signin">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
                 <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
                 <TabsTrigger value="otp">{t('auth.codeTab')}</TabsTrigger>
+                <TabsTrigger value="reset">{t('auth.resetTab')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
@@ -356,6 +456,13 @@ const Auth = () => {
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? t('auth.signingIn') : t('auth.signInBtn')}
                   </Button>
+                  <button
+                    type="button"
+                    className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => { setTab('reset'); setAuthError(''); }}
+                  >
+                    {t('auth.forgotLink')}
+                  </button>
                 </form>
               </TabsContent>
 
@@ -444,6 +551,94 @@ const Auth = () => {
                       onClick={() => { setOtpSent(false); setOtpCode(''); }}
                     >
                       {t('auth.resendCode')}
+                    </button>
+                  </form>
+                )}
+              </TabsContent>
+
+              <TabsContent value="reset">
+                {!resetCodeSent ? (
+                  <form onSubmit={handleSendResetCode} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reset-email">{t('auth.email')}</Label>
+                      <Input
+                        id="reset-email"
+                        type="email"
+                        placeholder={t('auth.emailPlaceholder')}
+                        required
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? t('auth.sending') : t('auth.getCode')}
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      {t('auth.resetDesc1')}
+                    </p>
+                  </form>
+                ) : !resetVerified ? (
+                  <form onSubmit={handleVerifyResetCode} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reset-code">{t('auth.codeFromMail')} ({resetEmail})</Label>
+                      <Input
+                        id="reset-code"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        placeholder="123456"
+                        required
+                        value={resetCode}
+                        onChange={(e) => handleResetCodeChange(e.target.value)}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? t('auth.checking') : t('auth.enter')}
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      {t('auth.resetDesc2')}
+                    </p>
+                    <button
+                      type="button"
+                      className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={resetResetFlow}
+                    >
+                      {t('auth.resendCode')}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleSetNewPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reset-new-password">{t('auth.newPassword')}</Label>
+                      <Input
+                        id="reset-new-password"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reset-new-password2">{t('auth.confirmPassword')}</Label>
+                      <Input
+                        id="reset-new-password2"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        value={newPassword2}
+                        onChange={(e) => setNewPassword2(e.target.value)}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? t('auth.savingPass') : t('auth.setNewPass')}
+                    </Button>
+                    <button
+                      type="button"
+                      className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => { resetResetFlow(); setTab('signin'); }}
+                    >
+                      {t('auth.backToSignIn')}
                     </button>
                   </form>
                 )}

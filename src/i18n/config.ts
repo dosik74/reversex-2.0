@@ -148,7 +148,19 @@ const resources = {
         otpMailHint: 'Ещё проще: нажмите ссылку «Войти» прямо в письме — код вводить не нужно.',
         resendCode: 'Отправить код заново',
         codeFromMail: 'Код из письма',
-        accountCreated: 'Аккаунт создан!'
+        accountCreated: 'Аккаунт создан!',
+        forgotLink: 'Забыли пароль?',
+        resetTab: 'Сброс',
+        resetDesc1: 'Введите почту — пришлём 6-значный код для сброса пароля.',
+        resetDesc2: 'Введите код из письма — затем задайте новый пароль.',
+        newPassword: 'Новый пароль',
+        confirmPassword: 'Повторите новый пароль',
+        setNewPass: 'Установить новый пароль',
+        savingPass: 'Сохраняем...',
+        passMismatch: 'Пароли не совпадают',
+        passShort: 'Пароль — минимум 6 символов',
+        resetOk: 'Пароль обновлён! Вы вошли.',
+        backToSignIn: 'Назад ко входу'
       },
       workspace: {
         title: 'Workspace',
@@ -309,7 +321,19 @@ const resources = {
         otpMailHint: 'Оңайырақ: хаттағы «Кіру» сілтемесін басыңыз — код енгізудің қажеті жоқ.',
         resendCode: 'Кодты қайта жіберу',
         codeFromMail: 'Хаттағы код',
-        accountCreated: 'Аккаунт жасалды!'
+        accountCreated: 'Аккаунт жасалды!',
+        forgotLink: 'Құпиясөзді ұмыттыңыз ба?',
+        resetTab: 'Қалпына келтіру',
+        resetDesc1: 'Поштаны енгізіңіз — құпиясөзді қалпына келтіру үшін 6 таңбалы код жібереміз.',
+        resetDesc2: 'Хаттағы кодты енгізіңіз — сосын жаңа құпиясөз орнатыңыз.',
+        newPassword: 'Жаңа құпиясөз',
+        confirmPassword: 'Жаңа құпиясөзді қайталаңыз',
+        setNewPass: 'Жаңа құпиясөзді орнату',
+        savingPass: 'Сақталуда...',
+        passMismatch: 'Құпиясөздер сәйкес келмейді',
+        passShort: 'Құпиясөз — кемінде 6 таңба',
+        resetOk: 'Құпиясөз жаңартылды! Сіз кірдіңіз.',
+        backToSignIn: 'Кіруге қайту'
       },
       workspace: {
         title: 'Workspace',
@@ -470,7 +494,19 @@ const resources = {
         otpMailHint: 'Even easier: click the "Sign in" link right in the email — no code needed.',
         resendCode: 'Resend code',
         codeFromMail: 'Code from email',
-        accountCreated: 'Account created!'
+        accountCreated: 'Account created!',
+        forgotLink: 'Forgot password?',
+        resetTab: 'Reset',
+        resetDesc1: 'Enter your email — we will send a 6-digit password reset code.',
+        resetDesc2: 'Enter the code from the email — then set a new password.',
+        newPassword: 'New password',
+        confirmPassword: 'Repeat new password',
+        setNewPass: 'Set new password',
+        savingPass: 'Saving...',
+        passMismatch: 'Passwords do not match',
+        passShort: 'Password must be at least 6 characters',
+        resetOk: 'Password updated! You are signed in.',
+        backToSignIn: 'Back to sign in'
       },
       workspace: {
         title: 'Workspace',
