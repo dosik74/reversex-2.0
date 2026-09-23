@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Search, X } from "lucide-react";
 import GameCard from "@/components/GameCard";
 import CatalogHeader from "@/components/CatalogHeader";
+import CatalogFilterBar from "@/components/CatalogFilterBar";
 import CinemaNav from "@/components/CinemaNav";
 import PosterRow from "@/components/PosterRow";
-import MovieSortFilter, { SortOption } from "@/components/MovieSortFilter";
+import { SortOption } from "@/components/MovieSortFilter";
+import { claimExclusive } from "@/utils/dedupe";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useTranslation } from "react-i18next";
 import { fetchRawg, gameGenreRu, RAWG_API_KEY } from "@/utils/rawgApi";
@@ -255,27 +256,24 @@ const Games = () => {
   // Kinopoisk-style rows mode: no active filters/search
   const rowsMode = !searchQuery.trim() && selectedGenres.length === 0;
 
-  const topGames = useMemo(() => allGames.slice(0, 20), [allGames]);
-
-  // Genre rows: each game appears in only ONE row (its first matching genre)
-  const genreRows = useMemo(
-    () => {
-      const used = new Set<number>(topGames.map((g) => g.id));
-      return GAME_GENRES.map((genre) => {
-        const items: Game[] = [];
-        for (const g of allGames) {
-          if (used.has(g.id)) continue;
-          if (g.genres?.some((x) => x.toLowerCase() === genre.toLowerCase())) {
-            items.push(g);
-            used.add(g.id);
-            if (items.length >= 30) break;
-          }
-        }
-        return { id: genre, name: gameGenreRu(genre), items };
-      }).filter((r) => r.items.length >= 6);
-    },
-    [allGames, topGames]
-  );
+  // ── Эксклюзивные ряды одним проходом: каждая игра ровно в одном
+  // ряду — ни по id, ни по базе названия повторов нет ──
+  const rails = useMemo(() => {
+    const usedIds = new Set<number | string>();
+    const usedTitles = new Set<string>();
+    const idOf = (g: Game) => g.id;
+    const titleOf = (g: Game) => g.title;
+    const top = claimExclusive(allGames, 20, usedIds, usedTitles, idOf, titleOf);
+    const genres = GAME_GENRES.map((genre) => {
+      const items = claimExclusive(
+        allGames.filter((g) => g.genres?.some((x) => x.toLowerCase() === genre.toLowerCase())),
+        30, usedIds, usedTitles, idOf, titleOf,
+      );
+      return { id: genre, name: gameGenreRu(genre), items };
+    }).filter((r) => r.items.length >= 6);
+    return { top, genres };
+  }, [allGames]);
+  const { top: topGames, genres: genreRows } = rails;
 
   const toggleGenre = (genre: string) => {
     setSelectedGenres((prev) =>
@@ -301,49 +299,20 @@ const Games = () => {
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           glow="from-amber-200 to-orange-500"
-          accent="text-amber-200/90"
+          accent="text-amber-700 dark:text-amber-200/90"
         >
-          {/* Genre pills */}
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-bold">Жанры</p>
-              {(searchQuery || selectedGenres.length > 0) && (
-                <button
-                  onClick={clearFilters}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/[0.04] border border-white/[0.06] text-zinc-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30 transition-all"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Очистить
-                </button>
-              )}
-            </div>
-            <div className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
-              {GAME_GENRES.map((genre) => {
-                const active = selectedGenres.includes(genre);
-                return (
-                  <button
-                    key={genre}
-                    onClick={() => toggleGenre(genre)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-colors duration-200 border ${
-                      active
-                        ? 'bg-white text-black border-transparent'
-                        : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'
-                    }`}
-                  >
-                    {gameGenreRu(genre)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Sort Filter */}
-          <MovieSortFilter
+          <CatalogFilterBar
+            showStatus={false}
             sortBy={sortBy}
             onSortChange={setSortBy}
-            genre="all"
-            onGenreChange={() => {}}
-            showGenres={false}
+            genreMode="multi"
+            multiOptions={GAME_GENRES.map((g) => ({ id: g, label: gameGenreRu(g) }))}
+            multiSelected={selectedGenres}
+            onToggleMultiGenre={toggleGenre}
+            onReset={() => {
+              setSelectedGenres([]);
+              setSortBy('popularity');
+            }}
           />
         </CatalogHeader>
 

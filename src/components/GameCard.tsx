@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import ContentActionsButton from "@/components/ContentActionsButton";
 import { formatVotes } from "@/utils/rawgApi";
@@ -67,7 +66,6 @@ const GameCard = ({ game }: { game: Game }) => {
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="absolute bottom-0 left-0 right-0 p-3 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
             <div className="flex items-center gap-1 text-yellow-400 mb-1">
-              <Star className="w-4 h-4 fill-current" />
               <span className="text-sm font-semibold">{Number(game.rating).toFixed(1)}</span>
               {(game.ratingsCount || 0) > 0 && (
                 <span className="text-xs text-white/60">· {formatVotes(game.ratingsCount)} оценок</span>

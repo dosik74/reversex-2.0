@@ -16,14 +16,14 @@ export const GENRE_TMDB_IDS: Record<string, { movie: number[]; tv: number[] }> =
   animation: { movie: [16],           tv: [16] },
 };
 
-const SORTS: { id: SortOption; label: string }[] = [
+export const SORTS: { id: SortOption; label: string }[] = [
   { id: 'popularity', label: 'По популярности' },
   { id: 'rating', label: 'По рейтингу' },
   { id: 'year', label: 'По году' },
   { id: 'title', label: 'По названию' },
 ];
 
-const GENRES = [
+export const GENRES = [
   { id: 'all', name: 'Все жанры' },
   { id: 'action', name: 'Экшн' },
   { id: 'comedy', name: 'Комедия' },
@@ -58,10 +58,10 @@ export default function MovieSortFilter({
           <button
             key={s.id}
             onClick={() => onSortChange(s.id)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all duration-200 ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all duration-200 border ${
               sortBy === s.id
-                ? 'bg-white text-black font-semibold'
-                : 'bg-white/[0.05] text-zinc-400 border border-white/[0.06] hover:bg-white/[0.1] hover:text-white'
+                ? 'bg-foreground text-background font-semibold border-transparent dark:bg-white dark:text-black'
+                : 'bg-muted/60 text-muted-foreground border-border hover:bg-muted hover:text-foreground dark:bg-white/[0.05] dark:text-zinc-400 dark:border-white/[0.06] dark:hover:bg-white/[0.1] dark:hover:text-white'
             }`}
           >
             {s.label}
@@ -81,7 +81,7 @@ export default function MovieSortFilter({
                 className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all duration-200 border ${
                   active
                     ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-black/90 border-transparent shadow-md shadow-orange-500/25'
-                    : 'bg-white/[0.05] text-zinc-400 border-white/[0.06] hover:bg-white/[0.1] hover:text-white'
+                    : 'bg-muted/60 text-muted-foreground border-border hover:bg-muted hover:text-foreground dark:bg-white/[0.05] dark:text-zinc-400 dark:border-white/[0.06] dark:hover:bg-white/[0.1] dark:hover:text-white'
                 }`}
               >
                 {g.name}
@@ -99,7 +99,7 @@ export function KpSection({ title, children }: { title?: string; children: React
   return (
     <div className="mb-8">
       {title && (
-        <h2 className="font-grotesk text-xl font-bold text-white mb-4">{title}</h2>
+        <h2 className="font-grotesk text-xl font-bold text-foreground dark:text-white mb-4">{title}</h2>
       )}
       {children}
     </div>

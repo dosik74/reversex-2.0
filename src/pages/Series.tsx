@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import SeriesCard from "@/components/SeriesCard";
 import CatalogHeader from "@/components/CatalogHeader";
+import CatalogFilterBar from "@/components/CatalogFilterBar";
 import CinemaNav from "@/components/CinemaNav";
 import PosterRow from "@/components/PosterRow";
-import SeriesCategoryFilter from "@/components/SeriesCategoryFilter";
-import MovieSortFilter, { SortOption, GenreFilter, GENRE_TMDB_IDS, GENRE_LIST } from "@/components/MovieSortFilter";
+import { SortOption, GenreFilter, GENRE_TMDB_IDS, GENRE_LIST } from "@/components/MovieSortFilter";
+import { claimExclusive, dedupeById } from "@/utils/dedupe";
 import { getPopularSeries, searchSeries, getMoviePosterUrl } from "@/utils/tmdbApi";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useTranslation } from "react-i18next";
@@ -162,14 +163,14 @@ const SeriesPage = () => {
       setLoading(true);
       const results = await searchSeries(query);
       
-      const transformed = results.results.map((series: any) => ({
+      const transformed = dedupeById(results.results.map((series: any) => ({
         id: series.id,
         title: series.name || series.original_name,
         year: series.first_air_date ? new Date(series.first_air_date).getFullYear().toString() : '',
         rating: series.vote_average,
         poster: getMoviePosterUrl(series.poster_path, 'w342'),
         description: series.overview
-      }));
+      })));
 
       setAllSeries(transformed);
       setDisplaySeries(transformed.slice(0, SERIES_PER_PAGE));
@@ -190,6 +191,7 @@ const SeriesPage = () => {
     try {
       setLoading(true);
       const all: Series[] = [];
+      const seen = new Set<number>(); // страницы TMDB пересекаются — режем дубли на входе
       const TOTAL_PAGES = 25; // ~500 series
 
       for (let pageNum = 1; pageNum <= TOTAL_PAGES; pageNum++) {
@@ -198,7 +200,7 @@ const SeriesPage = () => {
           if (results.results.length === 0) break;
 
           const transformed = results.results
-            .filter((s: any) => s.poster_path)
+            .filter((s: any) => s.poster_path && !seen.has(s.id))
             .map((series: any) => ({
               id: series.id,
               title: series.name || series.original_name,
@@ -208,6 +210,7 @@ const SeriesPage = () => {
               description: series.overview,
               genre_ids: series.genre_ids || []
             }));
+          transformed.forEach(s => seen.add(s.id));
 
           all.push(...transformed);
 
@@ -244,38 +247,29 @@ const SeriesPage = () => {
   // Kinopoisk-style rows mode: no active filters/search
   const rowsMode = !searchQuery.trim() && genreFilter === 'all' && selectedCategory === 'all';
 
-  const popularSeries = useMemo(() => allSeries.slice(0, 20), [allSeries]);
-  const topRatedSeries = useMemo(
-    () => {
-      const popularIds = new Set(popularSeries.map((s) => s.id));
-      return [...allSeries].filter((s) => !popularIds.has(s.id)).sort((a, b) => b.rating - a.rating).slice(0, 20);
-    },
-    [allSeries, popularSeries]
-  );
-
-  // Genre rows: each series appears in only ONE row (its first matching genre)
-  const genreRows = useMemo(
-    () => {
-      const used = new Set<number>([
-        ...popularSeries.map((s) => s.id),
-        ...topRatedSeries.map((s) => s.id),
-      ]);
-      return GENRE_LIST.map((g) => {
-        const tmdbIds = GENRE_TMDB_IDS[g.id]?.tv || [];
-        const items: Series[] = [];
-        for (const s of allSeries) {
-          if (used.has(s.id)) continue;
-          if (s.genre_ids?.some((id) => tmdbIds.includes(id))) {
-            items.push(s);
-            used.add(s.id);
-            if (items.length >= 30) break;
-          }
-        }
-        return { ...g, items };
-      }).filter((r) => r.items.length >= 6);
-    },
-    [allSeries, popularSeries, topRatedSeries]
-  );
+  // ── Эксклюзивные ряды одним проходом: каждый сериал ровно в одном
+  // ряду — ни по id, ни по базе названия повторов нет ──
+  const rails = useMemo(() => {
+    const usedIds = new Set<number | string>();
+    const usedTitles = new Set<string>();
+    const idOf = (s: Series) => s.id;
+    const titleOf = (s: Series) => s.title;
+    const popular = claimExclusive(allSeries, 20, usedIds, usedTitles, idOf, titleOf);
+    const topRated = claimExclusive(
+      [...allSeries].sort((a, b) => b.rating - a.rating),
+      20, usedIds, usedTitles, idOf, titleOf,
+    );
+    const genres = GENRE_LIST.map((g) => {
+      const tmdbIds = GENRE_TMDB_IDS[g.id]?.tv || [];
+      const items = claimExclusive(
+        allSeries.filter((s) => s.genre_ids?.some((id) => tmdbIds.includes(id))),
+        30, usedIds, usedTitles, idOf, titleOf,
+      );
+      return { ...g, items };
+    }).filter((r) => r.items.length >= 6);
+    return { popular, topRated, genres };
+  }, [allSeries]);
+  const { popular: popularSeries, topRated: topRatedSeries, genres: genreRows } = rails;
 
   return (
     <div className="min-h-screen">
@@ -289,20 +283,21 @@ const SeriesPage = () => {
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           glow="from-amber-200 to-orange-500"
-          accent="text-amber-200/90"
+          accent="text-amber-700 dark:text-amber-200/90"
         >
-          {/* Category Filter */}
-          <SeriesCategoryFilter
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
-          />
-
-          {/* Sort and Genre Filter */}
-          <MovieSortFilter
+          <CatalogFilterBar
+            statusValue={selectedCategory}
+            onStatusChange={setSelectedCategory}
+            contentType="series"
             sortBy={sortBy}
             onSortChange={setSortBy}
             genre={genreFilter}
             onGenreChange={setGenreFilter}
+            onReset={() => {
+              setSelectedCategory('all');
+              setSortBy('popularity');
+              setGenreFilter('all');
+            }}
           />
         </CatalogHeader>
 

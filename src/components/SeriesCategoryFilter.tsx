@@ -81,10 +81,10 @@ export default function SeriesCategoryFilter({
           <button
             key={category}
             onClick={() => onCategoryChange(category)}
-            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap shrink-0 transition-all ${
+            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap shrink-0 transition-all border border-transparent ${
               selectedCategory === category
                 ? `${config?.bgColor || 'bg-purple-500'} ${config?.color || 'text-purple-500'} text-white`
-                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                : 'bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground dark:bg-zinc-800 dark:text-zinc-400 dark:border-transparent dark:hover:bg-zinc-700 dark:hover:text-zinc-200'
             }`}
           >
             {isAll ? (

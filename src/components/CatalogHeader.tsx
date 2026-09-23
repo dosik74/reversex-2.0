@@ -22,11 +22,11 @@ export default function CatalogHeader({
   searchValue,
   onSearchChange,
   glow = 'from-amber-200 to-orange-500',
-  accent = 'text-amber-200/90',
+  accent = 'text-amber-700 dark:text-amber-200/90',
   children,
 }: CatalogHeaderProps) {
   return (
-    <header className="relative overflow-hidden mb-10 rounded-3xl border border-white/[0.07] bg-white/[0.015]">
+    <header className="relative overflow-hidden mb-10 rounded-3xl border border-border/70 bg-card/70 dark:border-white/[0.07] dark:bg-white/[0.015]">
       <style>{`
         .cat-in { animation: cat-fade .55s cubic-bezier(.16,1,.3,1) both; }
         @keyframes cat-fade { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
@@ -44,14 +44,14 @@ export default function CatalogHeader({
           {scriptLabel}
         </p>
         <h1
-          className="font-grotesk font-bold tracking-tight leading-[0.95] mt-3 mb-3 text-5xl sm:text-6xl bg-gradient-to-b from-white via-white to-zinc-400 bg-clip-text text-transparent cat-in"
+          className="font-grotesk font-bold tracking-tight leading-[0.95] mt-3 mb-3 text-5xl sm:text-6xl bg-gradient-to-b from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent cat-in"
           style={{ animationDelay: '70ms' }}
         >
           {title}
         </h1>
         {subtitle && (
           <p className="cat-in" style={{ animationDelay: '130ms' }}>
-            <span className="inline-flex items-center gap-2 text-[13px] text-zinc-400 bg-white/[0.04] border border-white/[0.07] rounded-full pl-2.5 pr-3.5 py-1.5">
+            <span className="inline-flex items-center gap-2 text-[13px] text-muted-foreground bg-muted/60 border border-border rounded-full pl-2.5 pr-3.5 py-1.5 dark:text-zinc-400 dark:bg-white/[0.04] dark:border-white/[0.07]">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-60" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-300" />
@@ -65,24 +65,24 @@ export default function CatalogHeader({
           <div className="relative max-w-xl mt-6 cat-in group" style={{ animationDelay: '190ms' }}>
             <div className="absolute -inset-px rounded-full bg-gradient-to-r from-amber-200/0 via-amber-200/25 to-amber-200/0 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none" />
             <div className="relative flex items-center">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-amber-200 transition-colors" />
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-amber-600 dark:group-focus-within:text-amber-200 transition-colors" />
               <input
                 type="text"
                 value={searchValue}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-12 pr-12 h-12 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-[15px] text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-200/40 focus:ring-4 focus:ring-amber-200/10 transition-all"
+                className="w-full pl-12 pr-12 h-12 bg-background backdrop-blur-md border border-border rounded-full text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 transition-all dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-600 dark:border-white/10 dark:focus:border-amber-200/40 dark:focus:ring-amber-200/10"
               />
               {searchValue ? (
                 <button
                   onClick={() => onSearchChange('')}
                   aria-label="Очистить поиск"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-muted hover:bg-muted/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] flex items-center justify-center transition-colors"
                 >
-                  <X className="w-3.5 h-3.5 text-zinc-400" />
+                  <X className="w-3.5 h-3.5 text-muted-foreground dark:text-zinc-400" />
                 </button>
               ) : (
-                <kbd className="absolute right-5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-zinc-600 border border-white/10 rounded-md px-1.5 py-0.5 pointer-events-none">
+                <kbd className="absolute right-5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground border border-border rounded-md px-1.5 py-0.5 pointer-events-none dark:text-zinc-600 dark:border-white/10">
                   /
                 </kbd>
               )}
