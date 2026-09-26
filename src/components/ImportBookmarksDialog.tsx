@@ -79,7 +79,17 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
         onProgress: (done, total) => setProgress({ done, total }),
       });
       await refresh();
-      toast.success(`Импортировано: ${summary.created}, пропущено дублей: ${summary.skipped}${summary.failed ? `, ошибок: ${summary.failed}` : ''}`);
+      const parts: string[] = [];
+      if (byType.movie) parts.push(`фильмы: ${byType.movie}`);
+      if (byType.series) parts.push(`сериалы: ${byType.series}`);
+      if (byType.anime) parts.push(`аниме: ${byType.anime}`);
+      if (byType.game) parts.push(`игры: ${byType.game}`);
+      const where = parts.length ? ` (${parts.join(', ')}) — смотри вкладки типов` : '';
+      if (summary.failed > 0 && summary.created === 0) {
+        toast.error(`Не импортировано: ошибок ${summary.failed}. Проверь подключение и попробуй ещё раз.`);
+      } else {
+        toast.success(`Импортировано: ${summary.created}${where}${summary.skipped ? `, дублей пропущено: ${summary.skipped}` : ''}${summary.failed ? `, ошибок: ${summary.failed}` : ''}`);
+      }
       onDone?.();
       setOpen(false);
       reset();
@@ -110,7 +120,7 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-lg font-bold text-white">Импорт закладок</h3>
-                <p className="text-xs text-zinc-500 mt-0.5">CSV / JSON / XML из Letterboxd, IMDb, AniList, MAL, Shikimori, Кинопоиска, Steam</p>
+                <p className="text-xs text-zinc-500 mt-0.5">CSV / JSON / XML из Letterboxd, IMDb, Anixart, AniList, MAL, Shikimori, Кинопоиска, Steam</p>
               </div>
               <button onClick={() => { setOpen(false); reset(); }} className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors">
                 <X className="w-4 h-4 text-zinc-400" />

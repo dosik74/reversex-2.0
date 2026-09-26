@@ -8,8 +8,14 @@
 //    movie/tvMovie/tvShort → `movie`, tvSeries/tvMiniSeries/tvSpecial/tvEpisode → `series`,
 //    videoGame → `game`. ratings → `watched`, watchlist → `planned`.
 //  - Аниме (Anixart CSV, MyAnimeList XML, AniList JSON, Shikimori/общий anime-CSV)
-//    → всегда `anime`. Статусы Anixart/MAL/AniList маппятся на наши 6 статусов
-//    («Просмотрено»→watched, «Смотрю»→watching, «В планах»→planned,
+//    → раскладываем по вкладкам сайта: сериалы → `series`, полнометражки → `movie`
+//    (отдельного типа `anime` в прод-БД нет — CHECK допускает только
+//    movie/series/game, поэтому хранить `anime` нельзя: строки отвергаются).
+//    Логика определения фильма (classifyAnimeContentType):
+//      1) явный формат источника (MAL series_type=3, AniList format=MOVIE) — приоритет;
+//      2) маркеры в русском/оригинальном названии: «фильм», movie, film,
+//         gekijouban, eiga — иначе считаем сериалом (TV/OVA/ONA/specials тоже сериалы).
+//    Статусы маппятся: «Просмотрено»→watched, «Смотрю»→watching, «В планах»→planned,
 //    «Отложено»→postponed, «Брошено»/«Не смотрю»→dropped;
 //    оценка Anixart «N из 5» → шкала 0–10; «Добавлено в избранное» → is_favorite).
 //  - Кинопоиск (CSV из расширений-экспортёров) → по колонке типа:
@@ -69,7 +75,7 @@ export const IMPORT_SOURCE_LABEL: Record<ImportSource, string> = {
   auto: 'Автоопределение',
   letterboxd: 'Letterboxd (фильмы)',
   imdb: 'IMDb (фильмы + сериалы)',
-  anime: 'AniList / MAL / Shikimori / Anixart (аниме)',
+  anime: 'Anixart / AniList / MAL / Shikimori (аниме)',
   kinopoisk: 'Кинопоиск (CSV)',
   steam: 'Steam (игры)',
   generic: 'Обычный CSV',
@@ -79,7 +85,7 @@ export const IMPORT_SOURCE_HINT: Record<ImportSource, string> = {
   auto: 'Сам определим формат по заголовкам файла.',
   letterboxd: 'Letterboxd → Settings → Import/Export → diary.csv, ratings.csv или watchlist.csv.',
   imdb: 'IMDb → Your Ratings / Watchlist → Export (ratings.csv, watchlist.csv).',
-  anime: 'Anixart (Bookmarks CSV), AniList (Settings → Export JSON), MyAnimeList (Export XML), Shikimori CSV.',
+  anime: 'Anixart (Bookmarks CSV), AniList (Export JSON), MyAnimeList (Export XML), Shikimori CSV. Сериалы попадут во вкладку «Сериалы», полнометражки — в «Фильмы».',
   kinopoisk: 'CSV из расширений-экспортёров Кинопоиска (Название, Год, Тип, Оценка, Статус).',
   steam: 'Экспорт библиотеки (AppID, Name, Playtime) через SteamDB / export-расширения.',
   generic: 'Любой CSV с колонками title/name, year, rating, type, status.',
@@ -239,6 +245,25 @@ function slugify(s: string): string {
 
 // ─────────────────────────── source parsers ───────────────────────────
 
+type AnimeFormat = 'movie' | 'series';
+
+/**
+ * Раскладка аниме по вкладкам сайта: полнометражный фильм → `movie`, всё остальное → `series`.
+ * @param formatHint явный формат от источника ('movie' | 'series'), если он его даёт — приоритет.
+ * @param titles названия для эвристики (русское + оригинальное + альтернативные).
+ */
+export function classifyAnimeContentType(
+  titles: (string | undefined)[],
+  formatHint?: AnimeFormat | null
+): 'movie' | 'series' {
+  if (formatHint) return formatHint;
+  const text = titles.filter(Boolean).join(' | ');
+  // Маркеры полнометражки: «фильм», movie, film, gekijouban (Gekijouban = theatrical),
+  // eiga (Eiga = кино, напр. «Eiga Koe no Katachi»).
+  if (/фильм|movie|\bfilm\b|gekijouban|gekijoban|\beiga\b/i.test(text)) return 'movie';
+  return 'series';
+}
+
 function parseLetterboxd(headers: string[], rows: Record<string, string>[]): ParsedImportItem[] {
   const hasRatingCol = headers.some((h) => normHeader(h) === 'rating');
   const isWatchlist = headers.some((h) => normHeader(h) === 'date added');
@@ -328,7 +353,7 @@ function parseAnimeCsv(headers: string[], rows: Record<string, string>[]): Parse
       const favRaw = getCol(r, ['Добавлено в избранное', 'В избранном', 'favorite']).toLowerCase();
       const item: ParsedImportItem = {
         title,
-        contentType: 'anime', // аниме-источники — всегда anime
+        contentType: classifyAnimeContentType([title, origTitle]),
         status: mapStatus(statusRaw, 'planned'),
         rawStatus: statusRaw || undefined,
         genre: getCol(r, ['Genres', 'Genre', 'Жанр']) || undefined,
@@ -358,7 +383,9 @@ function parseKinopoisk(headers: string[], rows: Record<string, string>[]): Pars
       const typeRaw = getCol(r, ['Тип', 'type', 'kind', 'Type']).toLowerCase();
       let contentType: ContentType = 'movie';
       if (/сериал|serial|series|tv|show|мини/.test(typeRaw)) contentType = 'series';
-      else if (/аниме|anime/.test(typeRaw)) contentType = 'anime';
+      // Аниме с Кинопоиска кладём в сериалы (отдельного типа anime в БД нет);
+      // полнометражки там обычно идут с типом «фильм» → movie выше.
+      else if (/аниме|anime/.test(typeRaw)) contentType = 'series';
       else if (/игра|game/.test(typeRaw)) contentType = 'game';
       const statusRaw = getCol(r, ['Статус', 'status', 'Status', 'my_status']);
       const scoreRaw = getCol(r, ['Оценка', 'rating', 'My Score', 'Score', 'userRating']);
@@ -427,7 +454,9 @@ function parseGeneric(headers: string[], rows: Record<string, string>[]): Parsed
       const typeRaw = getCol(r, ['Type', 'type', 'Kind', 'kind', 'Тип', 'content_type']).toLowerCase();
       let contentType: ContentType = 'movie';
       if (/serial|series|сериал|tv|show/.test(typeRaw)) contentType = 'series';
-      else if (/anime|аниме/.test(typeRaw)) contentType = 'anime';
+      // Тип «аниме» без уточнения — проверяем маркеры фильма в названии, иначе сериал
+      // (отдельного типа anime в БД нет).
+      else if (/anime|аниме/.test(typeRaw)) contentType = classifyAnimeContentType([title]);
       else if (/game|игра/.test(typeRaw)) contentType = 'game';
       const statusRaw = getCol(r, ['Status', 'status', 'Статус', 'My Status']);
       const item: ParsedImportItem = {
@@ -463,9 +492,14 @@ function parseMalXml(text: string): ParsedImportItem[] {
     if (!title || title.toLowerCase() === 'unknown') continue;
     const statusRaw = pick('my_status') || pick('status');
     const score = parseNum(pick('my_score'));
+    // MAL series_type: 1=TV, 2=OVA, 3=Movie, 4=Special, 5=ONA, 6=Music → фильм только Movie.
+    const seriesType = pick('series_type');
     items.push({
       title,
-      contentType: 'anime',
+      contentType: classifyAnimeContentType(
+        [title],
+        seriesType === '3' ? 'movie' : seriesType ? 'series' : null
+      ),
       status: mapStatus(statusRaw, 'planned'),
       userRating: score != null && score > 0 ? clampRating(score) : undefined,
       rawStatus: statusRaw || undefined,
@@ -504,9 +538,14 @@ function parseAnilistJson(data: any): ParsedImportItem[] {
       const title = pickTitle(e?.media?.title) || e?.title || e?.name || '';
       if (!title) return null;
       const raw = String(e?.status || '');
+      // AniList media.format: TV, TV_SHORT, MOVIE, SPECIAL, OVA, ONA, MUSIC — фильм только MOVIE.
+      const format = String(e?.media?.format || '').toUpperCase();
       const item: ParsedImportItem = {
         title,
-        contentType: 'anime',
+        contentType: classifyAnimeContentType(
+          [title, pickTitle(e?.media?.title) !== title ? pickTitle(e?.media?.title) : undefined],
+          format === 'MOVIE' ? 'movie' : format ? 'series' : null
+        ),
         status: ANILIST_STATUS[raw.toUpperCase()] || mapStatus(raw, 'planned'),
         rawStatus: raw || undefined,
         sourceUrl: e?.media?.siteUrl || undefined,
