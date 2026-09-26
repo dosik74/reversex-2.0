@@ -29,6 +29,7 @@
 
 import supabase from '@/lib/supabase';
 import type { ContentStatus, ContentType } from '@/types/anime';
+import type { Enrichment } from '@/services/enrichService';
 
 export type ImportSource =
   | 'auto'
@@ -41,6 +42,8 @@ export type ImportSource =
 
 export interface ParsedImportItem {
   title: string;
+  /** Оригинальное (английское/японское) название — для мэтчинга с каталогом. */
+  originalTitle?: string;
   year?: string;
   contentType: ContentType;
   status: ContentStatus;
@@ -53,6 +56,8 @@ export interface ParsedImportItem {
   rawStatus?: string;
   /** Флаг "в избранном" на исходном сайте (например, Anixart "Добавлено в избранное"). */
   isFavorite?: boolean;
+  /** Совпадение с каталогом (TMDB): привязывает постер/описание/страницу. */
+  enriched?: Enrichment;
 }
 
 export interface ParseResult {
@@ -353,6 +358,7 @@ function parseAnimeCsv(headers: string[], rows: Record<string, string>[]): Parse
       const favRaw = getCol(r, ['Добавлено в избранное', 'В избранном', 'favorite']).toLowerCase();
       const item: ParsedImportItem = {
         title,
+        originalTitle: origTitle && origTitle !== title ? origTitle : undefined,
         contentType: classifyAnimeContentType([title, origTitle]),
         status: mapStatus(statusRaw, 'planned'),
         rawStatus: statusRaw || undefined,
@@ -540,8 +546,10 @@ function parseAnilistJson(data: any): ParsedImportItem[] {
       const raw = String(e?.status || '');
       // AniList media.format: TV, TV_SHORT, MOVIE, SPECIAL, OVA, ONA, MUSIC — фильм только MOVIE.
       const format = String(e?.media?.format || '').toUpperCase();
+      const romaji = e?.media?.title?.romaji;
       const item: ParsedImportItem = {
         title,
+        originalTitle: romaji && romaji !== title ? romaji : undefined,
         contentType: classifyAnimeContentType(
           [title, pickTitle(e?.media?.title) !== title ? pickTitle(e?.media?.title) : undefined],
           format === 'MOVIE' ? 'movie' : format ? 'series' : null
@@ -640,8 +648,80 @@ export const normTitle = (t: string) =>
 
 export interface ImportSummary {
   created: number;
+  /** Старые «пустышки» (imp-*), привязанные к каталогу при повторном импорте */
+  updated: number;
   skipped: number;
   failed: number;
+}
+
+interface ExistingRow {
+  id: string;
+  content_type: string;
+  content_id: string;
+  title: string;
+  release_year: string | null;
+}
+
+const IMPORT_STATUS_PRIO: Record<string, number> = {
+  favorite: 6,
+  watching: 5,
+  watched: 4,
+  planned: 3,
+  postponed: 2,
+  dropped: 1,
+};
+
+/** Итоговый тип: совпадение могло найтись в соседнем разделе (фильм↔сериал). */
+const effType = (it: ParsedImportItem): ContentType =>
+  it.enriched?.contentType || it.contentType;
+
+/**
+ * Сезоны одного шоу (одна TMDB-запись) сливаем в одну закладку:
+ * в БД действует UNIQUE(user_id, content_id, content_type), дубли невозможны.
+ * Выживает strongest статус, максимальный рейтинг; список сезонов — в заметку.
+ */
+function mergeImportGroups(items: ParsedImportItem[]): {
+  items: ParsedImportItem[];
+  seasonsByKey: Map<string, string[]>;
+} {
+  const groups = new Map<string, ParsedImportItem[]>();
+  const singles: ParsedImportItem[] = [];
+  for (const it of items) {
+    if (it.enriched) {
+      const k = `${effType(it)}|${it.enriched.contentId}`;
+      groups.set(k, [...(groups.get(k) || []), it]);
+    } else {
+      singles.push(it);
+    }
+  }
+  const seasonsByKey = new Map<string, string[]>();
+  const merged: ParsedImportItem[] = [];
+  for (const [k, g] of groups) {
+    seasonsByKey.set(
+      k,
+      [...new Set(g.map((x) => x.title.trim()))]
+    );
+    if (g.length === 1) {
+      merged.push(g[0]);
+      continue;
+    }
+    const sorted = [...g].sort(
+      (a, b) =>
+        (IMPORT_STATUS_PRIO[b.status] ?? 0) - (IMPORT_STATUS_PRIO[a.status] ?? 0) ||
+        (b.userRating ?? 0) - (a.userRating ?? 0) ||
+        Number(b.isFavorite === true) - Number(a.isFavorite === true)
+    );
+    const s = sorted[0];
+    const seasonList = seasonsByKey.get(k)!.join('; ');
+    merged.push({
+      ...s,
+      title: s.enriched?.title || s.title,
+      userRating: Math.max(...g.map((x) => x.userRating ?? 0)) || undefined,
+      isFavorite: g.some((x) => x.isFavorite) ? true : undefined,
+      notes: [s.notes, `Объединено (${g.length}): ${seasonList}`].filter(Boolean).join('\n'),
+    });
+  }
+  return { items: [...merged, ...singles], seasonsByKey };
 }
 
 export async function importParsedItems(
@@ -653,57 +733,143 @@ export async function importParsedItems(
     onProgress?: (done: number, total: number) => void;
   }
 ): Promise<ImportSummary> {
-  // Загружаем существующие названия пользователя для дедупликации (не затираем своё).
+  // Загружаем существующие закладки для дедупликации (не затираем своё).
   const { data: existing } = await supabase
     .from('content_bookmarks')
-    .select('content_type,title,release_year')
+    .select('id,content_type,content_id,title,release_year')
     .eq('user_id', userId);
-  const seen = new Set(
-    (existing || []).map((e: any) => `${e.content_type}|${normTitle(e.title)}|${e.release_year || ''}`)
-  );
+  const rows: ExistingRow[] = existing || [];
+  const byId = new Set(rows.map((e) => `${e.content_type}|${e.content_id}`));
+  const titleKey = (type: string, title: string, year?: string) =>
+    `${type}|${normTitle(title)}|${year || ''}`;
+  const byTitle = new Map<string, ExistingRow[]>();
+  for (const e of rows) {
+    const k1 = titleKey(e.content_type, e.title, e.release_year || '');
+    const k2 = titleKey(e.content_type, e.title, '');
+    for (const k of [k1, k2]) {
+      const arr = byTitle.get(k) || [];
+      arr.push(e);
+      byTitle.set(k, arr);
+    }
+  }
 
   let created = 0;
+  let updated = 0;
   let skipped = 0;
   let failed = 0;
 
+  const buildRow = (it: ParsedImportItem, status: ContentStatus, contentId: string, title: string) => {
+    const year = it.enriched?.releaseYear || it.year?.slice(0, 4);
+    const row: Record<string, any> = {
+      user_id: userId,
+      content_type: effType(it),
+      content_id: contentId,
+      title,
+      status,
+      is_favorite: status === 'favorite' || it.isFavorite === true,
+      user_rating: it.userRating ?? 0,
+      progress: 0,
+      total_items: 0,
+    };
+    if (it.enriched?.posterUrl) row.poster_url = it.enriched.posterUrl;
+    else if (it.posterUrl) row.poster_url = it.posterUrl;
+    if (it.enriched?.externalRating != null) row.external_rating = it.enriched.externalRating;
+    else if (it.externalRating != null) row.external_rating = it.externalRating;
+    if (it.enriched?.genre) row.genre = it.enriched.genre;
+    else if (it.genre) row.genre = it.genre;
+    if (it.enriched?.synopsis) row.synopsis = it.enriched.synopsis;
+    if (year) row.release_year = year;
+    const notesParts = [
+      it.notes,
+      it.originalTitle ? `Orig: ${it.originalTitle}` : '',
+      opts?.source ? `Импорт: ${opts.source}` : '',
+      it.sourceUrl || '',
+    ].filter((p) => p && p.trim() !== '');
+    // Не дублируем Orig, если он уже есть в notes (Anixart-парсер кладёт его туда же)
+    const notes = [...new Set(notesParts)].join('\n');
+    if (notes) row.notes = notes;
+    return row;
+  };
+
   // Вставляем пачками по 50 через upsert (идемпотентно при повторном импорте).
   const BATCH = 50;
-  for (let i = 0; i < items.length; i += BATCH) {
-    const batch = items.slice(i, i + BATCH);
+  const toUpdate: { id: string; fields: Record<string, any> }[] = [];
+  const toDelete: string[] = [];
+  // Сначала привязанные к каталогу — они главные, «пустышки»-дубли после них пропускаются.
+  // Сезоны одного шоу уже слиты в одну запись (mergeImportGroups).
+  const { items: mergedItems, seasonsByKey } = mergeImportGroups(items);
+  const findHollows = (type: string, titles: string[]): ExistingRow[] => {
+    const found: ExistingRow[] = [];
+    for (const t of titles) {
+      for (const r of byTitle.get(titleKey(type, t, '')) || []) {
+        if (r.content_id.startsWith('imp-') && !found.some((f) => f.id === r.id)) found.push(r);
+      }
+    }
+    return found;
+  };
+  const ordered = [...mergedItems].sort((a, b) => (b.enriched ? 1 : 0) - (a.enriched ? 1 : 0));
+  for (let i = 0; i < ordered.length; i += BATCH) {
+    const batch = ordered.slice(i, i + BATCH);
     const toInsert: Record<string, any>[] = [];
     for (const it of batch) {
-      const title = it.title.trim();
-      if (!title) {
+      const baseTitle = it.title.trim();
+      if (!baseTitle) {
         skipped++;
         continue;
       }
       const status = opts?.statusOverride || it.status;
-      const year = it.year?.slice(0, 4);
-      const key = `${it.contentType}|${normTitle(title)}|${year || ''}`;
-      const keyNoYear = `${it.contentType}|${normTitle(title)}|`;
-      if (seen.has(key) || seen.has(keyNoYear)) {
+      const year = it.enriched?.releaseYear || it.year?.slice(0, 4);
+      // Привязанный к каталогу тайтл: дедуп по (тип, TMDB-id) — главный ключ.
+      if (it.enriched) {
+        const type = effType(it);
+        const idKey = `${type}|${it.enriched.contentId}`;
+        const title = it.enriched.title || baseTitle;
+        const seasonTitles = seasonsByKey.get(idKey) || [baseTitle];
+        const hollows = findHollows(type, seasonTitles);
+        if (byId.has(idKey)) {
+          // Уже привязано — чистим оставшиеся пустышки сезонов, ничего не создаём.
+          for (const h of hollows) {
+            if (!toDelete.includes(h.id)) toDelete.push(h.id);
+          }
+          skipped++;
+          continue;
+        }
+        // Старая «пустышка» с тем же названием (прошлый импорт без мэтчинга)?
+        // Привязываем её к каталогу вместо создания дубля. Статус/оценку юзера не трогаем.
+        // Остальные пустышки группы (другие сезоны) удаляем — их данные уже слиты в survivor.
+        if (hollows.length > 0) {
+          const [first, ...rest] = hollows;
+          const full = buildRow(it, status, it.enriched.contentId, title);
+          const { user_id: _u, content_type: _t, user_rating: _r, status: _s, is_favorite: _f, ...catalogFields } = full;
+          toUpdate.push({ id: first.id, fields: catalogFields });
+          for (const h of rest) {
+            if (!toDelete.includes(h.id)) toDelete.push(h.id);
+          }
+          byId.add(idKey);
+          continue;
+        }
+        const dups = byTitle.get(titleKey(type, baseTitle, year || '')) || [];
+        if (dups.length > 0) {
+          skipped++; // у юзера уже есть этот тайтл под другим id — не трогаем
+          continue;
+        }
+        toInsert.push(buildRow(it, status, it.enriched.contentId, title));
+        byId.add(idKey);
+        const tk = titleKey(type, baseTitle, year || '');
+        byTitle.set(tk, [...(byTitle.get(tk) || []), { id: '', content_type: type, content_id: it.enriched.contentId, title: baseTitle, release_year: year || null }]);
+        continue;
+      }
+      // Без совпадения: дедуп по названию, вставка «пустышки» как раньше.
+      const key = titleKey(it.contentType, baseTitle, year || '');
+      const keyNoYear = titleKey(it.contentType, baseTitle, '');
+      const dups = byTitle.get(key) || byTitle.get(keyNoYear) || [];
+      if (dups.length > 0) {
         skipped++;
         continue;
       }
-      seen.add(key);
-      const contentId = `imp-${slugify(title)}${year ? `-${year}` : ''}`;
-      const row: Record<string, any> = {
-        user_id: userId,
-        content_type: it.contentType,
-        content_id: contentId,
-        title,
-        status,
-        is_favorite: status === 'favorite' || it.isFavorite === true,
-        user_rating: it.userRating ?? 0,
-        progress: 0,
-        total_items: 0,
-      };
-      if (it.externalRating != null) row.external_rating = it.externalRating;
-      if (it.genre) row.genre = it.genre;
-      if (year) row.release_year = year;
-      if (it.sourceUrl) row.notes = [it.notes, `Импорт: ${opts?.source || 'файл'}${it.sourceUrl ? ` · ${it.sourceUrl}` : ''}`].filter(Boolean).join('\n');
-      else if (it.notes || opts?.source) row.notes = [it.notes, opts?.source ? `Импорт: ${opts.source}` : ''].filter(Boolean).join('\n');
-      toInsert.push(row);
+      byTitle.set(key, [{ id: '', content_type: it.contentType, content_id: '', title: baseTitle, release_year: year || null }]);
+      const contentId = `imp-${slugify(baseTitle)}${year ? `-${year}` : ''}`;
+      toInsert.push(buildRow(it, status, contentId, baseTitle));
     }
     if (toInsert.length > 0) {
       const { error } = await supabase
@@ -719,5 +885,37 @@ export async function importParsedItems(
     opts?.onProgress?.(Math.min(i + BATCH, items.length), items.length);
   }
 
-  return { created, skipped, failed };
+  // Привязка старых пустышек — пачками по 20.
+  for (let i = 0; i < toUpdate.length; i += 20) {
+    const chunk = toUpdate.slice(i, i + 20);
+    const results = await Promise.all(
+      chunk.map(async ({ id, fields }) => {
+        const { error } = await supabase.from('content_bookmarks').update(fields).eq('id', id);
+        return !error;
+      })
+    );
+    results.forEach((ok) => {
+      if (ok) updated++;
+      else failed++;
+    });
+  }
+
+  // Удаление поглощённых пустышек сезонов (их данные слиты в survivor).
+  // Трогаем только свои imp-* строки — обычные закладки никогда не удаляем.
+  const doomed = [...new Set(toDelete)];
+  for (let i = 0; i < doomed.length; i += 20) {
+    const chunk = doomed.slice(i, i + 20);
+    const results = await Promise.all(
+      chunk.map(async (id) => {
+        const { error } = await supabase.from('content_bookmarks').delete().eq('id', id);
+        return !error;
+      })
+    );
+    results.forEach((ok) => {
+      if (ok) updated++;
+      else failed++;
+    });
+  }
+
+  return { created, updated, skipped, failed };
 }

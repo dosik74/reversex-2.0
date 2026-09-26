@@ -11,6 +11,7 @@ import {
   type ImportSource,
   type ParseResult,
 } from '@/services/importService';
+import { enrichItems } from '@/services/enrichService';
 import { toast } from 'sonner';
 
 const SOURCES: ImportSource[] = ['auto', 'letterboxd', 'imdb', 'anime', 'kinopoisk', 'steam', 'generic'];
@@ -29,10 +30,12 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
   const [statusOverride, setStatusOverride] = useState<'' | ContentStatus>('');
   const [fileName, setFileName] = useState('');
   const [parsing, setParsing] = useState(false);
+  const [matching, setMatching] = useState(false);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [result, setResult] = useState<ParseResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const runIdRef = useRef(0);
 
   const byType = useMemo(() => {
     const m: Record<string, number> = {};
@@ -42,27 +45,63 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
     return m;
   }, [result]);
 
+  const matchedCount = useMemo(
+    () => result?.items.filter((i) => i.enriched).length ?? 0,
+    [result]
+  );
+
   const reset = () => {
+    runIdRef.current++;
     setFileName('');
     setResult(null);
+    setMatching(false);
     setProgress({ done: 0, total: 0 });
     if (inputRef.current) inputRef.current.value = '';
   };
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
+    const runId = ++runIdRef.current;
     setParsing(true);
     setFileName(file.name);
     try {
       const parsed = await parseImportFile(file, source);
+      if (runIdRef.current !== runId) return;
       setResult(parsed);
-      if (parsed.items.length === 0) toast.error('В файле не нашли тайтлов для импорта');
+      if (parsed.items.length === 0) {
+        toast.error('В файле не нашли тайтлов для импорта');
+        return;
+      }
+      // Этап 2: ищем тайтлы в каталоге (TMDB), чтобы подтянуть постеры и страницы.
+      const matchable = parsed.items.some((i) => i.contentType === 'movie' || i.contentType === 'series');
+      if (matchable) {
+        setMatching(true);
+        setProgress({ done: 0, total: parsed.items.length });
+        try {
+          const enriched = await enrichItems(parsed.items, (done, total) =>
+            setProgress({ done, total })
+          );
+          if (runIdRef.current !== runId) return;
+          const hits = enriched.filter((i) => i.enriched).length;
+          setResult({ ...parsed, items: enriched });
+          if (hits > 0) toast.success(`Найдено в каталоге: ${hits} из ${enriched.length} — будут постеры и страницы`);
+          else toast.warning('Совпадений в каталоге не нашли — импортируется без постеров');
+        } finally {
+          if (runIdRef.current === runId) setMatching(false);
+        }
+      }
     } catch (e) {
       console.error(e);
       toast.error('Не удалось прочитать файл');
     } finally {
-      setParsing(false);
+      if (runIdRef.current === runId) setParsing(false);
     }
+  };
+
+  const skipMatching = () => {
+    // Отменяем применение результатов поиска — импортируем как есть.
+    runIdRef.current++;
+    setMatching(false);
   };
 
   const handleImport = async () => {
@@ -85,10 +124,11 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
       if (byType.anime) parts.push(`аниме: ${byType.anime}`);
       if (byType.game) parts.push(`игры: ${byType.game}`);
       const where = parts.length ? ` (${parts.join(', ')}) — смотри вкладки типов` : '';
-      if (summary.failed > 0 && summary.created === 0) {
+      if (summary.failed > 0 && summary.created === 0 && summary.updated === 0) {
         toast.error(`Не импортировано: ошибок ${summary.failed}. Проверь подключение и попробуй ещё раз.`);
       } else {
-        toast.success(`Импортировано: ${summary.created}${where}${summary.skipped ? `, дублей пропущено: ${summary.skipped}` : ''}${summary.failed ? `, ошибок: ${summary.failed}` : ''}`);
+        const upd = summary.updated ? `, привязано к каталогу: ${summary.updated}` : '';
+        toast.success(`Импортировано: ${summary.created}${upd}${where}${summary.skipped ? `, дублей пропущено: ${summary.skipped}` : ''}${summary.failed ? `, ошибок: ${summary.failed}` : ''}`);
       }
       onDone?.();
       setOpen(false);
@@ -193,11 +233,43 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
                   <p key={i} className="text-[11px] text-orange-300/90 mb-1">⚠ {w}</p>
                 ))}
 
+                {/* Matching progress */}
+                {matching && (
+                  <div className="mt-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+                    <p className="text-xs text-zinc-300 flex items-center gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                      Ищем в каталоге... <span className="tabular-nums text-zinc-500">{progress.done} / {progress.total}</span>
+                    </p>
+                    <div className="h-1.5 mt-2 rounded-full bg-zinc-800 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-200 to-amber-400 transition-all"
+                        style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <button onClick={skipMatching} className="mt-2 text-[11px] text-zinc-500 hover:text-zinc-200 underline">
+                      Пропустить поиск (импортировать без постеров)
+                    </button>
+                  </div>
+                )}
+                {!matching && matchedCount > 0 && (
+                  <p className="mt-2 text-[11px] text-emerald-300/90 flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" />
+                    Совпало с каталогом: {matchedCount} из {result.items.length} — у них будут постеры, описания и страницы. Остальные добавятся без постера.
+                  </p>
+                )}
+
                 {/* Preview */}
                 <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-white/[0.07] divide-y divide-white/[0.05]">
                   {result.items.slice(0, 20).map((it, i) => (
                     <div key={i} className="px-3 py-2 flex items-center gap-2 text-xs">
-                      <span className="text-white truncate flex-1">{it.title}{it.year ? ` (${it.year})` : ''}</span>
+                      {it.enriched?.posterUrl ? (
+                        <img src={it.enriched.posterUrl} alt="" className="w-7 h-10 rounded object-cover shrink-0" loading="lazy" />
+                      ) : (
+                        <span className={`w-7 h-10 rounded shrink-0 flex items-center justify-center text-[10px] font-bold ${it.enriched ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-600'}`}>
+                          {it.enriched ? '✓' : '?'}
+                        </span>
+                      )}
+                      <span className="text-white truncate flex-1">{it.enriched?.title || it.title}{it.year ? ` (${it.year})` : ''}</span>
                       <span className="text-zinc-500 shrink-0">{TYPE_LABEL[it.contentType]}</span>
                       <span className="text-zinc-500 shrink-0">→ {CONTENT_STATUS_CONFIG[statusOverride || it.status].label}</span>
                       {it.userRating ? <span className="text-amber-300 shrink-0 tabular-nums">★{it.userRating.toFixed(1)}</span> : null}
@@ -250,14 +322,14 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
                   </button>
                   <button
                     onClick={handleImport}
-                    disabled={importing || result.items.length === 0}
+                    disabled={importing || matching || result.items.length === 0}
                     className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-b from-amber-200 to-amber-400 text-black text-sm font-semibold shadow-lg shadow-amber-500/25 hover:brightness-105 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {importing && <Loader2 className="w-4 h-4 animate-spin" />}
                     Импортировать ({result.items.length})
                   </button>
                 </div>
-                <p className="text-[11px] text-zinc-600 mt-2">Дубли по названию пропускаются — ваши текущие закладки не перезаписываются.</p>
+                <p className="text-[11px] text-zinc-600 mt-2">Дубли пропускаются, ваши оценки и статусы не перезаписываются. Повторный импорт привяжет старые записи без постеров к каталогу.</p>
               </div>
             )}
           </div>
