@@ -7,6 +7,7 @@ import {
   CheckCheck, Pause, type LucideIcon,
 } from 'lucide-react';
 import { useBookmarks } from '@/context/BookmarkContext';
+import ImportBookmarksDialog from '@/components/ImportBookmarksDialog';
 import { ContentBookmark, ContentStatus, ContentType, CONTENT_STATUS_CONFIG } from '@/types/anime';
 import { toast } from 'sonner';
 
@@ -454,6 +455,7 @@ export default function BookmarksNew() {
                 </>
               )}
             </div>
+            <ImportBookmarksDialog />
           </div>
         </div>
       </div>
