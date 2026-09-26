@@ -7,8 +7,11 @@
 //  - IMDb (ratings.csv / watchlist.csv) → по колонке `Title Type`:
 //    movie/tvMovie/tvShort → `movie`, tvSeries/tvMiniSeries/tvSpecial/tvEpisode → `series`,
 //    videoGame → `game`. ratings → `watched`, watchlist → `planned`.
-//  - Аниме (MyAnimeList XML, AniList JSON, Shikimori/общий anime-CSV) → всегда `anime`.
-//    Статусы MAL/AniList маппятся на наши 6 статусов.
+//  - Аниме (Anixart CSV, MyAnimeList XML, AniList JSON, Shikimori/общий anime-CSV)
+//    → всегда `anime`. Статусы Anixart/MAL/AniList маппятся на наши 6 статусов
+//    («Просмотрено»→watched, «Смотрю»→watching, «В планах»→planned,
+//    «Отложено»→postponed, «Брошено»/«Не смотрю»→dropped;
+//    оценка Anixart «N из 5» → шкала 0–10; «Добавлено в избранное» → is_favorite).
 //  - Кинопоиск (CSV из расширений-экспортёров) → по колонке типа:
 //    film → `movie`, serial/tv → `series`, anime → `anime`, иначе эвристика.
 //  - Steam (CSV библиотеки: AppID, Name, Playtime) → всегда `game`:
@@ -42,6 +45,8 @@ export interface ParsedImportItem {
   sourceUrl?: string;
   posterUrl?: string;
   rawStatus?: string;
+  /** Флаг "в избранном" на исходном сайте (например, Anixart "Добавлено в избранное"). */
+  isFavorite?: boolean;
 }
 
 export interface ParseResult {
@@ -64,7 +69,7 @@ export const IMPORT_SOURCE_LABEL: Record<ImportSource, string> = {
   auto: 'Автоопределение',
   letterboxd: 'Letterboxd (фильмы)',
   imdb: 'IMDb (фильмы + сериалы)',
-  anime: 'AniList / MAL / Shikimori (аниме)',
+  anime: 'AniList / MAL / Shikimori / Anixart (аниме)',
   kinopoisk: 'Кинопоиск (CSV)',
   steam: 'Steam (игры)',
   generic: 'Обычный CSV',
@@ -74,7 +79,7 @@ export const IMPORT_SOURCE_HINT: Record<ImportSource, string> = {
   auto: 'Сам определим формат по заголовкам файла.',
   letterboxd: 'Letterboxd → Settings → Import/Export → diary.csv, ratings.csv или watchlist.csv.',
   imdb: 'IMDb → Your Ratings / Watchlist → Export (ratings.csv, watchlist.csv).',
-  anime: 'AniList (Settings → Export JSON), MyAnimeList (Export XML), Shikimori CSV.',
+  anime: 'Anixart (Bookmarks CSV), AniList (Settings → Export JSON), MyAnimeList (Export XML), Shikimori CSV.',
   kinopoisk: 'CSV из расширений-экспортёров Кинопоиска (Название, Год, Тип, Оценка, Статус).',
   steam: 'Экспорт библиотеки (AppID, Name, Playtime) через SteamDB / export-расширения.',
   generic: 'Любой CSV с колонками title/name, year, rating, type, status.',
@@ -200,6 +205,8 @@ const RU_STATUS_MAP: Record<string, ContentStatus> = {
   'брошено': 'dropped',
   'брошен': 'dropped',
   'dropped': 'dropped',
+  'не смотрю': 'dropped',
+  'не смотрит': 'dropped',
   'избранное': 'favorite',
   'любимое': 'favorite',
   'favorite': 'favorite',
@@ -303,17 +310,22 @@ function parseImdb(headers: string[], rows: Record<string, string>[]): ParsedImp
 function parseAnimeCsv(headers: string[], rows: Record<string, string>[]): ParsedImportItem[] {
   return rows
     .map((r) => {
+      // Anixart: «Русское название» — основной тайтл, «Оригинальное название» — запасной.
       const title =
-        getCol(r, ['Anime Title', 'series_title', 'Title', 'Name', 'Название', 'name']) || '';
+        getCol(r, ['Русское название', 'Anime Title', 'series_title', 'Title', 'Name', 'Название', 'name']) || '';
       if (!title) return null;
       const statusRaw = getCol(r, [
+        'Статус просмотра',
         'My Status',
         'my_status',
         'Status',
         'Статус',
         'status',
       ]);
-      const scoreRaw = getCol(r, ['My Score', 'my_score', 'Score', 'Оценка', 'score', 'rating']);
+      // Anixart: «5 из 5» / «4 из 5» / «Не оценено»; MAL/Shikimori: 0–10; Shikimori бывает 1–5.
+      const scoreRaw = getCol(r, ['Моя оценка', 'My Score', 'my_score', 'Score', 'Оценка', 'score', 'rating']);
+      const origTitle = getCol(r, ['Оригинальное название', 'Original Title']);
+      const favRaw = getCol(r, ['Добавлено в избранное', 'В избранном', 'favorite']).toLowerCase();
       const item: ParsedImportItem = {
         title,
         contentType: 'anime', // аниме-источники — всегда anime
@@ -321,11 +333,17 @@ function parseAnimeCsv(headers: string[], rows: Record<string, string>[]): Parse
         rawStatus: statusRaw || undefined,
         genre: getCol(r, ['Genres', 'Genre', 'Жанр']) || undefined,
         sourceUrl: getCol(r, ['URL', 'Link', 'Ссылка']) || undefined,
+        notes: origTitle && origTitle !== title ? `Orig: ${origTitle}` : undefined,
+        isFavorite: ['добавлено', 'да', 'yes', 'true'].includes(favRaw) ? true : undefined,
       };
       const year = getCol(r, ['Year', 'Год', 'Release Year']);
       if (year) item.year = year.slice(0, 4);
       const score = parseNum(scoreRaw);
-      if (score != null) item.userRating = clampRating(score > 5 && score <= 10 ? score : score * 1);
+      if (score != null && score > 0) {
+        // «N из 5» (Anixart) → шкала 0–10; обычная 0–10 оставляем как есть.
+        const isFiveScale = /из\s*5|\/\s*5/.test(scoreRaw);
+        item.userRating = clampRating(isFiveScale ? score * 2 : score);
+      }
       return item;
     })
     .filter((x): x is ParsedImportItem => !!x);
@@ -516,6 +534,8 @@ export function detectSource(
   if (has('Letterboxd URI', 'Letterboxd URL')) return 'letterboxd';
   if (has('Const') && has('Title Type')) return 'imdb';
   if (has('AppID', 'appid') || (has('playtime forever') && has('name'))) return 'steam';
+  // Anixart: «Русское название, Оригинальное название, ..., Статус просмотра, Моя оценка»
+  if (has('Русское название') && has('Статус просмотра')) return 'anime';
   if (has('series_animedb_id') || has('my_status') || has('Anime Title')) return 'anime';
   if (has('Название') || has('nameRus')) return 'kinopoisk';
   return 'generic';
@@ -634,7 +654,7 @@ export async function importParsedItems(
         content_id: contentId,
         title,
         status,
-        is_favorite: status === 'favorite',
+        is_favorite: status === 'favorite' || it.isFavorite === true,
         user_rating: it.userRating ?? 0,
         progress: 0,
         total_items: 0,
