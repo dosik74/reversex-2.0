@@ -3,12 +3,18 @@
 // Проблема: импорт создавал «пустышки» — строки без постера/описания и без привязки
 // к странице каталога (content_id вида `imp-...`, клик никуда не ведёт).
 // Решение: каждый тайтл ищем в TMDB (тот же источник, что и каталог сайта) и, если
-// находим ТОЧНОЕ совпадение по названию, привязываем TMDB-id + подтягиваем
+// находим совпадение по названию, привязываем TMDB-id + подтягиваем
 // постер, описание, жанры, год и внешний рейтинг. Клик по такой закладке открывает
 // страницу фильма/сериала как обычно.
 //
-// Матчинг строгий (только точное совпадение нормализованного названия),
-// чтобы не прилинковать чужую страницу. Несопоставленное импортируется как раньше.
+// Детерминированность: сетевые сбои (429/обрывы) НЕ превращаются молча в
+// «нет совпадения» — айтем помечается matchFailed, в конце идёт добивочный проход,
+// остаток честно показывается в UI. Один и тот же файл даёт один и тот же результат
+// (повторный импорт только долечивает непроверенные).
+//
+// Матчинг строгий, чтобы не прилинковать чужую страницу:
+// точное совпадение → базовая страница шоу для сезонов → alternative titles
+// (ромадзи при японском оригинале) → кросс-раздел series↔movie для фильмов без маркеров.
 
 import { TMDB_API_KEY, TMDB_BASE_URL, normalizeTvItem } from '@/utils/tmdbApi';
 
@@ -31,6 +37,8 @@ export interface EnrichableItem {
   originalTitle?: string;
   contentType: 'movie' | 'series' | 'game' | 'anime';
   enriched?: Enrichment;
+  /** true — сверить с каталогом не удалось из-за сети (не «нет совпадения», а «не проверено») */
+  matchFailed?: boolean;
 }
 
 const norm = (s: string | undefined): string =>
@@ -39,17 +47,48 @@ const norm = (s: string | undefined): string =>
     .replace(/ё/g, 'е')
     .replace(/[^a-z0-9а-я]+/gi, '');
 
-// ── Троттлинг TMDB: не чаще 1 запроса в 300мс (~40/10с лимит), ретраи по 429 ──
+// ── Троттлинг TMDB: не чаще 1 запроса в 400мс, ретраи с backoff ──
+// Причина: раньше 429-е и обрывы сети молча превращались в «нет совпадения»,
+// и один и тот же файл давал разный результат при каждом импорте.
+// Теперь сетевые ошибки КИДАЮТСЯ (а не глотаются): айтем помечается matchFailed,
+// повторный импорт его долечивает, а диалог честно показывает счётчик.
+const MIN_GAP_MS = 400;
 let lastStart = 0;
-async function tmdbFetch(url: string, retries = 3): Promise<Response> {
-  const wait = Math.max(0, 300 - (Date.now() - lastStart));
+
+export class TmdbNetworkError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    this.name = 'TmdbNetworkError';
+  }
+}
+
+async function tmdbFetch(url: string, retries = 5): Promise<Response> {
+  const wait = Math.max(0, MIN_GAP_MS - (Date.now() - lastStart));
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   lastStart = Date.now();
-  const res = await fetch(url);
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (e) {
+    if (retries > 0) {
+      await new Promise((r) => setTimeout(r, 1500));
+      return tmdbFetch(url, retries - 1);
+    }
+    throw new TmdbNetworkError(`fetch failed: ${String(e)}`);
+  }
   if (res.status === 429 && retries > 0) {
-    const retryAfter = parseInt(res.headers.get('retry-after') || '2', 10);
-    await new Promise((r) => setTimeout(r, (isFinite(retryAfter) ? retryAfter : 2) * 1000));
+    const retryAfter = parseInt(res.headers.get('retry-after') || '', 10);
+    const delay = isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1500 * Math.pow(2, 5 - retries);
+    await new Promise((r) => setTimeout(r, delay));
     return tmdbFetch(url, retries - 1);
+  }
+  if (!res.ok) {
+    // 5xx — ретраим, 4xx (кроме 429) — сразу ошибка: молча hollow-ить нельзя
+    if (res.status >= 500 && retries > 0) {
+      await new Promise((r) => setTimeout(r, 2000));
+      return tmdbFetch(url, retries - 1);
+    }
+    throw new TmdbNetworkError(`TMDB HTTP ${res.status}`);
   }
   return res;
 }
@@ -75,8 +114,7 @@ async function searchTmdb(
     kind === 'movie'
       ? `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU&page=1`
       : `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ru-RU&page=1`;
-  const res = await tmdbFetch(url);
-  if (!res.ok) return [];
+  const res = await tmdbFetch(url); // кидает TmdbNetworkError — это fail, а не miss
   const data = await res.json();
   return kind === 'movie' ? data.results || [] : (data.results || []).map(normalizeTvItem);
 }
@@ -220,14 +258,21 @@ async function checkAltTitles(
     tops.push(c);
     if (tops.length >= 8) break;
   }
+  let netErrors = 0;
+  let lastErr: unknown = null;
   for (const c of tops) {
+    let data: any;
     try {
       const ep = kind === 'movie' ? 'movie' : 'tv';
       const res = await tmdbFetch(
         `${TMDB_BASE_URL}/${ep}/${c.id}/alternative_titles?api_key=${TMDB_API_KEY}`
       );
-      if (!res.ok) continue;
-      const data = await res.json();
+      data = await res.json();
+    } catch (e) {
+      netErrors++;
+      lastErr = e;
+      continue;
+    }
       const list: string[] = kind === 'movie'
         ? (data.titles || []).map((t: any) => t.title)
         : (data.results || []).map((t: any) => t.title);
@@ -246,10 +291,9 @@ async function checkAltTitles(
           }
         }
       }
-    } catch {
-      continue;
-    }
   }
+  // Все alt-запросы упали по сети — это fail, а не miss
+  if (tops.length > 0 && netErrors === tops.length && lastErr) throw lastErr;
   return null;
 }
 
@@ -300,12 +344,8 @@ export async function matchOne(
     const allCandidates: TmdbCandidate[] = [];
     const queryTops: TmdbCandidate[] = [];
     for (const q of queries) {
-      let candidates: TmdbCandidate[] = [];
-      try {
-        candidates = await searchTmdb(q, kind);
-      } catch {
-        return null;
-      }
+      // searchTmdb кидает TmdbNetworkError — пробрасываем выше как fail (не miss)
+      const candidates = await searchTmdb(q, kind);
       const hit = pickExact(candidates, wanted);
       if (hit) return toEnrichment(hit, g);
       if (candidates[0] && (candidates[0].vote_count || 0) >= 5) queryTops.push(candidates[0]);
@@ -355,8 +395,11 @@ async function pool<T, R>(
 }
 
 /**
- * Обогащает айтемы совпадающими записями TMDB (мутирует копии, возвращает новый массив).
+ * Обогащает айтемы совпадающими записями TMDB (возвращает новый массив).
  * Игры и уже обогащённые пропускаем.
+ * Детерминированность: сетевые сбои НЕ превращаются в miss — айтем помечается
+ * matchFailed, в конце делается добивочный проход только по ним, остаток честно
+ * показывается в UI («не проверено», а не «не найдено»). Повторный импорт долечивает.
  */
 export async function enrichItems<T extends EnrichableItem>(
   items: T[],
@@ -364,15 +407,42 @@ export async function enrichItems<T extends EnrichableItem>(
 ): Promise<T[]> {
   const [movieGenres, tvGenres] = await Promise.all([genreMap('movie'), genreMap('series')]);
   const maps = { movie: movieGenres, tv: tvGenres };
-  const results = await pool(
-    items,
-    3,
-    async (it) => {
-      if (it.enriched) return it;
+  const matchSafe = async (it: T): Promise<T> => {
+    if (it.enriched) return it;
+    try {
       const m = await matchOne(it, maps);
-      return m ? { ...it, enriched: m } : it;
-    },
-    onProgress
-  );
+      return m ? { ...it, enriched: m } : { ...it, matchFailed: false };
+    } catch {
+      return { ...it, matchFailed: true };
+    }
+  };
+  let total = items.length;
+  let done = 0;
+  const tick = () => {
+    done++;
+    onProgress?.(done, total);
+  };
+  const run = (list: T[], limit: number) =>
+    pool(list, limit, async (it) => {
+      const r = await matchSafe(it);
+      tick();
+      return r;
+    });
+  // Проход 1: всё параллельно (2 воркера + 400мс гейт ≈ в пределах лимита TMDB)
+  let results = await run(items, 2);
+  // Проход 2 (добивка): только упавшие по сети — медленно и надёжно
+  const failedIdx = results
+    .map((r, i) => (r.matchFailed ? i : -1))
+    .filter((i) => i >= 0);
+  if (failedIdx.length > 0) {
+    total += failedIdx.length; // добивка тоже видна в прогрессе
+    const retried = await run(
+      failedIdx.map((i) => ({ ...results[i], matchFailed: false })),
+      1
+    );
+    retried.forEach((r, k) => {
+      results[failedIdx[k]] = r;
+    });
+  }
   return results;
 }

@@ -162,7 +162,7 @@ const SeriesDetail = () => {
     <div className="min-h-screen font-ui">
       {/* Hero Section */}
       <div
-        className="h-[500px] bg-cover bg-center relative"
+        className="min-h-[560px] sm:min-h-0 sm:h-[500px] bg-cover bg-center relative"
         style={{
           backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(15,15,28,1)), url(${
             series.backdrop_path 
@@ -173,18 +173,18 @@ const SeriesDetail = () => {
       >
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
         <div className="container mx-auto px-4 h-full flex items-end pb-8 relative z-10">
-          <div className="flex gap-8 animate-fade-up w-full">
+          <div className="flex flex-col sm:flex-row gap-5 sm:gap-8 animate-fade-up w-full min-w-0">
             <img
               src={getMoviePosterUrl(series.poster_path, 'w500')}
               alt={series.title}
-              className="w-56 h-80 rounded-lg shadow-2xl object-cover transform hover:scale-105 transition-transform duration-300 flex-shrink-0"
+              className="w-32 h-48 sm:w-44 sm:h-64 md:w-56 md:h-80 rounded-lg shadow-2xl object-cover transform hover:scale-105 transition-transform duration-300 flex-shrink-0 self-start"
               onError={(e) => {
                 e.currentTarget.src = 'https://placehold.co/300x450/1a1a2e/ffffff?text=No+Image';
               }}
             />
-            <div className="flex flex-col justify-end space-y-4 flex-1">
-              <div>
-                <h1 className="text-6xl md:text-7xl font-script font-bold mb-2 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">{series.title}</h1>
+            <div className="flex flex-col justify-end space-y-4 flex-1 min-w-0">
+              <div className="min-w-0">
+                <h1 className="text-4xl sm:text-5xl md:text-7xl font-script font-bold mb-2 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] leading-[1.15] break-words">{series.title}</h1>
                 <p className="text-lg text-muted-foreground">{releaseYear}</p>
               </div>
 

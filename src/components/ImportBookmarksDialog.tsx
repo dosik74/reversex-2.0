@@ -49,6 +49,10 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
     () => result?.items.filter((i) => i.enriched).length ?? 0,
     [result]
   );
+  const failedCount = useMemo(
+    () => result?.items.filter((i) => i.matchFailed && !i.enriched).length ?? 0,
+    [result]
+  );
 
   const reset = () => {
     runIdRef.current++;
@@ -83,9 +87,11 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
           );
           if (runIdRef.current !== runId) return;
           const hits = enriched.filter((i) => i.enriched).length;
+          const failed = enriched.filter((i) => i.matchFailed && !i.enriched).length;
           setResult({ ...parsed, items: enriched });
           if (hits > 0) toast.success(`Найдено в каталоге: ${hits} из ${enriched.length} — будут постеры и страницы`);
           else toast.warning('Совпадений в каталоге не нашли — импортируется без постеров');
+          if (failed > 0) toast.warning(`Не проверено из-за сети: ${failed}. Они добавятся без постера, повторный импорт их привяжет.`);
         } finally {
           if (runIdRef.current === runId) setMatching(false);
         }
@@ -255,6 +261,11 @@ export default function ImportBookmarksDialog({ onDone }: { onDone?: () => void 
                   <p className="mt-2 text-[11px] text-emerald-300/90 flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5" />
                     Совпало с каталогом: {matchedCount} из {result.items.length} — у них будут постеры, описания и страницы. Остальные добавятся без постера.
+                  </p>
+                )}
+                {!matching && failedCount > 0 && (
+                  <p className="mt-2 text-[11px] text-orange-300/90">
+                    ⚠ Не проверено из-за сети: {failedCount}. Добавятся без постера — повторный импорт того же файла их привяжет.
                   </p>
                 )}
 

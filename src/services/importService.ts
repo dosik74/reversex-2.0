@@ -58,6 +58,8 @@ export interface ParsedImportItem {
   isFavorite?: boolean;
   /** Совпадение с каталогом (TMDB): привязывает постер/описание/страницу. */
   enriched?: Enrichment;
+  /** true — сверить с каталогом не удалось из-за сети (повторный импорт долечит). */
+  matchFailed?: boolean;
 }
 
 export interface ParseResult {
