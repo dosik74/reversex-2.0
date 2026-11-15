@@ -190,6 +190,14 @@ const IconChip = ({ icon: Icon, solid = false, className = "" }: { icon: any; so
   </span>
 );
 
+const RESERVED_SLUGS = new Set([
+  'movies', 'explore-movies', 'movie', 'series', 'person', 'company', 'studio',
+  'ws', 'recommendations', 'tier-lists', 'profile', 'id', 'bookmarks', 'qr-scan',
+  'settings', 'games', 'game', 'music', 'books', 'tusau', 'admin', 'auth',
+  'qr-auth', 'br', 'br-batyrhan', 'tasks', 'workspace', 'workspace-auth',
+  'download', 'youtube-downloader', 'de', 'api', 'assets', 'not-found'
+]);
+
 // Модульный кэш данных профилей (Stale-While-Revalidate)
 // Гарантирует моментальный рендер при навигации «Назад», исключает схлопывание высоты DOM и сброс скролла
 const profileCache = new Map<string, Profile>();
@@ -198,22 +206,30 @@ const profileCommentsCache = new Map<string, Comment[]>();
 
 // Основной компонент профиля
 const Profile = () => {
-  const { userId } = useParams();
-  const [profile, setProfile] = useState<Profile | null>(() => (userId ? profileCache.get(userId) || null : null));
+  const params = useParams<{ userId?: string; slug?: string; username?: string }>();
+  const rawIdentifier = (params.username || params.userId || params.slug || '').trim();
+
+  const isReserved = RESERVED_SLUGS.has(rawIdentifier.toLowerCase());
+
+  const cachedProfile = rawIdentifier ? profileCache.get(rawIdentifier) : null;
+  const initialResolvedId = cachedProfile?.id || (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawIdentifier) ? rawIdentifier : null);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(initialResolvedId);
+
+  const [profile, setProfile] = useState<Profile | null>(() => (rawIdentifier ? profileCache.get(rawIdentifier) || null : null));
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-   const [isFollowing, setIsFollowing] = useState(false);
-   const [isFriend, setIsFriend] = useState(false);
-   const [friendshipStatus, setFriendshipStatus] = useState<string | null>(null);
-  const [stats, setStats] = useState(() => (userId && profileStatsCache.get(userId)) || { movies: 0, followers: 0, following: 0, comments: 0 });
-  const [loading, setLoading] = useState(() => (userId ? !profileCache.has(userId) : true));
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFriend, setIsFriend] = useState(false);
+  const [friendshipStatus, setFriendshipStatus] = useState<string | null>(null);
+  const [stats, setStats] = useState(() => (rawIdentifier && profileStatsCache.get(rawIdentifier)) || { movies: 0, followers: 0, following: 0, comments: 0 });
+  const [loading, setLoading] = useState(() => (rawIdentifier ? !profileCache.has(rawIdentifier) : true));
   const [showEditor, setShowEditor] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [comments, setComments] = useState<Comment[]>(() => (userId ? profileCommentsCache.get(userId) || [] : []));
+  const [comments, setComments] = useState<Comment[]>(() => (rawIdentifier ? profileCommentsCache.get(rawIdentifier) || [] : []));
   const [newComment, setNewComment] = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [activeTab, setActiveTabState] = useState(() => {
-    const saved = typeof window !== 'undefined' ? sessionStorage.getItem(`rx_profile_tab_${userId}`) : null;
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem(`rx_profile_tab_${rawIdentifier}`) : null;
     if (saved === 'watched') return 'bookmarks';
     return saved || "bookmarks";
   });
@@ -221,7 +237,7 @@ const Profile = () => {
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab);
     try {
-      sessionStorage.setItem(`rx_profile_tab_${userId}`, tab);
+      sessionStorage.setItem(`rx_profile_tab_${rawIdentifier}`, tab);
     } catch {}
   };
 
@@ -233,23 +249,27 @@ const Profile = () => {
   }, []);
 
   useEffect(() => {
-    if (userId) {
-      const savedTab = sessionStorage.getItem(`rx_profile_tab_${userId}`);
+    if (rawIdentifier && !isReserved) {
+      const savedTab = sessionStorage.getItem(`rx_profile_tab_${rawIdentifier}`);
       if (savedTab) setActiveTabState(savedTab === 'watched' ? 'bookmarks' : savedTab);
-      // Если профиль уже в кэше, не включаем полноэкранный лоадер — обновляем в фоне (SWR)
-      if (!profileCache.has(userId)) {
+      if (!profileCache.has(rawIdentifier)) {
         setLoading(true);
       }
       setError(null);
       fetchProfile();
-      fetchStats();
-      fetchComments();
-      if (currentUserId && currentUserId !== userId) {
-        checkFollowStatus();
-        checkFriendshipStatus();
-      }
+    } else if (isReserved) {
+      setError("Профиль не найден");
+      setLoading(false);
     }
-  }, [userId, currentUserId]);
+  }, [rawIdentifier]);
+
+  useEffect(() => {
+    const targetUid = profile?.id || resolvedUserId;
+    if (currentUserId && targetUid && currentUserId !== targetUid) {
+      checkFollowStatus(targetUid);
+      checkFriendshipStatus(targetUid);
+    }
+  }, [currentUserId, resolvedUserId, profile?.id]);
 
   // Функции работы с данными
   const getCurrentUser = async () => {
@@ -262,14 +282,14 @@ const Profile = () => {
   };
 
   const fetchProfile = async () => {
-    if (!userId) {
-      setError("User ID не найден");
+    if (!rawIdentifier || isReserved) {
+      setError("Профиль не найден");
       setLoading(false);
       return;
     }
 
     try {
-      if (!profileCache.has(userId)) {
+      if (!profileCache.has(rawIdentifier)) {
         setLoading(true);
       }
 
@@ -278,11 +298,16 @@ const Profile = () => {
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       try {
-        const { data, error: dbError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", userId)
-          .single();
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawIdentifier);
+
+        let query = supabase.from("profiles").select("*");
+        if (isUUID) {
+          query = query.eq("id", rawIdentifier);
+        } else {
+          query = query.or(`username.ilike.${rawIdentifier},custom_slug.eq.${rawIdentifier}`);
+        }
+
+        const { data, error: dbError } = await query.maybeSingle();
 
         clearTimeout(timeoutId);
 
@@ -294,11 +319,34 @@ const Profile = () => {
         if (!data) {
           setError("Профиль не найден");
           setProfile(null);
-          profileCache.delete(userId);
+          profileCache.delete(rawIdentifier);
         } else {
-          profileCache.set(userId, data);
+          profileCache.set(rawIdentifier, data);
+          profileCache.set(data.id, data);
+          if (data.username) profileCache.set(data.username, data);
+
           setProfile(data);
+          const realUid = data.id;
+          setResolvedUserId(realUid);
           setError(null);
+
+          // Steam & GitHub стиль URL:
+          // Если в строке браузера UUID или /profile/ или /id/,
+          // автоматически обновляем адресную строку на чистый /:username (как https://github.com/dosik74)
+          if (data.username && typeof window !== 'undefined') {
+            const currentPath = window.location.pathname;
+            const targetPath = `/${data.username}`;
+            if (currentPath !== targetPath && (isUUID || currentPath.startsWith('/profile/') || currentPath.startsWith('/id/'))) {
+              window.history.replaceState(null, '', targetPath);
+            }
+          }
+
+          fetchStats(realUid);
+          fetchComments(realUid);
+          if (currentUserId && currentUserId !== realUid) {
+            checkFollowStatus(realUid);
+            checkFriendshipStatus(realUid);
+          }
         }
       } catch (err) {
         clearTimeout(timeoutId);
@@ -308,7 +356,7 @@ const Profile = () => {
       console.error("Profile fetch error:", err);
       const errorMessage = err instanceof Error ? err.message : "Ошибка загрузки профиля. Проверьте подключение и попробуйте снова.";
       setError(errorMessage);
-      if (!profileCache.has(userId)) {
+      if (!profileCache.has(rawIdentifier)) {
         setProfile(null);
       }
       if (process.env.NODE_ENV === 'development') {
@@ -319,27 +367,27 @@ const Profile = () => {
     }
   };
 
-  const fetchStats = async () => {
-    if (!userId) return;
+  const fetchStats = async (targetUid: string = resolvedUserId || profile?.id || '') => {
+    if (!targetUid) return;
 
     try {
       const [bookmarksRes, followersRes, followingRes, commentsRes] = await Promise.allSettled([
         supabase
           .from('content_bookmarks')
           .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId),
+          .eq('user_id', targetUid),
         supabase
           .from('follows')
           .select('id', { count: 'exact', head: true })
-          .eq('following_id', userId),
+          .eq('following_id', targetUid),
         supabase
           .from('follows')
           .select('id', { count: 'exact', head: true })
-          .eq('follower_id', userId),
+          .eq('follower_id', targetUid),
         supabase
           .from('profile_comments')
           .select('id', { count: 'exact', head: true })
-          .eq('profile_id', userId)
+          .eq('profile_id', targetUid)
       ]);
 
       const getCount = (result: PromiseSettledResult<any>) => {
@@ -354,7 +402,7 @@ const Profile = () => {
       let bookmarksCount = getCount(bookmarksRes);
       if (bookmarksCount === 0) {
         try {
-          const cached = localStorage.getItem(`rx_public_bookmarks_${userId}`);
+          const cached = localStorage.getItem(`rx_public_bookmarks_${targetUid}`);
           if (cached) {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed)) bookmarksCount = parsed.length;
@@ -368,36 +416,38 @@ const Profile = () => {
         following: getCount(followingRes),
         comments: getCount(commentsRes)
       };
-      if (userId) profileStatsCache.set(userId, newStats);
+      profileStatsCache.set(targetUid, newStats);
+      if (rawIdentifier) profileStatsCache.set(rawIdentifier, newStats);
       setStats(newStats);
     } catch (err) {
       console.error('Error fetching stats:', err);
-      if (!profileStatsCache.has(userId)) {
+      if (!profileStatsCache.has(targetUid)) {
         setStats({ movies: 0, followers: 0, following: 0, comments: 0 });
       }
     }
   };
 
-  const fetchComments = async () => {
-    if (!userId) return;
+  const fetchComments = async (targetUid: string = resolvedUserId || profile?.id || '') => {
+    if (!targetUid) return;
 
     try {
-      if (!profileCommentsCache.has(userId)) {
+      if (!profileCommentsCache.has(targetUid)) {
         setCommentsLoading(true);
       }
       const { data, error } = await supabase
         .from("profile_comments")
         .select(`id, content, created_at, author_id, author:profiles(username, display_name, avatar_url)`)
-        .eq("profile_id", userId)
+        .eq("profile_id", targetUid)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       const items = data || [];
-      if (userId) profileCommentsCache.set(userId, items);
+      profileCommentsCache.set(targetUid, items);
+      if (rawIdentifier) profileCommentsCache.set(rawIdentifier, items);
       setComments(items);
     } catch (err) {
       console.error(err);
-      if (!profileCommentsCache.has(userId)) {
+      if (!profileCommentsCache.has(targetUid)) {
         setComments([]);
       }
     } finally {
@@ -471,16 +521,16 @@ const Profile = () => {
     });
   };
 
-  const checkFriendshipStatus = async () => {
-    if (!currentUserId || !userId) return;
+  const checkFriendshipStatus = async (targetUid: string = resolvedUserId || profile?.id || '') => {
+    if (!currentUserId || !targetUid) return;
 
     try {
       const { data, error } = await supabase
         .from('friendships')
         .select('status')
         .or(
-          `and(requester_id.eq.${currentUserId},addressee_id.eq.${userId}),` +
-          `and(requester_id.eq.${userId},addressee_id.eq.${currentUserId})`
+          `and(requester_id.eq.${currentUserId},addressee_id.eq.${targetUid}),` +
+          `and(requester_id.eq.${targetUid},addressee_id.eq.${currentUserId})`
         )
         .maybeSingle();
 
@@ -495,7 +545,8 @@ const Profile = () => {
   };
 
   const handleFollow = async () => {
-    if (!currentUserId || !userId) {
+    const targetUid = profile?.id || resolvedUserId;
+    if (!currentUserId || !targetUid) {
       toast.error("Войдите, чтобы подписаться");
       return;
     }
@@ -506,13 +557,13 @@ const Profile = () => {
           .from('follows')
           .delete()
           .eq('follower_id', currentUserId)
-          .eq('following_id', userId);
+          .eq('following_id', targetUid);
         if (error) throw error;
         toast.success("Отписано");
       } else {
         const { error } = await supabase
           .from('follows')
-          .insert({ follower_id: currentUserId, following_id: userId });
+          .insert({ follower_id: currentUserId, following_id: targetUid });
         if (error) throw error;
         toast.success("Подписано");
       }
@@ -524,7 +575,9 @@ const Profile = () => {
   };
 
   const handleShareProfile = async (platform?: string) => {
-    const profileUrl = `${window.location.origin}/profile/${userId}`;
+    const targetUid = profile?.id || resolvedUserId;
+    const handle = profile?.username || profile?.custom_slug || targetUid;
+    const profileUrl = `${window.location.origin}/${handle}`;
     const shareText = `Посмотри мой профиль на ReverseX! ${profile?.display_name || profile?.username}`;
 
     try {
@@ -557,15 +610,15 @@ const Profile = () => {
     }
   };
 
-  const checkFollowStatus = async () => {
-    if (!currentUserId || !userId) return;
+  const checkFollowStatus = async (targetUid: string = resolvedUserId || profile?.id || '') => {
+    if (!currentUserId || !targetUid) return;
 
     try {
       const { data, error } = await supabase
         .from('follows')
         .select('id')
         .eq('follower_id', currentUserId)
-        .eq('following_id', userId)
+        .eq('following_id', targetUid)
         .maybeSingle();
 
       if (error) throw error;
@@ -577,12 +630,13 @@ const Profile = () => {
   };
 
   const handleFriendRequest = async () => {
-    if (!currentUserId || !userId) return;
+    const targetUid = profile?.id || resolvedUserId;
+    if (!currentUserId || !targetUid) return;
 
     try {
       const { error } = await supabase
         .from('friendships')
-        .insert({ requester_id: currentUserId, addressee_id: userId });
+        .insert({ requester_id: currentUserId, addressee_id: targetUid });
       if (error) throw error;
       toast.success("Запрос на дружбу отправлен");
       setFriendshipStatus("pending");
@@ -636,7 +690,8 @@ const Profile = () => {
     );
   }
 
-  const isOwnProfile = currentUserId === userId;
+  const targetId = resolvedUserId || profile?.id;
+  const isOwnProfile = Boolean(currentUserId && targetId && currentUserId === targetId);
 
   const accentColor = profile.accent_color || profile.profile_accent;
 
@@ -786,7 +841,7 @@ const Profile = () => {
               <div className="flex items-center gap-2.5 flex-wrap pb-1.5 lg:self-end">
                 {/* Переходник в закладки пользователя */}
                 <Link
-                  to={`/bookmarks/${userId}`}
+                  to={`/bookmarks/${profile?.username || targetId}`}
                   className="rxp-btn rxp-btn-ghost hover:border-emerald-500/50 hover:text-emerald-400 group flex items-center gap-2"
                   title="Открыть все закладки на отдельной странице"
                 >
@@ -877,7 +932,7 @@ const Profile = () => {
           {/* Левая колонка — уровень и друзья */}
           <aside className="lg:col-span-3 order-2 lg:order-1">
             <div className="lg:sticky lg:top-6 space-y-6">
-              <ProfileSidebar userId={userId!} userLevel={profile.level} userXP={profile.xp} />
+              <ProfileSidebar userId={targetId!} userLevel={profile.level} userXP={profile.xp} />
             </div>
           </aside>
 
@@ -1042,16 +1097,16 @@ const Profile = () => {
 
               {/* Контент вкладок */}
               <TabsContent value="favorites" className="animate-fade-in">
-                <Top50Profile userId={userId!} isOwnProfile={isOwnProfile} />
+                <Top50Profile userId={targetId!} isOwnProfile={isOwnProfile} />
               </TabsContent>
 
               <TabsContent value="bookmarks" className="animate-fade-in">
-                <ProfileBookmarks userId={userId!} isOwnProfile={isOwnProfile} />
+                <ProfileBookmarks userId={targetId!} isOwnProfile={isOwnProfile} username={profile?.username} />
               </TabsContent>
 
               <TabsContent value="activity" className="animate-fade-in">
                 <div className="rxp-panel p-6">
-                  <UserActivity userId={userId!} showOnlyWatched={false} />
+                  <UserActivity userId={targetId!} showOnlyWatched={false} />
                 </div>
               </TabsContent>
 
@@ -1156,7 +1211,7 @@ const Profile = () => {
               ) : (
                 comments.map((comment) => (
                   <div key={comment.id} className="rxp-comment-card flex gap-4 p-4">
-                    <Link to={`/profile/${comment.author_id}`} className="flex-shrink-0">
+                    <Link to={comment.author?.username ? `/${comment.author.username}` : `/profile/${comment.author_id}`} className="flex-shrink-0">
                       <span className="rxp-comment-avatar">
                         <Avatar className="avatar-wrap w-10 h-10">
                           <AvatarImage src={comment.author?.avatar_url || undefined} />
@@ -1170,7 +1225,7 @@ const Profile = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-1">
                         <div>
-                          <Link to={`/profile/${comment.author_id}`}>
+                          <Link to={comment.author?.username ? `/${comment.author.username}` : `/profile/${comment.author_id}`}>
                             <span className="rxp-comment-name hover:text-primary cursor-pointer transition-colors">
                               {comment.author?.display_name || comment.author?.username || "Unknown"}
                             </span>
@@ -1206,7 +1261,7 @@ const Profile = () => {
       {/* Модальные окна */}
       {showEditor && profile && (
         <ProfileSettingsEditor
-          userId={userId!}
+          userId={targetId!}
           open={showEditor}
           onClose={() => setShowEditor(false)}
           onSaved={fetchProfile}
@@ -1232,7 +1287,7 @@ const Profile = () => {
         <ChatWindow
           open={showChat}
           onClose={() => setShowChat(false)}
-          friendId={userId!}
+          friendId={targetId!}
           friendUsername={profile.username}
           friendAvatar={profile.avatar_url}
           currentUserId={currentUserId!}

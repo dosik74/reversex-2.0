@@ -128,9 +128,10 @@ const TYPE_LABEL: Record<ContentType, string> = {
 interface ProfileBookmarksProps {
   userId: string;
   isOwnProfile: boolean;
+  username?: string;
 }
 
-export default function ProfileBookmarks({ userId, isOwnProfile }: ProfileBookmarksProps) {
+export default function ProfileBookmarks({ userId, isOwnProfile, username }: ProfileBookmarksProps) {
   const navigate = useNavigate();
   const contextBookmarks = useBookmarks();
 
@@ -268,7 +269,7 @@ export default function ProfileBookmarks({ userId, isOwnProfile }: ProfileBookma
         </div>
 
         <Link
-          to={`/bookmarks/${userId}`}
+          to={`/bookmarks/${username || userId}`}
           className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.08] hover:bg-emerald-500/20 text-xs font-bold text-zinc-200 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/40 transition-all shadow-sm self-start sm:self-auto"
           title="Открыть все закладки на отдельной странице с расширенным списком"
         >

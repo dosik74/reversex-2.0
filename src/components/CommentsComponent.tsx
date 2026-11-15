@@ -225,7 +225,7 @@ const CommentsComponent = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <Link
-                      to={`/profile/${comment.author.id}`}
+                      to={comment.author.username ? `/${comment.author.username}` : `/profile/${comment.author.id}`}
                       className="font-medium hover:text-primary transition-colors"
                     >
                       {comment.author.display_name || comment.author.username}

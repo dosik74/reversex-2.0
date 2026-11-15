@@ -581,30 +581,46 @@ export default function BookmarksNew() {
     if (!isOtherUser || !queryUserId) return;
     let active = true;
 
-    // Профиль
-    supabase
-      .from('profiles')
-      .select('username, display_name, avatar_url')
-      .eq('id', queryUserId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (active && data) setTargetProfile(data);
-      });
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(queryUserId);
+    let profileQuery = supabase.from('profiles').select('id, username, display_name, avatar_url');
+    if (isUUID) {
+      profileQuery = profileQuery.eq('id', queryUserId);
+    } else {
+      profileQuery = profileQuery.or(`username.ilike.${queryUserId},custom_slug.eq.${queryUserId}`);
+    }
 
-    // Закладки
-    getUserBookmarks(queryUserId)
-      .then((data) => {
-        if (active) {
-          setExternalBookmarks(data);
-          try {
-            localStorage.setItem(`rx_public_bookmarks_${queryUserId}`, JSON.stringify(data));
-          } catch {}
-        }
-      })
-      .catch((err) => console.error('Error fetching target user bookmarks:', err))
-      .finally(() => {
+    profileQuery.maybeSingle().then(({ data }) => {
+      if (!active || !data) {
         if (active) setExtLoading(false);
-      });
+        return;
+      }
+      setTargetProfile(data);
+      const realUid = data.id;
+
+      // Canonicalize URL to username if available
+      if (data.username && typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        const targetPath = `/bookmarks/${data.username}`;
+        if (currentPath !== targetPath && (isUUID || currentPath.includes(realUid))) {
+          window.history.replaceState(null, '', targetPath);
+        }
+      }
+
+      getUserBookmarks(realUid)
+        .then((bData) => {
+          if (active) {
+            setExternalBookmarks(bData);
+            try {
+              localStorage.setItem(`rx_public_bookmarks_${realUid}`, JSON.stringify(bData));
+              localStorage.setItem(`rx_public_bookmarks_${queryUserId}`, JSON.stringify(bData));
+            } catch {}
+          }
+        })
+        .catch((err) => console.error('Error fetching target user bookmarks:', err))
+        .finally(() => {
+          if (active) setExtLoading(false);
+        });
+    });
 
     return () => {
       active = false;
@@ -737,7 +753,7 @@ export default function BookmarksNew() {
 
             <div className="flex items-center gap-2.5">
               <Link
-                to={`/profile/${effectiveUserId}`}
+                to={targetProfile?.username ? `/${targetProfile.username}` : `/profile/${effectiveUserId}`}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/10 shadow-sm"
               >
                 <ArrowLeft className="w-4 h-4" />

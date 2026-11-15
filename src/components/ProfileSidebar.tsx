@@ -193,7 +193,7 @@ const ProfileSidebar = ({ userId, userLevel = 1, userXP = 0 }: ProfileSidebarPro
               topFriends.map((friend, index) => {
                 const medal = index < 3 ? MEDALS[index] : null;
                 return (
-                  <Link key={friend.id} to={`/profile/${friend.id}`} className="group block">
+                  <Link key={friend.id} to={friend.username ? `/${friend.username}` : `/profile/${friend.id}`} className="group block">
                     <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-primary/10 border border-transparent hover:border-primary/30 transition-all">
                       <div className="relative flex-shrink-0">
                         <span

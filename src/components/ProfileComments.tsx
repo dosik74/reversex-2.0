@@ -173,7 +173,7 @@ const ProfileComments = ({ profileId, currentUserId, isOwnProfile }: ProfileComm
                 key={comment.id}
                 className="flex gap-3 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
               >
-                <Link to={`/profile/${comment.author_id}`}>
+                <Link to={comment.author?.username ? `/${comment.author.username}` : `/profile/${comment.author_id}`}>
                   <Avatar className="w-10 h-10 cursor-pointer hover:ring-2 ring-primary">
                     <AvatarImage src={comment.author?.avatar_url || undefined} />
                     <AvatarFallback>
@@ -183,7 +183,7 @@ const ProfileComments = ({ profileId, currentUserId, isOwnProfile }: ProfileComm
                 </Link>
 
                 <div className="flex-1 min-w-0">
-                  <Link to={`/profile/${comment.author_id}`}>
+                  <Link to={comment.author?.username ? `/${comment.author.username}` : `/profile/${comment.author_id}`}>
                     <p className="font-medium hover:underline cursor-pointer">
                       {comment.author?.display_name || comment.author?.username || 'Unknown'}
                     </p>

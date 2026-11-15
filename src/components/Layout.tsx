@@ -243,7 +243,7 @@ const Layout = () => {
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
-                        <Link to={`/profile/${session.user.id}`} className="flex items-center gap-2">
+                        <Link to={profile?.username ? `/${profile.username}` : `/profile/${session.user.id}`} className="flex items-center gap-2">
                           <User className="w-4 h-4" />
                           Profile
                         </Link>
@@ -266,7 +266,7 @@ const Layout = () => {
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem asChild>
-                        <Link to={`/profile/${session.user.id}/edit`} className="flex items-center gap-2">
+                        <Link to={profile?.username ? `/${profile.username}/edit` : `/profile/${session.user.id}/edit`} className="flex items-center gap-2">
                           <Settings className="w-4 h-4" />
                           Edit Profile
                         </Link>
@@ -401,7 +401,7 @@ const Layout = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link to={`/profile/${session.user.id}`} className="flex items-center gap-2">
+                    <Link to={profile?.username ? `/${profile.username}` : `/profile/${session.user.id}`} className="flex items-center gap-2">
                       <User className="w-4 h-4" />
                       Profile
                     </Link>

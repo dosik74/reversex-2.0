@@ -211,7 +211,7 @@ const App = () => {
                     
                     <Route path="/profile/:userId" element={<Profile />} />
                     <Route path="/profile/:userId/edit" element={<ProfileEdit />} />
-                    <Route path="/id/:slug" element={<ProfileBySlug />} />
+                    <Route path="/id/:slug" element={<Profile />} />
                     <Route path="/bookmarks" element={<BookmarksNew />} />
                     <Route path="/bookmarks/:targetUserId" element={<BookmarksNew />} />
                     <Route path="/qr-scan" element={<QrScanPage />} />
@@ -221,6 +221,8 @@ const App = () => {
                     <Route path="/music" element={<PlaceholderPage title="Music" icon={Music} />} />
                     <Route path="/books" element={<PlaceholderPage title="Books" icon={Book} />} />
                     <Route path="/tusau" element={<Tusau />} />
+                    <Route path="/:username" element={<Profile />} />
+                    <Route path="/:username/edit" element={<ProfileEdit />} />
                   </Route>
 
                   <Route path="*" element={<NotFound />} />
