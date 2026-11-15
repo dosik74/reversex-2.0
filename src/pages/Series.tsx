@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useMemo, useRef } from "react";
 import SeriesCard from "@/components/SeriesCard";
 import CatalogHeader from "@/components/CatalogHeader";
 import CatalogFilterBar from "@/components/CatalogFilterBar";
@@ -325,7 +325,7 @@ const SeriesPage = () => {
           
           {/* Infinite Scroll Observer */}
           <div ref={observerTarget} className="flex justify-center py-8">
-            {hasMore && <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-purple-500" />}
+            {hasMore && <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-cyan-500" />}
           </div>
         </>
       )}

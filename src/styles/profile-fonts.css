@@ -6,12 +6,23 @@
    источник или стилевой фолбэк.
    ============================================ */
 
+/* Benzin-Bold — кнопка закладок (из макета button/) */
+@font-face {
+  font-family: "Benzin-Bold";
+  src:
+    local("Benzin Bold"),
+    url("/fonts/benzin-bold.woff2") format("woff2"),
+    url("/fonts/benzin-bold.ttf") format("truetype");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Monplesir Script";
   src:
     local("Monplesir Script"),
     local("Monplesir"),
-    url("/fonts/MonplesirScript.woff2") format("woff2"),
     url("/fonts/MonplesirScript.ttf") format("truetype");
   font-display: swap;
 }
@@ -20,7 +31,6 @@
   font-family: "Martina Script";
   src:
     local("Martina Script"),
-    url("/fonts/MartinaScript.woff2") format("woff2"),
     url("/fonts/MartinaScript.ttf") format("truetype");
   font-display: swap;
 }
@@ -39,47 +49,11 @@
     U+FEFF, U+FFFD;
 }
 
-@font-face {
-  font-family: "Pixel 4.0";
-  src:
-    local("Pixel 4.0"),
-    local("Pixel4x5"),
-    url("/fonts/Pixel40.woff2") format("woff2"),
-    url("/fonts/Pixel40.ttf") format("truetype");
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Soyuz Grotesk";
-  src:
-    local("Soyuz Grotesk"),
-    local("SoyuzGrotesk-Bold"),
-    url("/fonts/SoyuzGrotesk-Bold.woff2") format("woff2"),
-    url("/fonts/SoyuzGrotesk-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Soyuz Grotesk";
-  src:
-    local("Soyuz Grotesk Medium"),
-    url("/fonts/SoyuzGrotesk-Medium.woff2") format("woff2"),
-    url("/fonts/SoyuzGrotesk-Medium.ttf") format("truetype");
-  font-weight: 500;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Sloop Script Three";
-  src:
-    local("Sloop Script Three"),
-    local("SloopScriptThree"),
-    local("Sloop ScriptThree"),
-    url("/fonts/SloopScriptThree.woff2") format("woff2"),
-    url("/fonts/SloopScriptThree.ttf") format("truetype");
-  font-display: swap;
-}
+/* Pixel 4.0 · Soyuz Grotesk · Sloop Script — локальные файлы
+   повреждены (браузер отклонял их sanitizer'ом). Классы
+   .font-pixel / .font-grotesk / .font-script переопределены
+   в index.css на веб-шрифты (Space Grotesk / Instrument Serif),
+   поэтому битые @font-face убраны — консоль чистая. */
 
 /* ---- Utility families (со стилевыми фолбэками) ---- */
 

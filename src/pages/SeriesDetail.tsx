@@ -189,6 +189,19 @@ const SeriesDetail = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-4">
+                <ContentActionsButton
+                  contentId={series.id.toString()}
+                  contentType="series"
+                  top50MediaType="anime"
+                  title={series.title}
+                  posterUrl={getMoviePosterUrl(series.poster_path, 'w500')}
+                  externalRating={series.vote_average}
+                  releaseYear={String(releaseYear || '')}
+                  genre={series.genres?.map(g => g.name).join(', ')}
+                  synopsis={series.overview}
+                  variant="detail"
+                />
+
                 <div className="flex items-center gap-2 bg-card/80 px-4 py-2 rounded-lg">
                   <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
                   <span className="text-2xl font-bold">{series.vote_average.toFixed(1)}</span>
@@ -206,19 +219,6 @@ const SeriesDetail = () => {
                     {series.genres.map(g => formatGenreName(g.name)).join(', ')}
                   </div>
                 )}
-
-                <ContentActionsButton
-                  contentId={series.id.toString()}
-                  contentType="series"
-                  top50MediaType="anime"
-                  title={series.title}
-                  posterUrl={getMoviePosterUrl(series.poster_path, 'w500')}
-                  externalRating={series.vote_average}
-                  releaseYear={String(releaseYear || '')}
-                  genre={series.genres?.map(g => g.name).join(', ')}
-                  synopsis={series.overview}
-                  variant="detail"
-                />
               </div>
             </div>
           </div>

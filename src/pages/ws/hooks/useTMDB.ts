@@ -8,19 +8,22 @@ export function useTMDB(title: string) {
     backdropUrl: '',
     overview: '',
     rating: 0,
+    tmdbId: 0,
+    year: '',
+    genre: '',
     loading: true,
   });
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const fetchTMDB = async () => {
       try {
         const res = await fetch(
           `https://api.themoviedb.org/3/search/tv?api_key=${API_KEY}&query=${encodeURIComponent(title)}&language=ru-RU`
         );
         const json = await res.json();
-        
+
         if (isMounted && json.results && json.results.length > 0) {
           const show = json.results[0];
           setData({
@@ -28,6 +31,9 @@ export function useTMDB(title: string) {
             backdropUrl: show.backdrop_path ? `https://image.tmdb.org/t/p/original${show.backdrop_path}` : '',
             overview: show.overview || '',
             rating: show.vote_average || 0,
+            tmdbId: show.id || 0,
+            year: (show.first_air_date || '').slice(0, 4),
+            genre: (show.genre_ids || []).join(', '),
             loading: false,
           });
         } else if (isMounted) {

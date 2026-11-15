@@ -657,7 +657,7 @@ const Profile = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-background/95" />
 
         <div className="absolute inset-x-0 bottom-0">
-          <div className="max-w-6xl mx-auto px-4 pb-0 translate-y-1/2">
+          <div className="w-full mx-auto px-4 pb-0 translate-y-1/2">
             <div className="flex items-end gap-5 md:gap-7">
               {/* Аватар */}
               <div className="relative flex-shrink-0">
@@ -774,7 +774,7 @@ const Profile = () => {
       </header>
 
       {/* ===== ЛЕНТА СТАТИСТИКИ ===== */}
-      <section className="max-w-6xl mx-auto px-4 mt-24 md:mt-28">
+      <section className="w-full mx-auto px-4 mt-24 md:mt-28">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {statTiles.map(({ icon, value, label }) => (
             <div key={label} className="rxp-stat-tile">
@@ -789,18 +789,18 @@ const Profile = () => {
       </section>
 
       {/* ===== ОСНОВНАЯ СЕТКА: сайдбар слева, контент справа ===== */}
-      <div className="max-w-6xl mx-auto px-4 mt-6 pb-16">
+      <div className="w-full mx-auto px-4 mt-6 pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* Левая колонка — уровень и друзья */}
-          <aside className="lg:col-span-4 order-2 lg:order-1">
+          <aside className="lg:col-span-3 order-2 lg:order-1">
             <div className="lg:sticky lg:top-6 space-y-6">
               <ProfileSidebar userId={userId!} userLevel={profile.level} userXP={profile.xp} />
             </div>
           </aside>
 
           {/* Правая колонка — био и вкладки */}
-          <main className="lg:col-span-8 order-1 lg:order-2 space-y-6">
+          <main className="lg:col-span-9 order-1 lg:order-2 space-y-6">
 
             {/* Витринные блоки — порядок и видимость из настроек профиля */}
             {(() => {

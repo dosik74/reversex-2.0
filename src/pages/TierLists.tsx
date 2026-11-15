@@ -66,13 +66,19 @@ const TierListsPage = () => {
         const fullList = await getTierListById(lists[0].id);
         setSelectedTierList(fullList);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading tier lists:', error);
-      toast({
-        title: 'Ошибка',
-        description: 'Не удалось загрузить тир-листы',
-        variant: 'destructive',
-      });
+      // Таблицы нет или пропал коннект — показываем пустую страницу,
+      // а не красный тост. Пользователь ничего не может с этим сделать.
+      const missing = error?.code === 'PGRST205' || /schema cache|does not exist/i.test(error?.message || '');
+      if (!missing) {
+        toast({
+          title: 'Ошибка',
+          description: 'Не удалось загрузить тир-листы',
+          variant: 'destructive',
+        });
+      }
+      setTierLists([]);
     } finally {
       setLoading(false);
     }

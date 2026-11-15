@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    watch: {
+      // OneDrive блокирует файлы в этих папках → вотчер падает с EBUSY
+      ignored: ["**/button/**", "**/design-references/**"],
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

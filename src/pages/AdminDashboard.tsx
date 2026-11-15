@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { 
   Users, Activity, Calendar, Clock, BarChart3, TrendingUp, RefreshCw 
 } from 'lucide-react';
@@ -104,7 +104,7 @@ const AdminDashboard = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-pink-600">
               Admin Analytics
             </h1>
             <p className="text-gray-400 mt-2 text-lg">
@@ -145,7 +145,7 @@ const AdminDashboard = () => {
           <MetricCard 
             title="This Month" 
             value={thisMonth} 
-            icon={<Calendar className="w-6 h-6 text-purple-400" />} 
+            icon={<Calendar className="w-6 h-6 text-cyan-400" />} 
             description="Unique devices this month"
           />
         </div>
@@ -186,7 +186,7 @@ const AdminDashboard = () => {
 
               <Button 
                 onClick={handleCustomRangeQuery}
-                className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-pink-500/20"
+                className="w-full md:w-auto bg-gradient-to-r from-cyan-600 to-pink-600 hover:from-cyan-500 hover:to-pink-500 text-white shadow-lg shadow-pink-500/20"
               >
                 Analyze Period
               </Button>
@@ -194,7 +194,7 @@ const AdminDashboard = () => {
 
             {customRangeCount !== null && (
               <div className="mt-8 p-6 rounded-2xl bg-black/40 border border-white/5 flex items-center gap-6">
-                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center border border-white/10">
+                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-pink-500/20 flex items-center justify-center border border-white/10">
                   <TrendingUp className="w-8 h-8 text-pink-400" />
                 </div>
                 <div>

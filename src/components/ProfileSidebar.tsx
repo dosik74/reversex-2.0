@@ -74,18 +74,25 @@ const ProfileSidebar = ({ userId, userLevel = 1, userXP = 0 }: ProfileSidebarPro
       }
 
       // Загружаем топ списки пользователя
+      // ВАЖНО: у top_lists нет колонки rating — вместо неё считаем
+      // количество позиций через вложенный select (top_list_items(count))
       const { data: topLists, error: listsError } = await supabase
         .from('top_lists')
-        .select('id, title, rating')
+        .select('id, title, media_type, top_list_items(count)')
         .eq('user_id', userId)
-        .order('rating', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(5);
 
       if (listsError) {
         console.error('Error fetching top lists:', listsError);
         setTopRated([]);
       } else {
-        setTopRated(topLists || []);
+        setTopRated(
+          (topLists || []).map((list: any) => ({
+            ...list,
+            items_count: list.top_list_items?.[0]?.count ?? 0,
+          }))
+        );
       }
     } catch (error) {
       console.error('Error fetching sidebar data:', error);
@@ -259,7 +266,7 @@ const ProfileSidebar = ({ userId, userLevel = 1, userXP = 0 }: ProfileSidebarPro
                       <div className="flex items-center gap-1.5 mt-1">
                         <Star className="w-3 h-3 text-accent fill-accent" />
                         <span className="font-pixel text-[8px] text-muted-foreground">
-                          {item.rating}
+                          {item.items_count ?? 0}
                         </span>
                       </div>
                     </div>

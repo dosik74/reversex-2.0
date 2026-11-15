@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Star, Users, User, X } from 'lucide-react';
 import { ContentType } from '@/types/anime';
 import { getCommunityRating, submitCommunityRating, CommunityRatingData } from '@/services/communityRatingService';
@@ -87,7 +87,7 @@ export default function CommunityRating({ contentId, contentType }: CommunityRat
             {/* Community Rating Display */}
             <div className="bg-zinc-900/80 border border-zinc-800/50 rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
-                    <Users className="w-4 h-4 text-purple-400" />
+                    <Users className="w-4 h-4 text-cyan-400" />
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">Рейтинг сообщества</h3>
                 </div>
 
@@ -102,7 +102,7 @@ export default function CommunityRating({ contentId, contentType }: CommunityRat
                     <div className="text-xs text-zinc-500">
                         <p>{data.totalVotes} {data.totalVotes === 1 ? 'голос' : data.totalVotes < 5 ? 'голоса' : 'голосов'}</p>
                         {data.userRating && (
-                            <p className="text-purple-400 mt-1">Ваш голос: {data.userRating}/10</p>
+                            <p className="text-cyan-400 mt-1">Ваш голос: {data.userRating}/10</p>
                         )}
                     </div>
                 </div>

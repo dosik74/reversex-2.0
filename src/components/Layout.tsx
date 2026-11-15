@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+﻿import { useState, useEffect } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone } from "lucide-react";
@@ -130,59 +130,47 @@ const Layout = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
-      {/* Desktop Header */}
-      <nav className="hidden md:flex border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="w-full mx-auto px-4 md:px-8">
-          <div className="flex items-center justify-between h-16">
+      {/* Desktop Header — floating frosted pill */}
+      <nav className="hidden md:flex sticky top-0 z-50 px-4 md:px-8 pt-3 pb-1 bg-gradient-to-b from-background via-background/80 to-transparent pointer-events-none">
+        <div className="w-full mx-auto">
+          <div className="flex items-center justify-between h-14 pl-3 pr-2.5 rounded-full border border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_8px_40px_rgba(0,0,0,0.6),0_0_24px_hsl(190_90%_50%/0.12)] pointer-events-auto">
             <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <img 
+              <img
                 src="/logo.png"
                 alt="ReverseX"
-                className="h-8 md:h-10 w-auto object-contain"
+                className="h-7 md:h-8 w-auto object-contain"
               />
             </Link>
 
-            <div className="hidden md:flex items-center gap-1">
-              <Link to="/" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Home className="w-4 h-4" />
-                Home
-              </Link>
-              <Link to="/movies" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Film className="w-4 h-4" />
-                Movies
-              </Link>
-              <Link to="/series" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Tv className="w-4 h-4" />
-                Series
-              </Link>
-              <Link to="/ws" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Tv className="w-4 h-4" />
-                Watch
-              </Link>
-              <Link to="/games" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Gamepad className="w-4 h-4" />
-                Games
-              </Link>
-              <Link to="/recommendations" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Lightbulb className="w-4 h-4" />
-                Recommendations
-              </Link>
-              <Link to="/tier-lists" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Crown className="w-4 h-4" />
-                Tier Lists
-              </Link>
-              <Link to="/bookmarks" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Bookmark className="w-4 h-4" />
-                Bookmarks
-              </Link>
-              <Link to="/music" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Music className="w-4 h-4" />
-                Music
-              </Link>
-              <Link to="/books" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary transition-colors">
-                <Book className="w-4 h-4" />
-                Books
-              </Link>
+            <div className="hidden lg:flex items-center gap-0.5">
+              {[
+                { to: '/', icon: Home, label: 'Home' },
+                { to: '/movies', icon: Film, label: 'Movies' },
+                { to: '/series', icon: Tv, label: 'Series' },
+                { to: '/ws', icon: Tv, label: 'Watch' },
+                { to: '/games', icon: Gamepad, label: 'Games' },
+                { to: '/recommendations', icon: Lightbulb, label: 'Recs' },
+                { to: '/tier-lists', icon: Crown, label: 'Tier Lists' },
+                { to: '/bookmarks', icon: Bookmark, label: 'Bookmarks' },
+                { to: '/music', icon: Music, label: 'Music' },
+                { to: '/books', icon: Book, label: 'Books' },
+              ].map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === '/'}
+                  className={({ isActive }) =>
+                    `flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
+                      isActive
+                        ? 'bg-white text-black shadow-[0_0_16px_rgba(255,255,255,0.25)]'
+                        : 'text-white/50 hover:text-white hover:bg-white/[0.06]'
+                    }`
+                  }
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </NavLink>
+              ))}
             </div>
 
             <div className="flex items-center gap-2">
@@ -326,7 +314,7 @@ const Layout = () => {
                     to={item.path}
                     className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-max ${
                       isActive
-                        ? 'bg-purple-500/20 text-purple-500'
+                        ? 'bg-cyan-500/20 text-cyan-500'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >

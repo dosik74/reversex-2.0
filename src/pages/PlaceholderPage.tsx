@@ -1,4 +1,4 @@
-import { Music, BookOpen } from 'lucide-react';
+﻿import { Music, BookOpen } from 'lucide-react';
 
 const SECTIONS: Record<string, { script: string; glow: string; accent: string; icon: any; desc: string }> = {
   Music: {
@@ -20,8 +20,8 @@ const SECTIONS: Record<string, { script: string; glow: string; accent: string; i
 const PlaceholderPage = ({ title, icon: Icon }: { title: string; icon: any }) => {
   const s = SECTIONS[title] || {
     script: title,
-    glow: 'from-purple-500 to-violet-600',
-    accent: 'text-purple-400',
+    glow: 'from-cyan-500 to-sky-600',
+    accent: 'text-cyan-400',
     icon: Icon,
     desc: `Раздел «${title}» находится в разработке.`,
   };

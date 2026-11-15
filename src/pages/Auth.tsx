@@ -8,10 +8,22 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Film, QrCode } from "lucide-react";
+import { QrCode, ShieldCheck } from "lucide-react";
 import QRAuthModal from "@/components/QRAuthModal";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import { getAuthRedirectUrl } from "@/lib/authRedirect";
+
+/**
+ * Служебный домен: Supabase Auth внутри всегда требует email.
+ * Юзернейм конвертируется в детерминированный служебный email,
+ * который пользователь никогда не видит и на который ничего не отправляется.
+ */
+const AUTH_EMAIL_DOMAIN = "users.reversex.app";
+
+export const usernameToAuthEmail = (username: string) =>
+  `${username.trim().toLowerCase()}@${AUTH_EMAIL_DOMAIN}`;
+
+/** Разрешённые юзернеймы: 3–20 символов, латиница/цифры/_ */
+export const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -19,78 +31,37 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [showQRAuth, setShowQRAuth] = useState(false);
   const [tab, setTab] = useState('signin');
-  const [prefillEmail, setPrefillEmail] = useState('');
-  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
-
-  // Если уже залогинен — показываем это явно, а не форму входа
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) setCurrentEmail(session.user.email);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setCurrentEmail(session?.user?.email || null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-  // Вход по коду из письма (без пароля — заодно подтверждает email)
-  const [otpEmail, setOtpEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  // Сброс пароля: email → код из письма → новый пароль
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetCode, setResetCode] = useState('');
-  const [resetCodeSent, setResetCodeSent] = useState(false);
-  const [resetVerified, setResetVerified] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [newPassword2, setNewPassword2] = useState('');
   // Постоянная ошибка (тосты исчезают — эта остаётся, чтобы было что скинуть)
   const [authError, setAuthError] = useState('');
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: getAuthRedirectUrl(),
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
-        },
-      });
-      if (error) {
-        console.error('Google OAuth error:', error);
-        // Check if it's a configuration error
-        if (error.message?.includes('provider') || error.message?.includes('not configured')) {
-          toast.error('Google authentication is not configured yet. Enable it in Supabase settings.');
-        } else {
-          toast.error(error.message || 'Failed to sign in with Google');
-        }
-        throw error;
+  // --- Шаг 2FA (только если пользователь включил её в настройках) ---
+  const [mfaPending, setMfaPending] = useState<{ factorId: string; challengeId: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+
+  // Если уже залогинен — показываем это явно, а не форму входа
+  const [currentUserLabel, setCurrentUserLabel] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setCurrentUserLabel(session.user.user_metadata?.username || session.user.email || null);
       }
-    } catch (error: any) {
-      console.error('Google sign in error:', error);
-      // Don't show additional toast if already shown above
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setCurrentUserLabel(session?.user ? (session.user.user_metadata?.username || session.user.email) : null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
-  const handleQRAuthSuccess = async () => {
-    // Сессия уже установлена модалкой через verifyOtp — просто заходим
-    toast.success('Вы вошли через QR!');
-    navigate('/');
-  };
-
-  /** Ошибка входа: тост + постоянная плашка (тосты исчезают — плашка остаётся для скриншота) */
   const fail = (message: string) => {
     const mapped = /invalid login credentials/i.test(message || '')
-      ? t('auth.invalidCredentials')
-      : message;
+      ? 'Неверный юзернейм или пароль'
+      : /email not confirmed/i.test(message || '')
+        ? 'Аккаунт ещё не активирован. Попробуйте войти позже.'
+        : message;
     toast.error(mapped);
     setAuthError(mapped);
   };
+
   const redirectAfterLogin = () => {
     const pending = sessionStorage.getItem('qr_pending_session');
     if (pending) {
@@ -101,197 +72,127 @@ const Auth = () => {
     }
   };
 
-  const handleSendOtp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInWithOtp({
-        email: otpEmail,
-        options: { emailRedirectTo: getAuthRedirectUrl() },
-      });
-      if (error) throw error;
-      setOtpSent(true);
-      toast.success('Код отправлен на почту!');
-    } catch (error: any) {
-      fail(error.message);
-    } finally {
-      setLoading(false);
-    }
+  const saveQrAccount = (user: { id: string; email?: string }, username: string) => {
+    localStorage.setItem(`qr_account_${user.id}`, JSON.stringify({
+      id: user.id,
+      email: user.email,
+      username,
+      lastLogin: new Date().toISOString(),
+    }));
   };
 
-  const handleVerifyOtp = async (e?: React.FormEvent<HTMLFormElement>, codeOverride?: string) => {
+  /**
+   * После успешного входа по паролю проверяем, включена ли 2FA.
+   * Если включена (aal1 → нужен aal2) — отправляем challenge и показываем ввод кода.
+   */
+  const checkMfaOrEnter = async (user: { id: string; email?: string }, username: string) => {
+    try {
+      const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal.data.currentLevel === 'aal1' && aal.data.nextLevel === 'aal2') {
+        const { data: factorData } = await supabase.auth.mfa.listFactors();
+        const factor = factorData?.totp?.[0];
+        if (factor) {
+          const { data: challenge, error } = await supabase.auth.mfa.challenge({ factorId: factor.id });
+          if (error) throw error;
+          setMfaPending({ factorId: factor.id, challengeId: challenge.id });
+          setMfaCode('');
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('MFA check failed:', e);
+      // MFA проверить не удалось — пускаем дальше, иначе можно вообще не войти
+    }
+    saveQrAccount(user, username);
+    toast.success('Вы успешно вошли!');
+    redirectAfterLogin();
+  };
+
+  const handleVerifyMfa = async (e?: React.FormEvent<HTMLFormElement>, codeOverride?: string) => {
     e?.preventDefault();
-    const code = (codeOverride ?? otpCode).replace(/\D/g, '');
-    if (code.length !== 6 || loading) return;
+    const code = (codeOverride ?? mfaCode).replace(/\D/g, '');
+    if (!mfaPending || code.length !== 6 || loading) return;
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: otpEmail,
-        token: code,
-        type: 'email',
+      const { error } = await supabase.auth.mfa.verify({
+        factorId: mfaPending.factorId,
+        challengeId: mfaPending.challengeId,
+        code,
       });
       if (error) throw error;
-      if (!data.session) throw new Error('Не удалось войти. Запросите код заново.');
+      setMfaPending(null);
+      setMfaCode('');
       toast.success('Вы успешно вошли!');
       redirectAfterLogin();
     } catch (error: any) {
-      fail(error.message);
+      fail('Неверный код 2FA. Попробуйте ещё раз.');
+      setMfaCode('');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOtpCodeChange = (value: string) => {
+  const handleMfaCodeChange = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 6);
-    setOtpCode(digits);
-    // Код ввёлся сам: как только 6 цифр — проверяем без кнопки
-    if (digits.length === 6) {
-      handleVerifyOtp(undefined, digits);
-    }
-  };
-
-  // --- Сброс пароля через код из письма ---
-  const handleSendResetCode = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      setAuthError('');
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: getAuthRedirectUrl(),
-      });
-      if (error) throw error;
-      setResetCodeSent(true);
-      setResetCode('');
-      setResetVerified(false);
-      toast.success(t('auth.getCode'));
-    } catch (error: any) {
-      fail(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyResetCode = async (e?: React.FormEvent<HTMLFormElement>, codeOverride?: string) => {
-    e?.preventDefault();
-    const code = (codeOverride ?? resetCode).replace(/\D/g, '');
-    if (code.length !== 6 || loading) return;
-    try {
-      setLoading(true);
-      setAuthError('');
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: resetEmail,
-        token: code,
-        type: 'recovery',
-      });
-      if (error) throw error;
-      if (!data.session) throw new Error(t('auth.invalidCredentials'));
-      setResetVerified(true);
-      toast.success(t('auth.enter'));
-    } catch (error: any) {
-      fail(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetCodeChange = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 6);
-    setResetCode(digits);
-    if (digits.length === 6) {
-      handleVerifyResetCode(undefined, digits);
-    }
-  };
-
-  const handleSetNewPassword = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (newPassword !== newPassword2) {
-      fail(t('auth.passMismatch'));
-      return;
-    }
-    if (newPassword.length < 6) {
-      fail(t('auth.passShort'));
-      return;
-    }
-    try {
-      setLoading(true);
-      setAuthError('');
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      toast.success(t('auth.resetOk'));
-      // Чистим состояние сброса и заходим
-      setResetEmail('');
-      setResetCode('');
-      setResetCodeSent(false);
-      setResetVerified(false);
-      setNewPassword('');
-      setNewPassword2('');
-      redirectAfterLogin();
-    } catch (error: any) {
-      fail(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetResetFlow = () => {
-    setResetCodeSent(false);
-    setResetVerified(false);
-    setResetCode('');
-    setNewPassword('');
-    setNewPassword2('');
-    setAuthError('');
+    setMfaCode(digits);
+    if (digits.length === 6) handleVerifyMfa(undefined, digits);
   };
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-    const username = formData.get('username') as string;
+    const username = String(formData.get('username') || '').trim().toLowerCase();
+    const password = String(formData.get('password') || '');
+    const password2 = String(formData.get('password2') || '');
+
+    if (!USERNAME_RE.test(username)) {
+      fail('Юзернейм: 3–20 символов, только латиница, цифры и _');
+      return;
+    }
+    if (password.length < 6) {
+      fail('Пароль должен быть минимум 6 символов');
+      return;
+    }
+    if (password !== password2) {
+      fail('Пароли не совпадают');
+      return;
+    }
 
     try {
       setLoading(true);
+      setAuthError('');
+
+      // Проверяем занятость юзернейма (RPC; если не применён — пропускаем проверку)
+      try {
+        const { data: available } = await supabase.rpc('is_username_available', { p_username: username });
+        if (available === false) {
+          fail('Этот юзернейм уже занят');
+          return;
+        }
+      } catch {
+        // RPC ещё не создан — регистрируем без предпроверки
+      }
+
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: usernameToAuthEmail(username),
         password,
-        options: {
-          data: {
-            username,
-          },
-          emailRedirectTo: getAuthRedirectUrl(),
-        },
+        options: { data: { username } },
       });
       if (error) throw error;
 
       // Если в проекте включено подтверждение email — сессии не будет.
-      // Честно говорим проверить почту, а не делаем вид, что вошли.
       if (!data.session) {
-        setPrefillEmail(email);
-        setTab('signin');
-        toast.info('Аккаунт создан! Подтвердите email по ссылке из письма, затем войдите.');
+        setAuthError('Аккаунт создан, но требует активации. Отключи "Confirm email" в Supabase Dashboard → Authentication → Providers → Email.');
+        toast.info('Выключи "Confirm email" в настройках Supabase, чтобы вход был без почты.');
         return;
       }
 
-      // Save account for QR auth
-      if (data.user) {
-        const accountKey = `qr_account_${data.user.id}`;
-        localStorage.setItem(accountKey, JSON.stringify({
-          id: data.user.id,
-          email: data.user.email,
-          username: username,
-          lastLogin: new Date().toISOString()
-        }));
-      }
-      
-      toast.success(t('auth.accountCreated'));
+      if (data.user) saveQrAccount(data.user, username);
+      toast.success('Аккаунт создан! Добро пожаловать.');
       redirectAfterLogin();
     } catch (error: any) {
-      // Email уже занят — это не баг, а штатный ответ Supabase (422).
-      // Не ругаемся, а мягко ведём на вход с подставленным email.
-      if (/already registered|already exists|duplicate/i.test(error.message || '')) {
-        setPrefillEmail(email);
-        setTab('signin');
-        toast.info('Этот email уже зарегистрирован — войдите с паролем.');
+      if (/already registered|already exists|duplicate|User already/i.test(error.message || '')) {
+        fail('Этот юзернейм уже занят');
       } else {
         fail(error.message);
       }
@@ -303,36 +204,29 @@ const Auth = () => {
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+    const usernameInput = String(formData.get('username') || '').trim();
+    const password = String(formData.get('password') || '');
+
+    if (!usernameInput || !password) {
+      fail('Введите юзернейм и пароль');
+      return;
+    }
 
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      setAuthError('');
+
+      // Если ввели email (старые аккаунты) — входим по нему напрямую,
+      // иначе строим служебный email из юзернейма.
+      const email = usernameInput.includes('@')
+        ? usernameInput
+        : usernameToAuthEmail(usernameInput);
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      
-      // Save account for QR auth
-      if (data.user) {
-        const accountKey = `qr_account_${data.user.id}`;
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('id', data.user.id)
-          .single();
-        
-        localStorage.setItem(accountKey, JSON.stringify({
-          id: data.user.id,
-          email: data.user.email,
-          username: profile?.username || email.split('@')[0],
-          lastLogin: new Date().toISOString()
-        }));
-      }
-      
-      toast.success('Вы успешно вошли!');
-      redirectAfterLogin();
+
+      const username = data.user?.user_metadata?.username || usernameInput.split('@')[0];
+      await checkMfaOrEnter({ id: data.user!.id, email: data.user!.email || undefined }, username);
     } catch (error: any) {
       fail(error.message);
     } finally {
@@ -348,7 +242,7 @@ const Auth = () => {
           <LanguageSwitcher />
         </div>
         <div className="text-center mb-8">
-          <img 
+          <img
             src="/logo.png"
             alt="ReverseX"
             className="h-24 w-auto mx-auto mb-4"
@@ -356,14 +250,14 @@ const Auth = () => {
           <p className="text-muted-foreground">{t('auth.tagline')}</p>
         </div>
 
-        {currentEmail ? (
+        {currentUserLabel && !mfaPending ? (
           <Card className="card-glow">
             <CardHeader className="text-center">
               <span className="inline-flex w-14 h-14 rounded-full bg-green-500/15 items-center justify-center mx-auto mb-2">
                 <span className="text-2xl">✓</span>
               </span>
               <CardTitle>{t('auth.loggedIn')}</CardTitle>
-              <CardDescription className="break-all">{currentEmail}</CardDescription>
+              <CardDescription>{currentUserLabel}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button className="w-full" onClick={() => redirectAfterLogin()}>
@@ -374,7 +268,7 @@ const Auth = () => {
                 className="w-full"
                 onClick={async () => {
                   await supabase.auth.signOut();
-                  setCurrentEmail(null);
+                  setCurrentUserLabel(null);
                 }}
               >
                 {t('auth.signOut')}
@@ -385,18 +279,9 @@ const Auth = () => {
         <Card className="card-glow">
           <CardHeader>
             <CardTitle>{t('auth.welcome')}</CardTitle>
-            <CardDescription>{t('auth.subtitle')}</CardDescription>
+            <CardDescription>Вход и регистрация по юзернейму и паролю</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button
-              onClick={handleGoogleSignIn}
-              disabled={loading}
-              className="w-full mb-3"
-              variant="outline"
-            >
-              {t('auth.continueGoogle')}
-            </Button>
-
             <Button
               onClick={() => setShowQRAuth(true)}
               disabled={loading}
@@ -407,41 +292,64 @@ const Auth = () => {
               {t('auth.scanQr')}
             </Button>
 
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">{t('auth.or')}</span>
-              </div>
-            </div>
-
             {authError && (
               <div className="mb-4 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                 {authError}
               </div>
             )}
 
+            {mfaPending ? (
+              <form onSubmit={handleVerifyMfa} className="space-y-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <ShieldCheck className="w-4 h-4" />
+                  Двухфакторная защита включена — введите код из приложения
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mfa-code">Код 2FA</Label>
+                  <Input
+                    id="mfa-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="123456"
+                    required
+                    value={mfaCode}
+                    onChange={(e) => handleMfaCodeChange(e.target.value)}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Проверяем…' : 'Войти'}
+                </Button>
+                <button
+                  type="button"
+                  className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    setMfaPending(null);
+                    setMfaCode('');
+                  }}
+                >
+                  Отмена
+                </button>
+              </form>
+            ) : (
             <Tabs value={tab} onValueChange={(v) => { setTab(v); setAuthError(''); }} defaultValue="signin">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
                 <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
-                <TabsTrigger value="otp">{t('auth.codeTab')}</TabsTrigger>
-                <TabsTrigger value="reset">{t('auth.resetTab')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signin-email">{t('auth.email')}</Label>
+                    <Label htmlFor="signin-username">{t('auth.username')}</Label>
                     <Input
-                      id="signin-email"
-                      name="email"
-                      type="email"
-                      placeholder={t('auth.emailPlaceholder')}
+                      id="signin-username"
+                      name="username"
+                      type="text"
+                      autoComplete="username"
+                      placeholder="ваш_юзернейм"
                       required
-                      key={prefillEmail}
-                      defaultValue={prefillEmail}
                     />
                   </div>
                   <div className="space-y-2">
@@ -450,19 +358,13 @@ const Auth = () => {
                       id="signin-password"
                       name="password"
                       type="password"
+                      autoComplete="current-password"
                       required
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? t('auth.signingIn') : t('auth.signInBtn')}
                   </Button>
-                  <button
-                    type="button"
-                    className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => { setTab('reset'); setAuthError(''); }}
-                  >
-                    {t('auth.forgotLink')}
-                  </button>
                 </form>
               </TabsContent>
 
@@ -474,19 +376,11 @@ const Auth = () => {
                       id="signup-username"
                       name="username"
                       type="text"
-                      placeholder={t('auth.namePlaceholder')}
+                      autoComplete="username"
+                      placeholder="ваш_юзернейм"
                       required
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">{t('auth.email')}</Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder={t('auth.emailPlaceholder')}
-                      required
-                    />
+                    <p className="text-xs text-muted-foreground">3–20 символов: латиница, цифры, _</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">{t('auth.password')}</Label>
@@ -494,166 +388,45 @@ const Auth = () => {
                       id="signup-password"
                       name="password"
                       type="password"
+                      autoComplete="new-password"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password2">{t('auth.confirmPassword')}</Label>
+                    <Input
+                      id="signup-password2"
+                      name="password2"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={6}
                       required
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? t('auth.creating') : t('auth.signUpBtn')}
                   </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Никакой почты не нужно. Двухфакторную защиту можно включить позже в Настройках.
+                  </p>
                 </form>
               </TabsContent>
-
-              <TabsContent value="otp">
-                {!otpSent ? (
-                  <form onSubmit={handleSendOtp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="otp-email">{t('auth.email')}</Label>
-                      <Input
-                        id="otp-email"
-                        type="email"
-                        placeholder={t('auth.emailPlaceholder')}
-                        required
-                        value={otpEmail}
-                        onChange={(e) => setOtpEmail(e.target.value)}
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? t('auth.sending') : t('auth.getCode')}
-                    </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                      {t('auth.otpHint')}
-                    </p>
-                  </form>
-                ) : (
-                  <form onSubmit={handleVerifyOtp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="otp-code">{t('auth.codeFromMail')} ({otpEmail})</Label>
-                      <Input
-                        id="otp-code"
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        placeholder="123456"
-                        required
-                        value={otpCode}
-                        onChange={(e) => handleOtpCodeChange(e.target.value)}
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? t('auth.checking') : t('auth.enter')}
-                    </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                      {t('auth.otpMailHint')}
-                    </p>
-                    <button
-                      type="button"
-                      className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => { setOtpSent(false); setOtpCode(''); }}
-                    >
-                      {t('auth.resendCode')}
-                    </button>
-                  </form>
-                )}
-              </TabsContent>
-
-              <TabsContent value="reset">
-                {!resetCodeSent ? (
-                  <form onSubmit={handleSendResetCode} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="reset-email">{t('auth.email')}</Label>
-                      <Input
-                        id="reset-email"
-                        type="email"
-                        placeholder={t('auth.emailPlaceholder')}
-                        required
-                        value={resetEmail}
-                        onChange={(e) => setResetEmail(e.target.value)}
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? t('auth.sending') : t('auth.getCode')}
-                    </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                      {t('auth.resetDesc1')}
-                    </p>
-                  </form>
-                ) : !resetVerified ? (
-                  <form onSubmit={handleVerifyResetCode} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="reset-code">{t('auth.codeFromMail')} ({resetEmail})</Label>
-                      <Input
-                        id="reset-code"
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        placeholder="123456"
-                        required
-                        value={resetCode}
-                        onChange={(e) => handleResetCodeChange(e.target.value)}
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? t('auth.checking') : t('auth.enter')}
-                    </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                      {t('auth.resetDesc2')}
-                    </p>
-                    <button
-                      type="button"
-                      className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={resetResetFlow}
-                    >
-                      {t('auth.resendCode')}
-                    </button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleSetNewPassword} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="reset-new-password">{t('auth.newPassword')}</Label>
-                      <Input
-                        id="reset-new-password"
-                        type="password"
-                        autoComplete="new-password"
-                        required
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="reset-new-password2">{t('auth.confirmPassword')}</Label>
-                      <Input
-                        id="reset-new-password2"
-                        type="password"
-                        autoComplete="new-password"
-                        required
-                        value={newPassword2}
-                        onChange={(e) => setNewPassword2(e.target.value)}
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? t('auth.savingPass') : t('auth.setNewPass')}
-                    </Button>
-                    <button
-                      type="button"
-                      className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => { resetResetFlow(); setTab('signin'); }}
-                    >
-                      {t('auth.backToSignIn')}
-                    </button>
-                  </form>
-                )}
-              </TabsContent>
             </Tabs>
+            )}
           </CardContent>
         </Card>
         )}
       </div>
     </div>
 
-    <QRAuthModal 
+    <QRAuthModal
       open={showQRAuth}
       onClose={() => setShowQRAuth(false)}
-      onSuccess={handleQRAuthSuccess}
+      onSuccess={async () => {
+        toast.success('Вы вошли через QR!');
+        navigate('/');
+      }}
     />
     </>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Bookmark, Check, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -150,8 +150,8 @@ export default function AddToBookmarksButton({
             size="sm"
             variant={isAdded ? 'default' : 'outline'}
             className={`gap-2 transition-all duration-300 ${isAdded
-                ? 'bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 shadow-lg shadow-purple-500/25'
-                : 'hover:border-purple-500/50'
+                ? 'bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-700 hover:to-sky-700 shadow-lg shadow-cyan-500/25'
+                : 'hover:border-cyan-500/50'
               }`}
             disabled={loading}
           >
@@ -179,7 +179,7 @@ export default function AddToBookmarksButton({
               key={status}
               onClick={() => handleAddToBookmarks(status)}
               disabled={loading}
-              className={`cursor-pointer ${currentStatus === status ? 'bg-purple-500/15' : ''}`}
+              className={`cursor-pointer ${currentStatus === status ? 'bg-cyan-500/15' : ''}`}
             >
               <div
                 className={`w-3 h-3 rounded-full mr-2 ${CONTENT_STATUS_CONFIG[status].bgColor}`}
@@ -187,7 +187,7 @@ export default function AddToBookmarksButton({
               <span className={CONTENT_STATUS_CONFIG[status].color}>
                 {CONTENT_STATUS_CONFIG[status].label}
               </span>
-              {currentStatus === status && <Check className="w-3 h-3 ml-auto text-purple-400" />}
+              {currentStatus === status && <Check className="w-3 h-3 ml-auto text-cyan-400" />}
             </DropdownMenuItem>
           ))}
           {isAdded && (

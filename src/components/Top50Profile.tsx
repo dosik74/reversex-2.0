@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,7 @@ const RankMoveControl = ({ rank, maxRank, onMove }: { rank: number; maxRank: num
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}
         title="Поставить на позицию"
-        className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-purple-600/80 p-1.5 rounded-full shadow-lg z-20 flex items-center justify-center"
+        className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-cyan-600/80 p-1.5 rounded-full shadow-lg z-20 flex items-center justify-center"
       >
         <Hash className="w-4 h-4 text-white" />
       </button>
@@ -88,7 +88,7 @@ const RankMoveControl = ({ rank, maxRank, onMove }: { rank: number; maxRank: num
 
   return (
     <div
-      className="bg-zinc-900/95 border border-purple-500/50 rounded-lg px-2 py-1.5 shadow-xl z-30 flex items-center gap-1.5"
+      className="bg-zinc-900/95 border border-cyan-500/50 rounded-lg px-2 py-1.5 shadow-xl z-30 flex items-center gap-1.5"
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
     >
       <span className="text-[10px] text-zinc-400 font-bold">#</span>
@@ -100,9 +100,9 @@ const RankMoveControl = ({ rank, maxRank, onMove }: { rank: number; maxRank: num
         autoFocus
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setOpen(false); }}
-        className="w-14 bg-zinc-800 border border-zinc-700 rounded text-white text-xs text-center py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-500"
+        className="w-14 bg-zinc-800 border border-zinc-700 rounded text-white text-xs text-center py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
       />
-      <button onClick={submit} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white transition-colors">
+      <button onClick={submit} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white transition-colors">
         OK
       </button>
       <button onClick={() => setOpen(false)} className="text-zinc-500 hover:text-white text-xs px-1">✕</button>
@@ -714,7 +714,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                     disabled={savingOrder}
                     variant="outline"
                     size="sm"
-                    className="gap-1.5 border-purple-500/40 hover:bg-purple-500/10 hover:text-purple-300"
+                    className="gap-1.5 border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-300"
                   >
                     {savingOrder ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1031,24 +1031,24 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
       <Dialog open={showExpanded} onOpenChange={setShowExpanded}>
         <DialogContent className="rxp-dark fixed inset-0 translate-x-0 translate-y-0 left-0 top-0 w-screen h-screen max-w-none max-h-none rounded-none border-0 overflow-hidden flex flex-col p-0 bg-zinc-950">
           {/* Ambient glows */}
-          <div className="pointer-events-none fixed -top-56 left-1/4 -translate-x-1/2 w-[55rem] h-[55rem] rounded-full blur-[160px] opacity-[0.14] bg-gradient-to-br from-purple-500 to-violet-700" />
+          <div className="pointer-events-none fixed -top-56 left-1/4 -translate-x-1/2 w-[55rem] h-[55rem] rounded-full blur-[160px] opacity-[0.14] bg-gradient-to-br from-cyan-500 to-sky-700" />
           <div className="pointer-events-none fixed -bottom-56 right-0 w-[45rem] h-[45rem] rounded-full blur-[150px] opacity-[0.1] bg-gradient-to-br from-amber-400 to-orange-500" />
 
           {/* Hero Header */}
           <div className="relative z-20 shrink-0 bg-zinc-950/85 backdrop-blur-xl border-b border-white/[0.06]">
             <div className="max-w-[1700px] mx-auto px-4 sm:px-10 py-6 flex items-end justify-between gap-6">
               <div className="min-w-0">
-                <p className="font-pixel text-[9px] tracking-[0.3em] text-purple-400 uppercase mb-2 flex items-center gap-1.5">
-                  <Star className="w-3 h-3 fill-purple-400" /> Personal Ranking
+                <p className="font-pixel text-[9px] tracking-[0.3em] text-cyan-400 uppercase mb-2 flex items-center gap-1.5">
+                  <Star className="w-3 h-3 fill-cyan-400" /> Personal Ranking
                 </p>
                 <h2 className="leading-[1.05]">
-                  <span className="block font-script text-5xl md:text-7xl text-purple-300 -mb-3 md:-mb-5 pl-1 pt-2 select-none drop-shadow-[0_0_24px_rgba(168,85,247,0.35)]">
+                  <span className="block font-script text-5xl md:text-7xl text-cyan-300 -mb-3 md:-mb-5 pl-1 pt-2 select-none drop-shadow-[0_0_24px_rgba(34,211,238,0.35)]">
                     My
                   </span>
                   <span className="font-grotesk text-4xl md:text-6xl font-bold text-white tracking-tight">
                     TOP&nbsp;50
                   </span>
-                  <span className="font-grotesk text-xl md:text-3xl font-bold text-purple-400 ml-3 uppercase">
+                  <span className="font-grotesk text-xl md:text-3xl font-bold text-cyan-400 ml-3 uppercase">
                     {selectedList?.media_type === 'movie' ? 'Movies' : selectedList?.media_type === 'anime' ? 'Series' : 'Games'}
                   </span>
                 </h2>
@@ -1062,7 +1062,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
                     onClick={saveOrder}
                     disabled={savingOrder}
                     size="sm"
-                    className="gap-2 rounded-full bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 shadow-lg shadow-purple-500/25 border-0"
+                    className="gap-2 rounded-full bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 shadow-lg shadow-cyan-500/25 border-0"
                   >
                     {savingOrder ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1085,7 +1085,7 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
             <div className="max-w-[1700px] mx-auto px-4 sm:px-10 pb-4">
               <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-purple-500 to-violet-400 transition-all duration-500"
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-sky-400 transition-all duration-500"
                   style={{ width: `${Math.min(100, (itemsCount / MAX_ITEMS) * 100)}%` }}
                 />
               </div>

@@ -4,11 +4,12 @@ import { Play, Star, ArrowLeft, Info, ListVideo } from 'lucide-react';
 import { showsData } from './data/shows';
 import { useTMDB } from './hooks/useTMDB';
 import { useTMDBEpisodes } from './hooks/useTMDBEpisodes';
+import ContentActionsButton from '@/components/ContentActionsButton';
 
 export default function WSShowPage() {
   const { id } = useParams();
   const show = showsData.find(s => s.id === Number(id));
-  const { posterUrl, backdropUrl, overview, rating, loading } = useTMDB(show?.title || '');
+  const { posterUrl, backdropUrl, overview, rating, tmdbId, year, loading } = useTMDB(show?.title || '');
   const { episodes, loading: episodesLoading } = useTMDBEpisodes(show?.title || '');
 
   if (!show) {
@@ -81,21 +82,38 @@ export default function WSShowPage() {
               {show.title}
             </h1>
 
-            <a
-              href={show.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative flex items-center justify-center gap-4 w-full md:w-auto md:inline-flex bg-pink-600 hover:bg-pink-500 text-white font-bold py-5 px-10 rounded-2xl shadow-[0_0_40px_rgba(236,72,153,0.8)] transition-all transform hover:scale-105 border border-pink-400/50"
-            >
+            <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-5 mb-8">
+              {/* Закладки — первый акцент */}
+              {tmdbId > 0 && (
+                <ContentActionsButton
+                  contentId={String(tmdbId)}
+                  contentType="series"
+                  top50MediaType="anime"
+                  title={show.title}
+                  posterUrl={posterUrl}
+                  externalRating={rating}
+                  releaseYear={year}
+                  synopsis={overview}
+                  variant="detail"
+                />
+              )}
+
+              <a
+                href={show.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative flex items-center justify-center gap-4 w-full md:w-auto md:inline-flex bg-pink-600 hover:bg-pink-500 text-white font-bold py-5 px-10 rounded-2xl shadow-[0_0_40px_rgba(236,72,153,0.8)] transition-all transform hover:scale-105 border border-pink-400/50"
+              >
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out rounded-2xl" />
               <Play className="w-8 h-8 md:w-10 md:h-10 fill-white relative z-10" />
               <span className="relative z-10 text-2xl md:text-3xl uppercase tracking-wider">
                 Смотреть сериал
               </span>
             </a>
-            <p className="text-gray-400 text-sm mt-4 ml-2">
+            <p className="text-gray-400 text-sm md:ml-2 mt-3 md:mt-0">
               Откроется в новой вкладке (внешний плеер)
             </p>
+            </div>
           </motion.div>
         </div>
 

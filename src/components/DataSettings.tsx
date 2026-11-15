@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+﻿import { useRef, useState } from 'react';
 import { Download, Upload, Languages, FileSpreadsheet, Loader2, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -262,7 +262,7 @@ export default function DataSettings() {
                 onClick={() => setLanguage(l.code)}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all border ${
                   language === l.code
-                    ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white border-transparent shadow-lg shadow-purple-500/25'
+                    ? 'bg-gradient-to-r from-cyan-600 to-sky-600 text-white border-transparent shadow-lg shadow-cyan-500/25'
                     : 'bg-muted/40 text-muted-foreground border-border/60 hover:bg-muted hover:text-foreground'
                 }`}
               >

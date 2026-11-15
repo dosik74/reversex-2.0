@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -450,7 +450,7 @@ export default function ShopDetail() {
                 window.location.href = 'tel:+87752570646';
                 setShowOrderDialog(false);
               }}
-              className="h-auto py-4 gap-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-lg transition-all hover:scale-105 active:scale-95"
+              className="h-auto py-4 gap-3 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-semibold rounded-lg transition-all hover:scale-105 active:scale-95"
             >
               <Phone className="w-6 h-6" />
               <div className="flex flex-col items-start">

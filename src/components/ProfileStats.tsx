@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import supabase from "@/utils/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Film, Tv, Gamepad2, Music, Book } from "lucide-react";
@@ -114,9 +114,9 @@ const ProfileStats = ({ userId }: ProfileStatsProps) => {
             <span className="font-bold text-lg">{stats.music}</span>
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+          <div className="flex items-center justify-between p-3 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
             <div className="flex items-center gap-2">
-              <Book className="w-5 h-5 text-purple-500" />
+              <Book className="w-5 h-5 text-cyan-500" />
               <span className="font-medium">Книги</span>
             </div>
             <span className="font-bold text-lg">{stats.books}</span>

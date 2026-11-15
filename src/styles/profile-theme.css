@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    PROFILE THEME
    Цветовую схему НЕ переопределяем — профиль использует общую
    палитру сайта (primary/accent из index.css).
@@ -675,4 +675,202 @@
   .rxp-top50-watermark {
     font-size: 6.5rem;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MATTE REDESIGN — чёрно-фиолетовый матовый (Upscayl-style)
+   Перебивает неон выше: убирает свечения, пиксельные шрифты,
+   глянец. Идёт последним в файле → побеждает по каскаду.
+   ═══════════════════════════════════════════════════════════════ */
+
+.rxp-name {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-shadow: none;
+}
+
+.rxp-neon-handle,
+.rxp-lv-chip,
+.rxp-stat-label {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  text-shadow: none;
+  box-shadow: none;
+}
+
+.rxp-neon-handle {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: hsl(var(--primary) / 0.1);
+  border: 1px solid hsl(var(--primary) / 0.25);
+}
+
+.rxp-lv-chip {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--primary) / 0.25);
+}
+
+.rxp-avatar-frame {
+  background: linear-gradient(140deg, hsl(var(--primary) / 0.9), hsl(var(--primary) / 0.4));
+  box-shadow: 0 12px 40px hsl(0 0% 0% / 0.5);
+}
+.rxp-avatar-frame::before {
+  border: 1px dashed hsl(var(--primary) / 0.25);
+}
+
+.rxp-status {
+  box-shadow: none;
+}
+
+/* Кнопки героя: матовые */
+.rxp-btn-ghost {
+  background: hsl(0 0% 100% / 0.04);
+  border: 1px solid hsl(0 0% 100% / 0.09);
+  color: hsl(var(--foreground));
+  backdrop-filter: blur(10px);
+}
+.rxp-btn-ghost:hover:not(:disabled) {
+  border-color: hsl(var(--primary) / 0.45);
+  background: hsl(0 0% 100% / 0.07);
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+.rxp-btn-neon {
+  background: var(--gradient-primary);
+  color: hsl(0 0% 100%);
+  box-shadow: 0 4px 20px hsl(190 90% 35% / 0.4);
+}
+.rxp-btn-neon:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: 0 8px 32px hsl(190 90% 35% / 0.55);
+}
+
+.rxp-xp-track {
+  height: 6px;
+  background: hsl(0 0% 100% / 0.05);
+  border: none;
+}
+.rxp-xp-fill {
+  background: var(--gradient-primary);
+  box-shadow: none;
+}
+
+/* Панели: глубокий матовый, никакой глянцевой подсветки */
+.rxp-panel {
+  background: linear-gradient(180deg, hsl(215 40% 7% / 0.9), hsl(220 45% 4% / 0.85));
+  border: 1px solid hsl(0 0% 100% / 0.07);
+  border-radius: 1.25rem;
+  box-shadow: 0 16px 48px hsl(0 0% 0% / 0.35);
+}
+.rxp-panel:hover {
+  border-color: hsl(var(--primary) / 0.28);
+  box-shadow: 0 20px 56px hsl(0 0% 0% / 0.45);
+}
+
+.rxp-section-title::before {
+  background: var(--gradient-primary);
+  box-shadow: none;
+}
+
+.rxp-stat-tile {
+  background: hsl(0 0% 100% / 0.03);
+  border: 1px solid hsl(0 0% 100% / 0.07);
+  backdrop-filter: blur(12px);
+}
+.rxp-stat-tile:hover {
+  transform: translateY(-2px);
+  border-color: hsl(var(--primary) / 0.4);
+  box-shadow: 0 12px 36px hsl(0 0% 0% / 0.5);
+}
+
+.rxp-stat-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.rxp-chip {
+  background: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--primary) / 0.22);
+  box-shadow: none;
+  border-radius: 14px;
+}
+.rxp-chip-solid {
+  background: var(--gradient-primary);
+  box-shadow: 0 4px 16px hsl(190 90% 35% / 0.35);
+}
+
+.rxp-hero {
+  border-bottom: 1px solid hsl(0 0% 100% / 0.06);
+  box-shadow: inset 0 -80px 120px -60px hsl(var(--background));
+}
+.rxp-hero::after {
+  background-image:
+    linear-gradient(hsl(var(--primary) / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--primary) / 0.04) 1px, transparent 1px);
+}
+
+/* Убираем глянцевый «shine»-блик */
+.rxp-shine::after {
+  display: none !important;
+}
+
+/* ── Классы из profile-fonts.css → тоже матовые ── */
+.rxp-avatar-ring {
+  background: conic-gradient(
+    from var(--ring-angle, 0deg),
+    hsl(var(--primary)),
+    hsl(var(--accent)),
+    hsl(var(--primary) / 0.35),
+    hsl(var(--primary))
+  );
+}
+
+.rxp-level-badge {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-shadow: none;
+  background: var(--gradient-primary);
+  border: 1px solid hsl(0 0% 100% / 0.14);
+}
+
+.rxp-glass-btn-primary {
+  background: var(--gradient-primary);
+  border: 1px solid hsl(0 0% 100% / 0.12);
+  box-shadow: 0 4px 20px hsl(190 90% 35% / 0.4);
+}
+
+.rxp-stat-card {
+  background: hsl(0 0% 100% / 0.03);
+  border: 1px solid hsl(0 0% 100% / 0.07);
+}
+.rxp-stat-card:hover {
+  border-color: hsl(var(--primary) / 0.4);
+  box-shadow: 0 12px 36px hsl(0 0% 0% / 0.5);
+}
+
+.rxp-rank-num {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.rxp-tab-trigger[data-state="active"] {
+  background: var(--gradient-primary);
+  box-shadow: 0 4px 16px hsl(190 90% 35% / 0.35);
+}
+
+.rxp-xp-fill {
+  background: var(--gradient-primary);
+  box-shadow: none;
 }

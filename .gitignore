@@ -27,3 +27,7 @@ downloads/
 # Secrets
 .env
 .env.backup
+
+# Local design refs & mock assets (OneDrive-locked)
+button/
+design-references/

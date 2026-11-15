@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Star, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -208,7 +208,7 @@ export default function QuickAddContentButton({
                 value={userRating}
                 onChange={(e) => setUserRating(e.target.value)}
                 placeholder="Введите оценку (0-10)"
-                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 text-white rounded-lg focus:outline-none focus:border-purple-500 text-center text-2xl font-bold"
+                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 text-white rounded-lg focus:outline-none focus:border-cyan-500 text-center text-2xl font-bold"
                 autoFocus
               />
               <p className="text-center text-xs text-zinc-400 mt-2">
@@ -226,7 +226,7 @@ export default function QuickAddContentButton({
               </button>
               <button
                 onClick={handleRateAndWatch}
-                className="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                 disabled={loading || !userRating}
               >
                 {loading ? (

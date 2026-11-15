@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import supabase from "@/utils/supabase";
 import SettingsPanel from "@/components/SettingsPanel";
 import DataSettings from "@/components/DataSettings";
+import TwoFactorSettings from "@/components/TwoFactorSettings";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useTheme } from "@/context/ThemeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,6 +113,7 @@ const Settings = () => {
                 {t("settings.cloudDesc")}
               </div>
               <SettingsPanel />
+              <TwoFactorSettings />
               <DataSettings />
             </>
           ) : (

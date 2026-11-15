@@ -21,8 +21,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Epic Pro', 'Inter', 'sans-serif'],
-        display: ['Epic Pro', 'Space Grotesk', 'sans-serif'],
+        sans: ['Inter', 'Epic Pro', 'sans-serif'],
+        display: ['Space Grotesk', 'Inter', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

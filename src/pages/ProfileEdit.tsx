@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import supabase from "@/utils/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,13 +49,13 @@ const ProfileEdit = () => {
 
   const primaryColors = [
     "from-blue-500",
-    "from-purple-500",
+    "from-cyan-500",
     "from-pink-500",
     "from-red-500",
     "from-orange-500",
     "from-green-500",
     "from-cyan-400",
-    "from-indigo-500",
+    "from-blue-500",
   ];
 
   const accentColors = [
@@ -63,7 +63,7 @@ const ProfileEdit = () => {
     "from-lime-400",
     "from-pink-400",
     "from-yellow-300",
-    "from-purple-400",
+    "from-cyan-400",
     "from-blue-300",
     "from-emerald-400",
     "from-rose-300",
