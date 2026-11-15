@@ -549,7 +549,7 @@ export default function BookmarksNew() {
   const [searchParams] = useSearchParams();
   const queryUserId = searchParams.get('user') || targetUserId || null;
 
-  const { userId: currentUserId, bookmarks: myBookmarks, loading: contextLoading } = useBookmarks();
+  const { userId: currentUserId, bookmarks: myBookmarks, loading: contextLoading, isInTop50 } = useBookmarks();
 
   // Режим просмотра: чужие закладки (публичный просмотр) или свои
   const isOtherUser = Boolean(queryUserId && queryUserId !== currentUserId);
@@ -941,7 +941,7 @@ export default function BookmarksNew() {
         )}
 
         {/* Сноска о синхронизации с Топ-50 */}
-        {bookmarks.some(
+        {!isOtherUser && typeof isInTop50 === 'function' && bookmarks.some(
           (b) =>
             (b.contentType === 'movie' && isInTop50('movie', b.contentId)) ||
             (b.contentType === 'series' && isInTop50('anime', b.contentId)) ||
