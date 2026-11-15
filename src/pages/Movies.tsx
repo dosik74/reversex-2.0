@@ -1,6 +1,7 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import MovieCard from "@/components/MovieCard";
+import PosterImage from "@/components/PosterImage";
 import ContentActionsButton from "@/components/ContentActionsButton";
 import CatalogFilterBar from "@/components/CatalogFilterBar";
 import CinemaNav from "@/components/CinemaNav";
@@ -8,7 +9,7 @@ import PosterRow from "@/components/PosterRow";
 import { SortOption, GenreFilter, GENRE_TMDB_IDS, GENRE_LIST } from "@/components/MovieSortFilter";
 import { claimExclusive, dedupeById } from "@/utils/dedupe";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
-import { getPopularMovies, searchMovies, getTopRatedMovies } from "@/utils/tmdbApi";
+import { getPopularMovies, getTrendingMovies, searchMovies, getTopRatedMovies } from "@/utils/tmdbApi";
 import { useTranslation } from "react-i18next";
 import { ContentStatus } from "@/types/anime";
 import supabase from "@/lib/supabase";
@@ -42,15 +43,33 @@ const genreNames = (ids?: number[], limit = 3): string[] => {
 
 const MOVIES_PER_PAGE = 20;
 
+// In-memory cache for Movies page across navigation
+let moviesMemoryCache: {
+  allMovies: Movie[];
+  tab: 'trending' | 'top1000';
+} | null = null;
+let moviesTrendingMemoryCache: Movie[] | null = null;
+
 const Movies = () => {
   const { t } = useTranslation();
   const observerTarget = useRef<HTMLDivElement>(null);
   
-  const [tab, setTab] = useState<'trending' | 'top1000'>('trending');
-  const [allMovies, setAllMovies] = useState<Movie[]>([]);
+  const [tab, setTab] = useState<'trending' | 'top1000'>(() => moviesMemoryCache?.tab || 'trending');
+  const [trendingMovies, setTrendingMoviesState] = useState<Movie[]>(() => moviesTrendingMemoryCache || []);
+  const [allMovies, setAllMoviesState] = useState<Movie[]>(() => moviesMemoryCache?.allMovies || []);
   const [displayMovies, setDisplayMovies] = useState<Movie[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !moviesMemoryCache || moviesMemoryCache.allMovies.length === 0);
+
+  const setTrendingMovies = (movies: Movie[]) => {
+    moviesTrendingMemoryCache = movies;
+    setTrendingMoviesState(movies);
+  };
+
+  const setAllMovies = (movies: Movie[]) => {
+    moviesMemoryCache = { allMovies: movies, tab };
+    setAllMoviesState(movies);
+  };
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
@@ -109,6 +128,10 @@ const Movies = () => {
   }, [hasMore, loading, isSearching, page]);
 
   useEffect(() => {
+    if (moviesMemoryCache && moviesMemoryCache.tab === tab && moviesMemoryCache.allMovies.length > 0) {
+      setLoading(false);
+      return;
+    }
     if (tab === 'trending') {
       fetchPopularMovies();
     } else {
@@ -178,15 +201,34 @@ const Movies = () => {
     try {
       setLoading(true);
       const all: Movie[] = [];
-      const seen = new Set<number>(); // страницы TMDB пересекаются — режем дубли на входе
-      const TOTAL_PAGES = 25; // ~500 movies
+      const seen = new Set<number>();
 
-      for (let pageNum = 1; pageNum <= TOTAL_PAGES; pageNum++) {
-        try {
-          const { movies } = await getPopularMovies(pageNum);
-          if (movies.length === 0) break;
+      // Загружаем тренды дня + первые 6 страниц каталога параллельно (120 фильмов)
+      const [trendingRes, ...pageResults] = await Promise.allSettled([
+        getTrendingMovies('day'),
+        ...Array.from({ length: 6 }, (_, i) => getPopularMovies(i + 1))
+      ]);
 
-          const transformedMovies: Movie[] = movies
+      let trendingList: Movie[] = [];
+      if (trendingRes.status === 'fulfilled' && trendingRes.value?.results) {
+        trendingList = (trendingRes.value.results as any[])
+          .filter(m => m.poster_path)
+          .map(m => ({
+            id: m.id,
+            title: m.title || m.original_title,
+            year: m.release_date?.split('-')[0] || 'Unknown',
+            rating: Math.round((m.vote_average || 0) * 10) / 10,
+            votes: m.vote_count || 0,
+            poster: `https://image.tmdb.org/t/p/w342${m.poster_path}`,
+            backdrop: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : undefined,
+            description: m.overview || '',
+            genre_ids: m.genre_ids || []
+          }));
+      }
+
+      for (const res of pageResults) {
+        if (res.status === 'fulfilled' && res.value?.movies) {
+          const transformedMovies: Movie[] = res.value.movies
             .filter(m => m.poster_path && !seen.has(m.id))
             .map(m => ({
               id: m.id,
@@ -200,21 +242,47 @@ const Movies = () => {
               genre_ids: m.genre_ids || []
             }));
           transformedMovies.forEach(m => seen.add(m.id));
-
           all.push(...transformedMovies);
-
-          // Progressive render: UI is usable after first pages, rest loads in background
-          if (pageNum >= 3) setLoading(false);
-          setAllMovies([...all]);
-
-          await new Promise(resolve => setTimeout(resolve, 120));
-        } catch (err) {
-          console.warn(`Failed to load page ${pageNum}:`, err);
-          break;
         }
       }
 
+      setTrendingMovies(trendingList);
+      // Выводим стабильную коллекцию за один раз: Топ-10 и ряды больше не прыгают
       setAllMovies([...all]);
+      setLoading(false);
+
+      // Фоновая тихая догрузка страниц 7–16 единым пакетом
+      setTimeout(async () => {
+        try {
+          const bgPromises = Array.from({ length: 10 }, (_, i) => getPopularMovies(i + 7));
+          const bgResults = await Promise.allSettled(bgPromises);
+          const bgMovies: Movie[] = [];
+          for (const res of bgResults) {
+            if (res.status === 'fulfilled' && res.value?.movies) {
+              const transformed = res.value.movies
+                .filter(m => m.poster_path && !seen.has(m.id))
+                .map(m => ({
+                  id: m.id,
+                  title: m.title,
+                  year: m.release_date?.split('-')[0] || 'Unknown',
+                  rating: Math.round(m.vote_average * 10) / 10,
+                  votes: m.vote_count || 0,
+                  poster: `https://image.tmdb.org/t/p/w342${m.poster_path}`,
+                  backdrop: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : undefined,
+                  description: m.overview || '',
+                  genre_ids: m.genre_ids || []
+                }));
+              transformed.forEach(m => seen.add(m.id));
+              bgMovies.push(...transformed);
+            }
+          }
+          if (bgMovies.length > 0) {
+            all.push(...bgMovies);
+            setAllMovies([...all]);
+          }
+        } catch {}
+      }, 1500);
+
     } catch (error) {
       console.error('Error fetching movies:', error);
     } finally {
@@ -334,7 +402,10 @@ const Movies = () => {
     const usedTitles = new Set<string>();
     const idOf = (m: Movie) => m.id;
     const titleOf = (m: Movie) => m.title;
-    const topTen = claimExclusive(allMovies, 10, usedIds, usedTitles, idOf, titleOf);
+
+    // «Топ-10 сегодня» строго из реальных дневных трендов TMDB (trending/movie/day)
+    const sourceForTop10 = trendingMovies.length > 0 ? trendingMovies : allMovies;
+    const topTen = claimExclusive(sourceForTop10, 10, usedIds, usedTitles, idOf, titleOf);
     const topRated = claimExclusive(
       [...allMovies].sort((a, b) => b.rating - a.rating),
       20, usedIds, usedTitles, idOf, titleOf,
@@ -348,7 +419,7 @@ const Movies = () => {
       return { ...g, items };
     }).filter((r) => r.items.length >= 6);
     return { topTen, topRated, genreRows };
-  }, [allMovies]);
+  }, [allMovies, trendingMovies]);
   const { topTen, topRated: topRatedMovies, genreRows } = rails;
 
   // ── Billboard hero: витрина топ-10 (как билборд КП — spotlight, не ряд) ──
@@ -376,8 +447,96 @@ const Movies = () => {
         @keyframes mv-zoom { from { transform: scale(1.09); } to { transform: scale(1); } }
         .mv-hero-text { animation: mv-rise .55s cubic-bezier(.16,1,.3,1) both; }
         @keyframes mv-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
-        .mv-num { color: transparent; -webkit-text-stroke: 2px hsl(var(--foreground) / 0.85); }
-        .dark .mv-num { -webkit-text-stroke: 2px rgba(255,255,255,0.85); }
+
+        /* ========================================================
+           CINEMATIC 3D TOP-10 NUMBERS (VOLUMETRIC / КИНЕМАТОГРАФИЧНЫЙ ОБЪЁМ)
+           ======================================================== */
+        .top10-num {
+          font-family: 'Montserrat', 'Impact', 'Arial Black', -apple-system, BlinkMacSystemFont, sans-serif;
+          font-weight: 900;
+          letter-spacing: -0.05em;
+          display: inline-block;
+          user-select: none;
+          pointer-events: none;
+          transform-origin: bottom center;
+          will-change: transform;
+        }
+
+        /* 🥇 Rank 1: Luminous Royal Cyber-Gold (яркое, сияющее чистое золото с белым бликом) */
+        .top10-num-1 {
+          background: linear-gradient(180deg, #ffffff 0%, #fffbeb 15%, #fef08a 35%, #facc15 60%, #eab308 85%, #ca8a04 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          -webkit-text-stroke: 2px #fffbeb;
+          filter:
+            drop-shadow(1px 1px 0px #f59e0b)
+            drop-shadow(2px 2px 0px #d97706)
+            drop-shadow(3px 3px 0px #b45309)
+            drop-shadow(4px 4px 0px #92400e)
+            drop-shadow(5px 5px 0px #78350f)
+            drop-shadow(6px 6px 0px #451a03)
+            drop-shadow(8px 10px 18px rgba(0, 0, 0, 0.95))
+            drop-shadow(0px 0px 24px rgba(250, 204, 21, 0.45));
+        }
+
+        /* 🥈 Rank 2: Diamond Platinum Chrome (кристальный ультра-яркий платиновый хром) */
+        .top10-num-2 {
+          background: linear-gradient(180deg, #ffffff 0%, #ffffff 25%, #f1f5f9 45%, #cbd5e1 70%, #94a3b8 90%, #64748b 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          -webkit-text-stroke: 2px #ffffff;
+          filter:
+            drop-shadow(1px 1px 0px #cbd5e1)
+            drop-shadow(2px 2px 0px #94a3b8)
+            drop-shadow(3px 3px 0px #64748b)
+            drop-shadow(4px 4px 0px #475569)
+            drop-shadow(5px 5px 0px #334155)
+            drop-shadow(6px 6px 0px #1e293b)
+            drop-shadow(8px 10px 18px rgba(0, 0, 0, 0.95))
+            drop-shadow(0px 0px 24px rgba(255, 255, 255, 0.4));
+        }
+
+        /* 🥉 Rank 3: Radiant Amber-Bronze (насыщенная сияющая медно-янтарная бронза) */
+        .top10-num-3 {
+          background: linear-gradient(180deg, #ffffff 0%, #fff7ed 15%, #ffedd5 35%, #fed7aa 55%, #fb923c 80%, #ea580c 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          -webkit-text-stroke: 2px #ffedd5;
+          filter:
+            drop-shadow(1px 1px 0px #fb923c)
+            drop-shadow(2px 2px 0px #f97316)
+            drop-shadow(3px 3px 0px #ea580c)
+            drop-shadow(4px 4px 0px #c2410c)
+            drop-shadow(5px 5px 0px #9a3412)
+            drop-shadow(6px 6px 0px #7c2d12)
+            drop-shadow(8px 10px 18px rgba(0, 0, 0, 0.95))
+            drop-shadow(0px 0px 24px rgba(251, 146, 60, 0.4));
+        }
+
+        /* 🎬 Ranks 4-10: Polished Steel / Titanium Chrome (тот самый полюбившийся стиль) */
+        .top10-num-regular {
+          background: linear-gradient(180deg, #ffffff 0%, #ffffff 25%, #e4e4e7 45%, #a1a1aa 70%, #52525b 90%, #27272a 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          -webkit-text-stroke: 2px #ffffff;
+          filter:
+            drop-shadow(1px 1px 0px #a1a1aa)
+            drop-shadow(2px 2px 0px #71717a)
+            drop-shadow(3px 3px 0px #52525b)
+            drop-shadow(4px 4px 0px #3f3f46)
+            drop-shadow(5px 5px 0px #27272a)
+            drop-shadow(6px 6px 0px #18181b)
+            drop-shadow(8px 10px 18px rgba(0, 0, 0, 0.95))
+            drop-shadow(0px 0px 18px rgba(255, 255, 255, 0.25));
+        }
+
+        .top10-num-10 {
+          letter-spacing: -0.16em;
+        }
+
+        .top10-num-10 {
+          letter-spacing: -0.16em;
+        }
       `}</style>
       <div className="container mx-auto px-4 py-8">
         <CinemaNav active="movies" />
@@ -533,46 +692,94 @@ const Movies = () => {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
-            {[...Array(20)].map((_, i) => (
-              <div key={i} className="aspect-[2/3] bg-muted animate-pulse rounded-lg" />
-            ))}
-          </div>
+          rowsMode ? (
+            <div className="space-y-10">
+              {/* Топ-10 скелетон */}
+              <div>
+                <div className="h-7 w-48 bg-zinc-900/80 rounded-lg animate-pulse mb-4" />
+                <div className="flex gap-4 overflow-hidden pb-4">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="shrink-0 flex items-end gap-2">
+                      <div className="w-14 h-24 bg-zinc-900/50 rounded-xl animate-pulse -mr-3" />
+                      <div className="w-[140px] aspect-[2/3] bg-zinc-900/80 rounded-2xl animate-pulse border border-white/5" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Ряды подборок */}
+              {[...Array(2)].map((_, r) => (
+                <div key={r}>
+                  <div className="h-6 w-40 bg-zinc-900/80 rounded-lg animate-pulse mb-3" />
+                  <div className="flex gap-4 overflow-hidden pb-2">
+                    {[...Array(7)].map((_, i) => (
+                      <div key={i} className="w-[140px] aspect-[2/3] bg-zinc-900/80 rounded-xl shrink-0 animate-pulse border border-white/5" />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
+              {[...Array(14)].map((_, i) => (
+                <div key={i} className="aspect-[2/3] bg-zinc-900/80 animate-pulse rounded-xl border border-white/5" />
+              ))}
+            </div>
+          )
         ) : rowsMode ? (
           <>
-            {/* Топ-10 с гигантскими номерами */}
+            {/* Топ-10 с гигантскими 3D номерами */}
             {topTen.length > 0 && (
-              <section className="mb-10">
-                <h2 className="font-grotesk text-xl sm:text-2xl font-bold tracking-tight text-foreground dark:text-white min-w-0 mb-4">
-                  Топ-10 сегодня
+              <section className="mb-12">
+                <h2 className="font-grotesk text-xl sm:text-2xl font-bold tracking-tight text-foreground dark:text-white min-w-0 mb-4 flex items-center gap-2">
+                  <span>Топ-10 сегодня</span>
                 </h2>
-                <div className="flex gap-1.5 overflow-x-auto kp-scroll pb-2 -mx-1 px-1">
+                <div className="flex gap-2 sm:gap-4 overflow-x-auto kp-scroll pb-4 pt-2 -mx-2 px-2">
                   {topTen.map((m, i) => (
                     <Link
                       key={m.id}
                       to={`/movie/${m.id}`}
-                      className="group shrink-0 flex items-end rounded-2xl p-2 -ml-1 transition-colors hover:bg-muted/60 dark:hover:bg-white/[0.04]"
+                      className="group shrink-0 flex flex-col rounded-2xl p-1.5 transition-all duration-300 hover:bg-muted/30 dark:hover:bg-white/[0.03]"
                     >
-                      <span className="mv-num font-black leading-[0.78] text-[5.5rem] sm:text-[7rem] -mr-3 sm:-mr-4 select-none transition-transform duration-300 group-hover:-translate-y-1">
-                        {i + 1}
-                      </span>
-                      <span className="block w-[128px] sm:w-[148px]">
-                        <span className="block aspect-[2/3] rounded-xl overflow-hidden border border-border/60 shadow-lg">
-                          <img
+                      {/* Верхняя часть: 3D Номер + Постер (номер выровнен строго по низу ПОСТЕРА) */}
+                      <div className="flex items-end relative">
+                        <span
+                          className={`top10-num ${
+                            i === 0
+                              ? "top10-num-1 -mr-1.5 sm:-mr-2.5"
+                              : i === 1
+                              ? "top10-num-2 -mr-2.5 sm:-mr-3.5 md:-mr-4"
+                              : i === 2
+                              ? "top10-num-3 -mr-2.5 sm:-mr-3.5 md:-mr-4"
+                              : i === 9
+                              ? "top10-num-10 -mr-6 sm:-mr-8 md:-mr-9"
+                              : "top10-num-regular -mr-3 sm:-mr-4 md:-mr-5"
+                          } text-[7.5rem] sm:text-[9.5rem] md:text-[11rem] leading-[0.82] select-none mb-3 sm:mb-4 transition-transform duration-300 group-hover:-translate-y-2`}
+                        >
+                          {i + 1}
+                        </span>
+                        <div className="relative z-10 w-[136px] sm:w-[158px] aspect-[2/3] rounded-2xl overflow-hidden border border-white/10 dark:border-white/15 shadow-[0_12px_28px_rgba(0,0,0,0.65)] transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-[0_22px_45px_rgba(0,0,0,0.88)] group-hover:border-primary/50">
+                          <PosterImage
                             src={m.poster}
                             alt={m.title}
-                            loading="lazy"
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           />
-                        </span>
-                        <span className="block mt-1.5 text-xs font-semibold truncate text-foreground/90 dark:text-zinc-200">
+                        </div>
+                      </div>
+
+                      {/* Нижняя часть: Название и рейтинг (строго под постером, НЕ перекрываются цифрой) */}
+                      <div className="relative z-20 mt-2 w-[136px] sm:w-[158px] self-end px-0.5">
+                        <span className="block text-xs sm:text-[13px] font-semibold truncate text-foreground/90 dark:text-zinc-100 group-hover:text-primary transition-colors">
                           {m.title}
                         </span>
-                        <span className="text-[11px] font-bold text-amber-600 dark:text-amber-300">
-                          {m.rating.toFixed(1)}
-                          <span className="font-medium text-muted-foreground"> · {m.year}</span>
-                        </span>
-                      </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs font-bold text-amber-500 dark:text-amber-400">
+                            ★ {m.rating.toFixed(1)}
+                          </span>
+                          <span className="text-[11px] font-medium text-muted-foreground">
+                            · {m.year}
+                          </span>
+                        </div>
+                      </div>
                     </Link>
                   ))}
                 </div>

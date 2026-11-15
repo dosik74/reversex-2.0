@@ -8,6 +8,8 @@ import { Gamepad, Music, Book } from "lucide-react";
 
 import { ThemeProvider } from "@/context/ThemeContext";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { BetaProvider } from "@/context/BetaContext";
+import BetaRouteGuard from "./components/BetaRouteGuard";
 
 import Auth from "./pages/Auth";
 import QRAuthPage from "./pages/QRAuthPage";
@@ -33,6 +35,7 @@ import Index from "./pages/Index";
 import Settings from "./pages/Settings";
 import TierLists from "./pages/TierLists";
 import BookmarksNew from "./pages/BookmarksNew";
+import ScrollRestoration from "./components/ScrollRestoration";
 import Recommendations from "./pages/Recommendations";
 import FileDownload from "./pages/FileDownload";
 import FileDownload2 from "./pages/FileDownload2";
@@ -150,76 +153,83 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <LanguageProvider>
-            <AppProvider>
-              <BookmarkProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-              <BrowserRouter>
-              <AnalyticsTracker />
-              <Routes>
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/qr-auth" element={<QRAuthPage />} />
-                <Route path="/br" element={<PinkGlassPage />} />
-                <Route path="/br-batyrhan" element={<BatrPage />} />
+            <BetaProvider>
+              <AppProvider>
+                <BookmarkProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                <BrowserRouter>
+                <ScrollRestoration />
+                <AnalyticsTracker />
+                <Routes>
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/qr-auth" element={<QRAuthPage />} />
+                  <Route path="/br" element={<PinkGlassPage />} />
+                  <Route path="/br-batyrhan" element={<BatrPage />} />
 
-                {/* Task Pages Routes */}
-                <Route path="/tasks/20" element={<Task20 />} />
-                <Route path="/tasks/21" element={<Task21 />} />
-                <Route path="/tasks/22" element={<Task22 />} />
-                <Route path="/tasks/23" element={<Task23 />} />
-                <Route path="/tasks/24" element={<Task24 />} />
-                <Route path="/tasks/25" element={<Task25 />} />
+                  {/* Task Pages Routes */}
+                  <Route path="/tasks/20" element={<Task20 />} />
+                  <Route path="/tasks/21" element={<Task21 />} />
+                  <Route path="/tasks/22" element={<Task22 />} />
+                  <Route path="/tasks/23" element={<Task23 />} />
+                  <Route path="/tasks/24" element={<Task24 />} />
+                  <Route path="/tasks/25" element={<Task25 />} />
 
-                {/* Workspace Routes - Hidden/Secret */}
-                <Route path="/workspace-auth" element={<WorkspaceAuth />} />
-                <Route path="/workspace" element={<Workspace />} />
-                <Route path="/workspace/project/:projectId" element={<WorkspaceProject />} />
-                <Route path="/workspace/settings" element={<WorkspaceSettings />} />
-                <Route path="/workspace/invite/:inviteCode" element={<WorkspaceInvite />} />
+                  {/* Workspace Routes - Hidden/Secret */}
+                  <Route path="/workspace-auth" element={<WorkspaceAuth />} />
+                  <Route path="/workspace" element={<Workspace />} />
+                  <Route path="/workspace/project/:projectId" element={<WorkspaceProject />} />
+                  <Route path="/workspace/settings" element={<WorkspaceSettings />} />
+                  <Route path="/workspace/invite/:inviteCode" element={<WorkspaceInvite />} />
 
-                {/* File Download Routes - Hidden/Secret */}
-                <Route path="/download/file" element={<FileDownload />} />
-                <Route path="/download/file2" element={<FileDownload2 />} />
-                <Route path="/download/file3" element={<FileDownload3 />} />
-                <Route path="/download/file_browser" element={<FileBrowserDownload />} />
-                <Route path="/youtube-downloader" element={<YouTubeDownloader />} />
-                <Route path="/de" element={<ProfileCard />} />
+                  {/* File Download Routes - Hidden/Secret */}
+                  <Route path="/download/file" element={<FileDownload />} />
+                  <Route path="/download/file2" element={<FileDownload2 />} />
+                  <Route path="/download/file3" element={<FileDownload3 />} />
+                  <Route path="/download/file_browser" element={<FileBrowserDownload />} />
+                  <Route path="/youtube-downloader" element={<YouTubeDownloader />} />
+                  <Route path="/de" element={<ProfileCard />} />
 
-                <Route element={<Layout />}>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/movies" element={<Movies />} />
-                  <Route path="/explore-movies" element={<ExploreMovies />} />
-                  <Route path="/movie/:id" element={<MovieDetail />} />
-                  <Route path="/series" element={<SeriesPage />} />
-                  <Route path="/series/:id" element={<SeriesDetail />} />
-                  <Route path="/person/:id" element={<PersonPage />} />
-                  <Route path="/company/:id" element={<CompanyPage />} />
-                  <Route path="/studio/:type/:id" element={<StudioPage />} />
-                  <Route path="/ws" element={<WSHome />} />
-                  <Route path="/ws/show/:id" element={<WSShowPage />} />
-                  <Route path="/profile/:userId" element={<Profile />} />
-                  <Route path="/profile/:userId/edit" element={<ProfileEdit />} />
-                  <Route path="/id/:slug" element={<ProfileBySlug />} />
-                  <Route path="/bookmarks" element={<BookmarksNew />} />
-                  <Route path="/qr-scan" element={<QrScanPage />} />
-                  <Route path="/recommendations" element={<Recommendations />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/tier-lists" element={<TierLists />} />
-                  <Route path="/games" element={<Games />} />
-                  <Route path="/game/:id" element={<GameDetail />} />
-                  <Route path="/music" element={<PlaceholderPage title="Music" icon={Music} />} />
-                  <Route path="/books" element={<PlaceholderPage title="Books" icon={Book} />} />
-                  <Route path="/tusau" element={<Tusau />} />
-                </Route>
+                  <Route element={<Layout />}>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/admin" element={<AdminDashboard />} />
+                    <Route path="/movies" element={<Movies />} />
+                    <Route path="/explore-movies" element={<ExploreMovies />} />
+                    <Route path="/movie/:id" element={<MovieDetail />} />
+                    <Route path="/series" element={<SeriesPage />} />
+                    <Route path="/series/:id" element={<SeriesDetail />} />
+                    <Route path="/person/:id" element={<PersonPage />} />
+                    <Route path="/company/:id" element={<CompanyPage />} />
+                    <Route path="/studio/:type/:id" element={<StudioPage />} />
+                    
+                    {/* Beta Test (ReverseX Labs) Features - Protected */}
+                    <Route path="/ws" element={<BetaRouteGuard featureName="Watch"><WSHome /></BetaRouteGuard>} />
+                    <Route path="/ws/show/:id" element={<BetaRouteGuard featureName="Watch"><WSShowPage /></BetaRouteGuard>} />
+                    <Route path="/recommendations" element={<BetaRouteGuard featureName="Рекомендации"><Recommendations /></BetaRouteGuard>} />
+                    <Route path="/tier-lists" element={<BetaRouteGuard featureName="Тир-листы"><TierLists /></BetaRouteGuard>} />
+                    
+                    <Route path="/profile/:userId" element={<Profile />} />
+                    <Route path="/profile/:userId/edit" element={<ProfileEdit />} />
+                    <Route path="/id/:slug" element={<ProfileBySlug />} />
+                    <Route path="/bookmarks" element={<BookmarksNew />} />
+                    <Route path="/bookmarks/:targetUserId" element={<BookmarksNew />} />
+                    <Route path="/qr-scan" element={<QrScanPage />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/games" element={<Games />} />
+                    <Route path="/game/:id" element={<GameDetail />} />
+                    <Route path="/music" element={<PlaceholderPage title="Music" icon={Music} />} />
+                    <Route path="/books" element={<PlaceholderPage title="Books" icon={Book} />} />
+                    <Route path="/tusau" element={<Tusau />} />
+                  </Route>
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-              </BookmarkProvider>
-            </AppProvider>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+                </BookmarkProvider>
+              </AppProvider>
+            </BetaProvider>
           </LanguageProvider>
         </ThemeProvider>
       </QueryClientProvider>

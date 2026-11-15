@@ -1,8 +1,8 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone } from "lucide-react";
+import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone, FlaskConical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,9 +15,11 @@ import supabase, { ensureSession } from "@/utils/supabase";
 import NotificationsPanelComponent from "./NotificationsPanelComponent";
 import MessagesPanelComponent from "./MessagesPanelComponent";
 import { useTheme } from "@/context/ThemeContext";
+import { useBeta } from "@/context/BetaContext";
 
 const Layout = () => {
   const { isDark, toggleTheme } = useTheme();
+  const { isBetaEnabled } = useBeta();
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -55,19 +57,32 @@ const Layout = () => {
     };
   }, [location.pathname, navigate]);
 
-  const navItems = [
+  // Основные разделы для всех обычных зрителей
+  const baseNavItems = [
     { icon: Home, label: 'Home', path: '/' },
     { icon: Film, label: 'Movies', path: '/movies' },
     { icon: Film, label: 'Explore', path: '/explore-movies' },
     { icon: Tv, label: 'Series', path: '/series' },
-    { icon: Tv, label: 'Watch', path: '/ws' },
     { icon: Gamepad, label: 'Games', path: '/games' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
-    { icon: Lightbulb, label: 'Recommendations', path: '/recommendations' },
-    { icon: Crown, label: 'Tier Lists', path: '/tier-lists' },
     { icon: Music, label: 'Music', path: '/music' },
     { icon: Book, label: 'Books', path: '/books' },
   ];
+
+  // Скрытые экспериментальные разделы (только для зарегистрированных с бета-режимом)
+  const betaNavItems = [
+    { icon: Tv, label: 'Watch', path: '/ws' },
+    { icon: Lightbulb, label: 'Recommendations', path: '/recommendations' },
+    { icon: Crown, label: 'Tier Lists', path: '/tier-lists' },
+  ];
+
+  const navItems = isBetaEnabled
+    ? [
+        ...baseNavItems.slice(0, 4), // Home, Movies, Explore, Series
+        ...betaNavItems,             // Watch, Recommendations, Tier Lists
+        ...baseNavItems.slice(4),    // Games, Bookmarks, Music, Books
+      ]
+    : baseNavItems;
 
   useEffect(() => {
     try {
@@ -147,14 +162,16 @@ const Layout = () => {
                 { to: '/', icon: Home, label: 'Home' },
                 { to: '/movies', icon: Film, label: 'Movies' },
                 { to: '/series', icon: Tv, label: 'Series' },
-                { to: '/ws', icon: Tv, label: 'Watch' },
+                ...(isBetaEnabled ? [
+                  { to: '/ws', icon: Tv, label: 'Watch', isBeta: true },
+                  { to: '/recommendations', icon: Lightbulb, label: 'Recs', isBeta: true },
+                  { to: '/tier-lists', icon: Crown, label: 'Tier Lists', isBeta: true },
+                ] : []),
                 { to: '/games', icon: Gamepad, label: 'Games' },
-                { to: '/recommendations', icon: Lightbulb, label: 'Recs' },
-                { to: '/tier-lists', icon: Crown, label: 'Tier Lists' },
                 { to: '/bookmarks', icon: Bookmark, label: 'Bookmarks' },
                 { to: '/music', icon: Music, label: 'Music' },
                 { to: '/books', icon: Book, label: 'Books' },
-              ].map(({ to, icon: Icon, label }) => (
+              ].map(({ to, icon: Icon, label, isBeta }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -163,12 +180,19 @@ const Layout = () => {
                     `flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
                       isActive
                         ? 'bg-white text-black shadow-[0_0_16px_rgba(255,255,255,0.25)]'
+                        : isBeta
+                        ? 'text-pink-300/80 hover:text-pink-200 hover:bg-pink-500/10'
                         : 'text-white/50 hover:text-white hover:bg-white/[0.06]'
                     }`
                   }
                 >
                   <Icon className="w-3.5 h-3.5" />
                   {label}
+                  {isBeta && (
+                    <span className="text-[9px] font-extrabold px-1 py-0.2 rounded bg-pink-500/20 text-pink-300 leading-none">
+                      β
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </div>
@@ -230,16 +254,30 @@ const Layout = () => {
                           Привязать устройство
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/tier-lists" className="flex items-center gap-2">
-                          <Crown className="w-4 h-4" />
-                          Tier Lists
-                        </Link>
-                      </DropdownMenuItem>
+                      {isBetaEnabled && (
+                        <DropdownMenuItem asChild>
+                          <Link to="/tier-lists" className="flex items-center gap-2 text-pink-400">
+                            <Crown className="w-4 h-4" />
+                            <span>Tier Lists</span>
+                            <span className="ml-auto text-[9px] font-bold px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300">
+                              BETA
+                            </span>
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem asChild>
                         <Link to={`/profile/${session.user.id}/edit`} className="flex items-center gap-2">
                           <Settings className="w-4 h-4" />
                           Edit Profile
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/settings" className="flex items-center gap-2">
+                          <FlaskConical className="w-4 h-4 text-pink-400" />
+                          <span>ReverseX Labs</span>
+                          {isBetaEnabled && (
+                            <span className="ml-auto w-2 h-2 rounded-full bg-pink-500 animate-pulse" />
+                          )}
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>

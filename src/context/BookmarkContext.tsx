@@ -73,7 +73,11 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         supabase.from('top_lists').select('id, media_type').eq('user_id', uid),
       ]);
       if (bmRes.error) throw bmRes.error;
-      setBookmarks((bmRes.data || []).map(toCamel));
+      const loaded = (bmRes.data || []).map(toCamel);
+      setBookmarks(loaded);
+      try {
+        localStorage.setItem(`rx_public_bookmarks_${uid}`, JSON.stringify(loaded));
+      } catch {}
 
       const map: Record<string, Map<string, Top50Item>> = {};
       const lists = listsRes.data || [];
@@ -107,8 +111,21 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       const uid = data.user?.id || null;
       setUserId(uid);
-      if (uid) loadAll(uid);
-      else setLoading(false);
+      if (uid) {
+        try {
+          const cached = localStorage.getItem(`rx_public_bookmarks_${uid}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setBookmarks(parsed);
+              setLoading(false);
+            }
+          }
+        } catch {}
+        loadAll(uid);
+      } else {
+        setLoading(false);
+      }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const uid = session?.user?.id || null;
@@ -125,6 +142,14 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
       sub?.subscription?.unsubscribe();
     };
   }, [loadAll]);
+
+  useEffect(() => {
+    if (userId && bookmarks.length > 0) {
+      try {
+        localStorage.setItem(`rx_public_bookmarks_${userId}`, JSON.stringify(bookmarks));
+      } catch {}
+    }
+  }, [userId, bookmarks]);
 
   const getBookmark = useCallback(
     (contentType: ContentType, contentId: string) =>

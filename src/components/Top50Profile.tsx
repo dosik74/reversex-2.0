@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import PosterImage from "@/components/PosterImage";
 import "@/styles/top50.css";
 
 interface TopList {
@@ -206,17 +207,11 @@ const TopRankItem = ({ item, rank, isOwnProfile, onRemove, mediaType, onMoveToRa
           className="relative block overflow-hidden rounded-[14px] aspect-[2/3]"
         >
           {/* Poster */}
-          {item.poster_url ? (
-            <img
-              src={item.poster_url}
-              alt={item.title}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full bg-muted flex items-center justify-center p-4 text-center text-sm text-muted-foreground">
-              {item.title}
-            </div>
-          )}
+          <PosterImage
+            src={item.poster_url}
+            alt={item.title || "Movie poster"}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
 
           {/* Overlay Gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent" />
@@ -282,12 +277,38 @@ const TopRankItem = ({ item, rank, isOwnProfile, onRemove, mediaType, onMoveToRa
   );
 };
 
+// Модульный кэш списков Top 50 для мгновенного рендера карточек при навигации назад
+const topListsCache = new Map<string, TopList[]>();
+
 const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
-  const [activeCategory, setActiveCategory] = useState<'movie' | 'anime'>('movie');
-  const [lists, setLists] = useState<TopList[]>([]);
-  const [selectedList, setSelectedList] = useState<TopList | null>(null);
+  const [activeCategory, setActiveCategoryState] = useState<'movie' | 'anime'>(() => {
+    return (typeof window !== 'undefined' && sessionStorage.getItem(`rx_top50_cat_${userId}`) as any) || 'movie';
+  });
+
+  const setActiveCategory = (cat: 'movie' | 'anime') => {
+    setActiveCategoryState(cat);
+    try {
+      sessionStorage.setItem(`rx_top50_cat_${userId}`, cat);
+    } catch {}
+  };
+
+  const [lists, setListsState] = useState<TopList[]>(() => (userId ? topListsCache.get(userId) || [] : []));
+
+  const setLists = (valueOrUpdater: TopList[] | ((prev: TopList[]) => TopList[])) => {
+    setListsState(prev => {
+      const next = typeof valueOrUpdater === 'function' ? valueOrUpdater(prev) : valueOrUpdater;
+      if (userId) topListsCache.set(userId, next);
+      return next;
+    });
+  };
+
+  const [selectedList, setSelectedList] = useState<TopList | null>(() => {
+    const cached = userId ? topListsCache.get(userId) : null;
+    const initialCat = (typeof window !== 'undefined' && sessionStorage.getItem(`rx_top50_cat_${userId}`) as any) || 'movie';
+    return cached?.find(l => l.media_type === initialCat) || null;
+  });
   const [showExpanded, setShowExpanded] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => (userId ? !topListsCache.has(userId) : true));
 
   // Add-item dialog state
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -320,7 +341,9 @@ const Top50Profile = ({ userId, isOwnProfile }: Top50ProfileProps) => {
 
   const loadLists = async () => {
     try {
-      setLoading(true);
+      if (!topListsCache.has(userId)) {
+        setLoading(true);
+      }
       const { data: listsData } = await supabase
         .from('top_lists')
         .select('*')

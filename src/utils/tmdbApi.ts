@@ -336,6 +336,46 @@ export const getSimilarMovies = async (movieId: number): Promise<{ movies: TMDBM
 };
 
 /**
+ * Получить реальные тренды сериалов на сегодня (Trending TV Day)
+ */
+export const getTrendingSeries = async (timeWindow: 'day' | 'week' = 'day'): Promise<TMDBMovieResponse> => {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/trending/tv/${timeWindow}?language=ru-RU`,
+      { headers }
+    );
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`);
+    }
+    const data: TMDBMovieResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching trending series:', error);
+    return { results: [], total_pages: 0, total_results: 0, page: 1 };
+  }
+};
+
+/**
+ * Получить реальные тренды фильмов на сегодня (Trending Movies Day)
+ */
+export const getTrendingMovies = async (timeWindow: 'day' | 'week' = 'day'): Promise<TMDBMovieResponse> => {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/trending/movie/${timeWindow}?language=ru-RU`,
+      { headers }
+    );
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`);
+    }
+    const data: TMDBMovieResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching trending movies:', error);
+    return { results: [], total_pages: 0, total_results: 0, page: 1 };
+  }
+};
+
+/**
  * Get popular TV series
  */
 export const getPopularSeries = async (page: number = 1): Promise<TMDBMovieResponse> => {

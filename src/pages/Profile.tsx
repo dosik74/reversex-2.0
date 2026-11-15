@@ -37,10 +37,12 @@ import {
    Heart,
    Image as ImageIcon,
    ExternalLink,
+   Bookmark,
  } from "lucide-react";
 import { Link } from "react-router-dom";
 import ProfileSidebar from "@/components/ProfileSidebar";
 import Top50Profile from "@/components/Top50Profile";
+import ProfileBookmarks from "@/components/ProfileBookmarks";
 import ProfileSettingsEditor, { renderMarkdown } from "@/components/ProfileSettingsEditor";
 import type { ShowcaseBlock, Achievement, FavoriteContent } from "@/components/ProfileSettingsEditor";
 import "@/styles/profile-fonts.css";
@@ -103,16 +105,6 @@ const ProfileStats = ({ userId }: { userId: string }) => (
       <BarChart3 className="w-6 h-6" />
     </div>
     <h3 className="rxp-section-title justify-center mb-2">Статистика</h3>
-    <p className="text-muted-foreground">Раздел в разработке</p>
-  </div>
-);
-
-const WatchedInteractive = ({ userId }: { userId: string }) => (
-  <div className="text-center py-12">
-    <div className="rxp-chip mx-auto mb-4">
-      <Eye className="w-6 h-6" />
-    </div>
-    <h3 className="rxp-section-title justify-center mb-2">Просмотрено</h3>
     <p className="text-muted-foreground">Раздел в разработке</p>
   </div>
 );
@@ -198,23 +190,41 @@ const IconChip = ({ icon: Icon, solid = false, className = "" }: { icon: any; so
   </span>
 );
 
+// Модульный кэш данных профилей (Stale-While-Revalidate)
+// Гарантирует моментальный рендер при навигации «Назад», исключает схлопывание высоты DOM и сброс скролла
+const profileCache = new Map<string, Profile>();
+const profileStatsCache = new Map<string, { movies: number; followers: number; following: number; comments: number }>();
+const profileCommentsCache = new Map<string, Comment[]>();
+
 // Основной компонент профиля
 const Profile = () => {
   const { userId } = useParams();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(() => (userId ? profileCache.get(userId) || null : null));
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
    const [isFollowing, setIsFollowing] = useState(false);
    const [isFriend, setIsFriend] = useState(false);
    const [friendshipStatus, setFriendshipStatus] = useState<string | null>(null);
-  const [stats, setStats] = useState({ movies: 0, followers: 0, following: 0, comments: 0 });
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(() => (userId && profileStatsCache.get(userId)) || { movies: 0, followers: 0, following: 0, comments: 0 });
+  const [loading, setLoading] = useState(() => (userId ? !profileCache.has(userId) : true));
   const [showEditor, setShowEditor] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<Comment[]>(() => (userId ? profileCommentsCache.get(userId) || [] : []));
   const [newComment, setNewComment] = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [activeTab, setActiveTab] = useState("favorites");
+  const [activeTab, setActiveTabState] = useState(() => {
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem(`rx_profile_tab_${userId}`) : null;
+    if (saved === 'watched') return 'bookmarks';
+    return saved || "bookmarks";
+  });
+
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    try {
+      sessionStorage.setItem(`rx_profile_tab_${userId}`, tab);
+    } catch {}
+  };
+
   const [error, setError] = useState<string | null>(null);
 
   // Загрузка данных
@@ -224,7 +234,12 @@ const Profile = () => {
 
   useEffect(() => {
     if (userId) {
-      setLoading(true);
+      const savedTab = sessionStorage.getItem(`rx_profile_tab_${userId}`);
+      if (savedTab) setActiveTabState(savedTab === 'watched' ? 'bookmarks' : savedTab);
+      // Если профиль уже в кэше, не включаем полноэкранный лоадер — обновляем в фоне (SWR)
+      if (!profileCache.has(userId)) {
+        setLoading(true);
+      }
       setError(null);
       fetchProfile();
       fetchStats();
@@ -254,7 +269,9 @@ const Profile = () => {
     }
 
     try {
-      setLoading(true);
+      if (!profileCache.has(userId)) {
+        setLoading(true);
+      }
 
       // Создаем таймаут для запроса (10 секунд)
       const controller = new AbortController();
@@ -277,7 +294,9 @@ const Profile = () => {
         if (!data) {
           setError("Профиль не найден");
           setProfile(null);
+          profileCache.delete(userId);
         } else {
+          profileCache.set(userId, data);
           setProfile(data);
           setError(null);
         }
@@ -289,7 +308,9 @@ const Profile = () => {
       console.error("Profile fetch error:", err);
       const errorMessage = err instanceof Error ? err.message : "Ошибка загрузки профиля. Проверьте подключение и попробуйте снова.";
       setError(errorMessage);
-      setProfile(null);
+      if (!profileCache.has(userId)) {
+        setProfile(null);
+      }
       if (process.env.NODE_ENV === 'development') {
         toast.error(errorMessage);
       }
@@ -302,9 +323,9 @@ const Profile = () => {
     if (!userId) return;
 
     try {
-      const [moviesRes, followersRes, followingRes, commentsRes] = await Promise.allSettled([
+      const [bookmarksRes, followersRes, followingRes, commentsRes] = await Promise.allSettled([
         supabase
-          .from('user_movies')
+          .from('content_bookmarks')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId),
         supabase
@@ -322,21 +343,38 @@ const Profile = () => {
       ]);
 
       const getCount = (result: PromiseSettledResult<any>) => {
-        if (result.status === 'fulfilled' && result.value.data) {
-          return result.value.data.length || 0;
+        if (result.status === 'fulfilled' && result.value) {
+          if (typeof result.value.count === 'number') return result.value.count;
+          if (Array.isArray(result.value.data)) return result.value.data.length;
         }
         return 0;
       };
 
-      setStats({
-        movies: getCount(moviesRes),
+      // Check local cache if supabase count is 0
+      let bookmarksCount = getCount(bookmarksRes);
+      if (bookmarksCount === 0) {
+        try {
+          const cached = localStorage.getItem(`rx_public_bookmarks_${userId}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) bookmarksCount = parsed.length;
+          }
+        } catch {}
+      }
+
+      const newStats = {
+        movies: bookmarksCount,
         followers: getCount(followersRes),
         following: getCount(followingRes),
         comments: getCount(commentsRes)
-      });
+      };
+      if (userId) profileStatsCache.set(userId, newStats);
+      setStats(newStats);
     } catch (err) {
       console.error('Error fetching stats:', err);
-      setStats({ movies: 0, followers: 0, following: 0, comments: 0 });
+      if (!profileStatsCache.has(userId)) {
+        setStats({ movies: 0, followers: 0, following: 0, comments: 0 });
+      }
     }
   };
 
@@ -344,7 +382,9 @@ const Profile = () => {
     if (!userId) return;
 
     try {
-      setCommentsLoading(true);
+      if (!profileCommentsCache.has(userId)) {
+        setCommentsLoading(true);
+      }
       const { data, error } = await supabase
         .from("profile_comments")
         .select(`id, content, created_at, author_id, author:profiles(username, display_name, avatar_url)`)
@@ -352,10 +392,14 @@ const Profile = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setComments(data || []);
+      const items = data || [];
+      if (userId) profileCommentsCache.set(userId, items);
+      setComments(items);
     } catch (err) {
       console.error(err);
-      setComments([]);
+      if (!profileCommentsCache.has(userId)) {
+        setComments([]);
+      }
     } finally {
       setCommentsLoading(false);
     }
@@ -612,10 +656,28 @@ const Profile = () => {
       };
 
   const statTiles = [
-    { icon: Film, value: stats.movies, label: "Movies" },
-    { icon: Users, value: stats.followers, label: "Followers" },
-    { icon: UserPlus, value: stats.following, label: "Following" },
-    { icon: MessageSquare, value: stats.comments, label: "Comments" },
+    {
+      icon: Bookmark,
+      value: stats.movies,
+      label: "Закладки",
+      onClick: () => setActiveTab("bookmarks"),
+    },
+    {
+      icon: Users,
+      value: stats.followers,
+      label: "Подписчики",
+    },
+    {
+      icon: UserPlus,
+      value: stats.following,
+      label: "Подписки",
+    },
+    {
+      icon: MessageSquare,
+      value: stats.comments,
+      label: "Комментарии",
+      onClick: () => document.getElementById("profile-comments")?.scrollIntoView({ behavior: "smooth" }),
+    },
   ];
 
   return (
@@ -652,132 +714,152 @@ const Profile = () => {
       )}
       <div className={hasCustomBg ? 'relative z-10' : ''}>
       {/* ===== HERO ===== */}
-      <header className="rxp-hero relative h-[340px] md:h-[400px]" style={backgroundStyle}>
+      <header className="rxp-hero relative h-[320px] md:h-[380px]" style={backgroundStyle}>
         {/* затемнение для читаемости */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-background/95" />
 
         <div className="absolute inset-x-0 bottom-0">
           <div className="w-full mx-auto px-4 pb-0 translate-y-1/2">
-            <div className="flex items-end gap-5 md:gap-7">
-              {/* Аватар */}
-              <div className="relative flex-shrink-0">
-                <div className="rxp-avatar-frame">
-                  {/* Пользовательская рамка (GIF/APNG) поверх аватара */}
-                  {profile.avatar_frame_url && (
-                    <img
-                      src={profile.avatar_frame_url}
-                      alt=""
-                      className="absolute inset-0 w-full h-full pointer-events-none"
-                      style={{ transform: 'scale(1.35)', zIndex: 5 }}
-                    />
-                  )}
-                  <Avatar className="avatar-wrap w-28 h-28 md:w-36 md:h-36 rounded-full">
-                    <AvatarImage src={profile.avatar_url || undefined} />
-                    <AvatarFallback className="rounded-full text-4xl font-grotesk font-bold bg-gradient-to-br from-primary to-accent text-primary-foreground">
-                      {profile.username?.[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+              {/* Аватар + Информация */}
+              <div className="flex items-end gap-5 md:gap-7 min-w-0">
+                {/* Аватар */}
+                <div className="relative flex-shrink-0">
+                  <div className="rxp-avatar-frame">
+                    {/* Пользовательская рамка (GIF/APNG) поверх аватара */}
+                    {profile.avatar_frame_url && (
+                      <img
+                        src={profile.avatar_frame_url}
+                        alt=""
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        style={{ transform: 'scale(1.35)', zIndex: 5 }}
+                      />
+                    )}
+                    <Avatar className="avatar-wrap w-28 h-28 md:w-36 md:h-36 rounded-full shadow-2xl">
+                      <AvatarImage src={profile.avatar_url || undefined} />
+                      <AvatarFallback className="rounded-full text-4xl font-grotesk font-bold bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                        {profile.username?.[0]?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                  <span
+                    title={profile.status}
+                    className={`rxp-status ${getStatusColor(profile.status)}`}
+                  />
                 </div>
-                <span
-                  title={profile.status}
-                  className={`rxp-status ${getStatusColor(profile.status)}`}
-                />
+
+                {/* Имя, ник, уровень, опыт */}
+                <div className="flex-1 min-w-0 pb-1">
+                  <h1 className="rxp-name text-white text-3xl md:text-5xl font-bold break-words drop-shadow-md">
+                    {profile.display_name || profile.username}
+                  </h1>
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    <span className="rxp-neon-handle">@{profile.username}</span>
+                    <span className="rxp-caret hidden sm:inline-block" />
+                  </div>
+
+                  <div className="mt-3.5 flex items-center gap-3 flex-wrap">
+                    <span className="rxp-lv-chip inline-flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      LV.{profile.level}
+                    </span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="rxp-xp-track">
+                        <div
+                          className="rxp-xp-fill"
+                          style={{ width: `${Math.min(100, (profile.xp % 500) / 5 || 10)}%` }}
+                        />
+                      </div>
+                      <span className="font-pixel text-[8px] text-muted-foreground">{profile.xp % 500}/500 XP</span>
+                    </div>
+                    {profile.location && (
+                      <span className="inline-flex items-center gap-1.5 text-sm">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <span className="rxp-location">{profile.location}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Имя и действия */}
-              <div className="flex-1 min-w-0 pb-1">
-                <h1 className="rxp-name text-white text-3xl md:text-5xl font-bold break-words">
-                  {profile.display_name || profile.username}
-                </h1>
-                <div className="mt-2 flex items-center gap-2 flex-wrap">
-                  <span className="rxp-neon-handle">@{profile.username}</span>
-                  <span className="rxp-caret hidden sm:inline-block" />
-                </div>
+              {/* Кнопки действий — теперь прямо на уровне профиля! */}
+              <div className="flex items-center gap-2.5 flex-wrap pb-1.5 lg:self-end">
+                {/* Переходник в закладки пользователя */}
+                <Link
+                  to={`/bookmarks/${userId}`}
+                  className="rxp-btn rxp-btn-ghost hover:border-emerald-500/50 hover:text-emerald-400 group flex items-center gap-2"
+                  title="Открыть все закладки на отдельной странице"
+                >
+                  <Bookmark className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <span>Закладки</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                </Link>
 
-                <div className="mt-4 flex items-center gap-3 flex-wrap">
-                  <span className="rxp-lv-chip inline-flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    LV.{profile.level}
-                  </span>
-                  <div className="flex items-center gap-2.5">
-                    <div className="rxp-xp-track">
-                      <div
-                        className="rxp-xp-fill"
-                        style={{ width: `${Math.min(100, (profile.xp % 500) / 5 || 10)}%` }}
-                      />
-                    </div>
-                    <span className="font-pixel text-[8px] text-muted-foreground">{profile.xp % 500}/500 XP</span>
-                  </div>
-                  {profile.location && (
-                    <span className="inline-flex items-center gap-1.5 text-sm">
-                      <MapPin className="w-4 h-4 text-primary" />
-                      <span className="rxp-location">{profile.location}</span>
-                    </span>
-                  )}
-                </div>
+                {isOwnProfile ? (
+                  <>
+                    <button
+                      onClick={() => setShowEditor(true)}
+                      className="rxp-btn rxp-btn-neon shadow-lg hover:shadow-cyan-500/25"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Редактировать профиль
+                    </button>
+                    <ShareMenu onShare={handleShareProfile} />
+                  </>
+                ) : (
+                  <>
+                    <button onClick={handleFollow} className={`rxp-btn ${isFollowing ? 'rxp-btn-ghost' : 'rxp-btn-neon shadow-lg'}`}>
+                      {isFollowing ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                      {isFollowing ? "Подписано" : "Подписаться"}
+                    </button>
+
+                    {!friendshipStatus && (
+                      <button onClick={handleFriendRequest} className="rxp-btn rxp-btn-ghost">
+                        <Users className="w-4 h-4" />
+                        В друзья
+                      </button>
+                    )}
+
+                    {friendshipStatus === "pending" && (
+                      <button disabled className="rxp-btn rxp-btn-ghost">
+                        Запрос отправлен
+                      </button>
+                    )}
+
+                    {friendshipStatus === "accepted" && (
+                      <>
+                        <button disabled className="rxp-btn rxp-btn-ghost">
+                          <Users className="w-4 h-4" />
+                          Друзья
+                        </button>
+                        <button
+                          onClick={() => setShowChat(true)}
+                          className="rxp-btn rxp-btn-ghost"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          Сообщение
+                        </button>
+                      </>
+                    )}
+                    <ShareMenu onShare={handleShareProfile} />
+                  </>
+                )}
               </div>
             </div>
           </div>
         </div>
-
-        {/* Кнопки действий — верхний правый угол баннера */}
-        <div className="absolute top-5 right-4 md:right-8 flex gap-2.5 flex-wrap justify-end max-w-full">
-          {isOwnProfile ? (
-            <>
-              <button
-                onClick={() => setShowEditor(true)}
-                className="rxp-btn rxp-btn-neon"
-              >
-                Редактировать профиль
-              </button>
-              <ShareMenu onShare={handleShareProfile} />
-            </>
-          ) : (
-            <>
-              <button onClick={handleFollow} className={`rxp-btn ${isFollowing ? 'rxp-btn-ghost' : 'rxp-btn-neon'}`}>
-                {isFollowing ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-                {isFollowing ? "Подписано" : "Подписаться"}
-              </button>
-
-              {!friendshipStatus && (
-                <button onClick={handleFriendRequest} className="rxp-btn rxp-btn-ghost">
-                  <Users className="w-4 h-4" />
-                  В друзья
-                </button>
-              )}
-
-              {friendshipStatus === "pending" && (
-                <button disabled className="rxp-btn rxp-btn-ghost">
-                  Запрос отправлен
-                </button>
-              )}
-
-              {friendshipStatus === "accepted" && (
-                <>
-                  <button disabled className="rxp-btn rxp-btn-ghost">
-                    <Users className="w-4 h-4" />
-                    Друзья
-                  </button>
-                  <button
-                    onClick={() => setShowChat(true)}
-                    className="rxp-btn rxp-btn-ghost"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    Сообщение
-                  </button>
-                </>
-              )}
-              <ShareMenu onShare={handleShareProfile} />
-            </>
-          )}
-        </div>
       </header>
 
-      {/* ===== ЛЕНТА СТАТИСТИКИ ===== */}
-      <section className="w-full mx-auto px-4 mt-24 md:mt-28">
+      {/* ===== ЛЕНТА СТАТИСТИКИ (Интерактивные кнопки-счётчики) ===== */}
+      <section className="w-full mx-auto px-4 mt-32 sm:mt-28 lg:mt-24">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {statTiles.map(({ icon, value, label }) => (
-            <div key={label} className="rxp-stat-tile">
+          {statTiles.map(({ icon, value, label, onClick }) => (
+            <div
+              key={label}
+              onClick={onClick}
+              className={`rxp-stat-tile ${onClick ? 'cursor-pointer hover:border-primary/80 transition-all' : ''}`}
+              title={onClick ? `Перейти к ${label}` : undefined}
+            >
               <IconChip icon={icon} />
               <div>
                 <div className="rxp-stat-value">{value}</div>
@@ -811,13 +893,12 @@ const Profile = () => {
                 return true;
               };
 
-              const configured = (profile.showcase || []).filter((b) => b.visible !== false);
+              const configured = (profile.showcase || []).filter((b) => b.visible !== false && b.type !== 'stats');
               const blocks: ShowcaseBlock[] = configured.length
                 ? configured
                 : [
                     { type: 'about', visible: true, visibility: 'all' },
                     { type: 'achievements', visible: true, visibility: 'all' },
-                    { type: 'stats', visible: true, visibility: 'all' },
                   ];
 
               const renderers: Record<string, () => JSX.Element | null> = {
@@ -915,26 +996,6 @@ const Profile = () => {
                       </a>
                     </div>
                   ) : null,
-
-                stats: () => (
-                  <div className="rxp-panel p-6">
-                    <h3 className="rxp-section-title mb-4">
-                      <BarChart3 className="w-5 h-5 text-primary" />
-                      Статистика
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {statTiles.map(({ icon, value, label }) => (
-                        <div key={label} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
-                          <IconChip icon={icon} />
-                          <div>
-                            <div className="rxp-stat-value text-lg">{value}</div>
-                            <div className="rxp-stat-label">{label}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ),
               };
 
               return blocks.map((b) =>
@@ -954,15 +1015,15 @@ const Profile = () => {
             {/* Вкладки */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
               <div className="rxp-tabs-shell">
-                <TabsList className="grid w-full grid-cols-5 bg-transparent p-0 h-auto">
+                <TabsList className={`grid w-full ${isOwnProfile ? 'grid-cols-4' : 'grid-cols-3'} bg-transparent p-0 h-auto`}>
                   <TabsTrigger value="favorites" className="rxp-tab-trigger">
                     <Star className="w-4 h-4" />
                     <span className="rxp-tab-label">Top50</span>
                   </TabsTrigger>
 
-                  <TabsTrigger value="watched" className="rxp-tab-trigger">
-                    <Eye className="w-4 h-4" />
-                    <span className="rxp-tab-label">Watched</span>
+                  <TabsTrigger value="bookmarks" className="rxp-tab-trigger">
+                    <Bookmark className="w-4 h-4" />
+                    <span className="rxp-tab-label">Закладки</span>
                   </TabsTrigger>
 
                   <TabsTrigger value="activity" className="rxp-tab-trigger">
@@ -970,15 +1031,12 @@ const Profile = () => {
                     <span className="rxp-tab-label">Activity</span>
                   </TabsTrigger>
 
-                  <TabsTrigger value="stats" className="rxp-tab-trigger">
-                    <BarChart3 className="w-4 h-4" />
-                    <span className="rxp-tab-label">Stats</span>
-                  </TabsTrigger>
-
-                  <TabsTrigger value="customizations" className="rxp-tab-trigger">
-                    <Sparkles className="w-4 h-4" />
-                    <span className="rxp-tab-label">Theme</span>
-                  </TabsTrigger>
+                  {isOwnProfile && (
+                    <TabsTrigger value="customizations" className="rxp-tab-trigger">
+                      <Sparkles className="w-4 h-4" />
+                      <span className="rxp-tab-label">Theme</span>
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </div>
 
@@ -987,10 +1045,8 @@ const Profile = () => {
                 <Top50Profile userId={userId!} isOwnProfile={isOwnProfile} />
               </TabsContent>
 
-              <TabsContent value="watched" className="animate-fade-in">
-                <div className="rxp-panel p-6">
-                  <WatchedInteractive userId={userId!} />
-                </div>
+              <TabsContent value="bookmarks" className="animate-fade-in">
+                <ProfileBookmarks userId={userId!} isOwnProfile={isOwnProfile} />
               </TabsContent>
 
               <TabsContent value="activity" className="animate-fade-in">
@@ -999,14 +1055,8 @@ const Profile = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="stats" className="animate-fade-in">
-                <div className="rxp-panel p-6">
-                  <ProfileStats userId={userId!} />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="customizations" className="animate-fade-in">
-                {isOwnProfile ? (
+              {isOwnProfile && (
+                <TabsContent value="customizations" className="animate-fade-in">
                   <div className="rxp-panel p-6 space-y-6">
                     <div>
                       <h3 className="rxp-section-title mb-4">
@@ -1046,21 +1096,14 @@ const Profile = () => {
                       Сохранить оформление
                     </button>
                   </div>
-                ) : (
-                  <div className="rxp-panel p-12 text-center">
-                    <div className="rxp-chip mx-auto mb-4">
-                      <Sparkles className="w-6 h-6" />
-                    </div>
-                    <p className="text-muted-foreground">Оформление видно только на собственном профиле</p>
-                  </div>
-                )}
-              </TabsContent>
+                </TabsContent>
+              )}
             </Tabs>
           </main>
         </div>
 
         {/* ===== КОММЕНТАРИИ (таймлайн на всю ширину) ===== */}
-        <div className="mt-10">
+        <div id="profile-comments" className="mt-10">
           <div className="rxp-panel p-6 md:p-8">
             <div className="flex items-center gap-3 mb-7">
               <IconChip icon={MessageSquare} solid />

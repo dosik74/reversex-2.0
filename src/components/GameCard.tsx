@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import ContentActionsButton from "@/components/ContentActionsButton";
 import { formatVotes } from "@/utils/rawgApi";
+import PosterImage from "@/components/PosterImage";
 
 interface Game {
   id: number;
@@ -18,27 +19,21 @@ interface Game {
 const ratingColor = (r: number) =>
   r >= 4.3 ? 'bg-green-500' : r >= 3.4 ? 'bg-yellow-500' : 'bg-red-500';
 
-const FALLBACK_IMAGE = 'https://placehold.co/342x513/1a1a2e/ffffff?text=No+Image';
-
 const GameCard = ({ game }: { game: Game }) => {
 
   const posterUrl = useMemo(() => {
-    if (!game.poster) return FALLBACK_IMAGE;
+    if (!game.poster) return null;
     return game.poster.replace('/w500/', '/w342/');
   }, [game.poster]);
 
   return (
     <Link to={`/game/${game.id}`}>
       <Card className="overflow-hidden hover-lift cursor-pointer group relative">
-        <div className="aspect-[2/3] relative overflow-hidden bg-muted">
-          <img
+        <div className="aspect-[2/3] relative overflow-hidden bg-zinc-950">
+          <PosterImage
             src={posterUrl}
             alt={game.title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = FALLBACK_IMAGE;
-            }}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           {/* Бейдж — только если оценок достаточно, иначе это шум */}
           {(() => {

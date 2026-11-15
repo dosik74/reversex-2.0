@@ -6,6 +6,7 @@ import SettingsPanel from "@/components/SettingsPanel";
 import DataSettings from "@/components/DataSettings";
 import TwoFactorSettings from "@/components/TwoFactorSettings";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import BetaSettingsCard from "@/components/BetaSettingsCard";
 import { useTheme } from "@/context/ThemeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,9 @@ const Settings = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* ReverseX Labs: Бета-тестирование (Watch, Рекомендации, Тир-листы) */}
+          <BetaSettingsCard />
 
           {currentUserId ? (
             <>

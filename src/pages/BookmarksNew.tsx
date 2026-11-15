@@ -1,75 +1,287 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   Search, X, Star, Trash2, Trophy, Bookmark as BookmarkIcon,
-  Film, Tv, Gamepad2, Clapperboard, LayoutGrid, SlidersHorizontal, Sparkles,
+  Film, Tv, Gamepad2, Clapperboard, Sparkles,
   MoreVertical, ExternalLink, Check, ChevronDown, Play, CalendarClock,
-  CheckCheck, Pause, type LucideIcon,
+  CheckCheck, Pause, ArrowRight, type LucideIcon, SlidersHorizontal,
+  Plus, Eye, ArrowLeft
 } from 'lucide-react';
 import { useBookmarks } from '@/context/BookmarkContext';
+import { getUserBookmarks } from '@/services/bookmarkService';
+import supabase from '@/lib/supabase';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImportBookmarksDialog from '@/components/ImportBookmarksDialog';
+import PosterImage from '@/components/PosterImage';
 import { ContentBookmark, ContentStatus, ContentType, CONTENT_STATUS_CONFIG } from '@/types/anime';
 import { toast } from 'sonner';
 
-const STATUS_ORDER: ContentStatus[] = ['favorite', 'watching', 'planned', 'watched', 'postponed', 'dropped'];
-
-const STATUS_THEME: Record<ContentStatus, { gradient: string; glow: string; text: string; soft: string; dot: string }> = {
-  favorite:  { gradient: 'from-amber-300 to-amber-500',   glow: 'shadow-amber-500/25',   text: 'text-amber-300',     soft: 'bg-amber-400/10',     dot: 'bg-amber-300' },
-  watching:  { gradient: 'from-emerald-300 to-teal-500', glow: 'shadow-emerald-500/25', text: 'text-emerald-300',   soft: 'bg-emerald-400/10',   dot: 'bg-emerald-300' },
-  planned:   { gradient: 'from-sky-300 to-indigo-400',   glow: 'shadow-sky-500/25',      text: 'text-sky-300',       soft: 'bg-sky-400/10',       dot: 'bg-sky-300' },
-  watched:   { gradient: 'from-zinc-300 to-zinc-500',    glow: 'shadow-zinc-500/25',     text: 'text-zinc-300',      soft: 'bg-zinc-400/10',      dot: 'bg-zinc-300' },
-  postponed: { gradient: 'from-orange-300 to-pink-400',  glow: 'shadow-orange-500/25',   text: 'text-orange-300',    soft: 'bg-orange-400/10',    dot: 'bg-orange-300' },
-  dropped:   { gradient: 'from-red-300 to-rose-500',     glow: 'shadow-red-500/25',      text: 'text-red-300',       soft: 'bg-red-400/10',       dot: 'bg-red-300' },
-};
-
-const TYPE_FILTERS: { key: ContentType | 'all'; label: string; icon: React.ReactNode }[] = [
-  { key: 'all', label: 'Все', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
-  { key: 'movie', label: 'Фильмы', icon: <Film className="w-3.5 h-3.5" /> },
-  { key: 'series', label: 'Сериалы', icon: <Tv className="w-3.5 h-3.5" /> },
-  { key: 'anime', label: 'Аниме', icon: <Clapperboard className="w-3.5 h-3.5" /> },
-  { key: 'game', label: 'Игры', icon: <Gamepad2 className="w-3.5 h-3.5" /> },
+/**
+ * Порядок статусов как в Аниксарт / Кинопоиск:
+ * Смотрю → В планах → Просмотрено → Отложено → Брошено → Избранное
+ */
+const STATUS_ORDER: ContentStatus[] = [
+  'watching',
+  'planned',
+  'watched',
+  'postponed',
+  'dropped',
+  'favorite',
 ];
 
-const TYPE_ICON: Record<ContentType, React.ReactNode> = {
-  movie: <Film className="w-3.5 h-3.5" />,
-  series: <Tv className="w-3.5 h-3.5" />,
-  anime: <Clapperboard className="w-3.5 h-3.5" />,
-  game: <Gamepad2 className="w-3.5 h-3.5" />,
+/**
+ * Чёткая цветовая дифференциация статусов (Кинопоиск & Anixart):
+ * Смотрю: Изумрудно-зелёный
+ * В планах: Неоново-синий
+ * Просмотрено: Фиолетовый / Пурпурный
+ * Отложено: Тёплый оранжевый
+ * Брошено: Рубиново-красный
+ * Избранное: Золотой янтарь
+ */
+const STATUS_THEME: Record<
+  ContentStatus,
+  {
+    name: string;
+    hex: string;
+    text: string;
+    bgSoft: string;
+    border: string;
+    activeTab: string;
+    idleTab: string;
+    badge: string;
+    dot: string;
+    bar: string;
+    icon: LucideIcon;
+  }
+> = {
+  watching: {
+    name: 'Смотрю',
+    hex: '#10b981',
+    text: 'text-emerald-400',
+    bgSoft: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
+    activeTab: 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.5)] border-emerald-400 font-bold',
+    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-emerald-500/40 hover:text-emerald-300 hover:bg-emerald-500/5',
+    badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.9)]',
+    bar: 'bg-emerald-500',
+    icon: Play,
+  },
+  planned: {
+    name: 'В планах',
+    hex: '#0ea5e9',
+    text: 'text-sky-400',
+    bgSoft: 'bg-sky-500/10',
+    border: 'border-sky-500/30',
+    activeTab: 'bg-sky-500 text-black shadow-[0_0_20px_rgba(14,165,233,0.5)] border-sky-400 font-bold',
+    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-sky-500/40 hover:text-sky-300 hover:bg-sky-500/5',
+    badge: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+    dot: 'bg-sky-400 shadow-[0_0_8px_rgba(14,165,233,0.9)]',
+    bar: 'bg-sky-500',
+    icon: CalendarClock,
+  },
+  watched: {
+    name: 'Просмотрено',
+    hex: '#a855f7',
+    text: 'text-purple-400',
+    bgSoft: 'bg-purple-500/10',
+    border: 'border-purple-500/30',
+    activeTab: 'bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.6)] border-purple-400 font-bold',
+    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-purple-500/40 hover:text-purple-300 hover:bg-purple-500/5',
+    badge: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+    dot: 'bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.9)]',
+    bar: 'bg-purple-500',
+    icon: CheckCheck,
+  },
+  postponed: {
+    name: 'Отложено',
+    hex: '#f97316',
+    text: 'text-orange-400',
+    bgSoft: 'bg-orange-500/10',
+    border: 'border-orange-500/30',
+    activeTab: 'bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.5)] border-orange-400 font-bold',
+    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-orange-500/40 hover:text-orange-300 hover:bg-orange-500/5',
+    badge: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
+    dot: 'bg-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.9)]',
+    bar: 'bg-orange-500',
+    icon: Pause,
+  },
+  dropped: {
+    name: 'Брошено',
+    hex: '#ef4444',
+    text: 'text-rose-400',
+    bgSoft: 'bg-rose-500/10',
+    border: 'border-rose-500/30',
+    activeTab: 'bg-rose-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.6)] border-rose-400 font-bold',
+    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-rose-500/40 hover:text-rose-300 hover:bg-rose-500/5',
+    badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+    dot: 'bg-rose-400 shadow-[0_0_8px_rgba(239,68,68,0.9)]',
+    bar: 'bg-rose-500',
+    icon: X,
+  },
+  favorite: {
+    name: 'Избранное',
+    hex: '#f59e0b',
+    text: 'text-amber-400',
+    bgSoft: 'bg-amber-500/10',
+    border: 'border-amber-500/30',
+    activeTab: 'bg-amber-400 text-black shadow-[0_0_20px_rgba(245,158,11,0.5)] border-amber-300 font-bold',
+    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-amber-500/40 hover:text-amber-300 hover:bg-amber-500/5',
+    badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    dot: 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)]',
+    bar: 'bg-amber-400',
+    icon: Star,
+  },
 };
 
-const EMPTY_TEXT: Record<ContentStatus, string> = {
-  favorite: 'Нет избранного',
-  watching: 'Ничего не смотрите',
-  planned: 'Планов пока нет',
-  watched: 'Ничего не просмотрено',
-  postponed: 'Нет отложенного',
-  dropped: 'Ничего не брошено',
+const TYPE_FILTERS: { key: ContentType | 'all'; label: string; icon: LucideIcon }[] = [
+  { key: 'all', label: 'Все', icon: Film },
+  { key: 'movie', label: 'Фильмы', icon: Film },
+  { key: 'series', label: 'Сериалы', icon: Tv },
+  { key: 'anime', label: 'Аниме', icon: Clapperboard },
+  { key: 'game', label: 'Игры', icon: Gamepad2 },
+];
+
+const TYPE_LABEL: Record<ContentType, string> = {
+  movie: 'Фильм',
+  series: 'Сериал',
+  anime: 'Аниме',
+  game: 'Игра',
 };
 
-/* Векторные иконки статусов вместо эмодзи — стабильно на всех платформах */
-const STATUS_ICON: Record<ContentStatus, LucideIcon> = {
-  favorite: Star,
-  watching: Play,
-  planned: CalendarClock,
-  watched: CheckCheck,
-  postponed: Pause,
-  dropped: X,
-};
+/* ─────────────────────────────────────────────────────────────
+   Rating Modal
+───────────────────────────────────────────────────────────── */
+function RatingModal({
+  title,
+  currentRating,
+  onClose,
+  onSave,
+}: {
+  title: string;
+  currentRating?: number;
+  onClose: () => void;
+  onSave: (rating: number) => void;
+}) {
+  const [ratingInput, setRatingInput] = useState(String(currentRating || ''));
 
-/* ─────────── Row ─────────── */
-function BookmarkRow({ bookmark, index }: { bookmark: ContentBookmark; index: number }) {
+  const submit = () => {
+    const r = parseFloat(ratingInput);
+    if (isNaN(r) || r < 0 || r > 10) {
+      toast.error('Оценка от 0 до 10');
+      return;
+    }
+    onSave(r);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl border border-white/15 bg-zinc-900/95 p-6 shadow-2xl shadow-black/80 animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="min-w-0 pr-2">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+              Ваша оценка
+            </h3>
+            <p className="text-xs text-zinc-400 truncate mt-0.5">{title}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <input
+          type="number"
+          min="0"
+          max="10"
+          step="0.1"
+          value={ratingInput}
+          onChange={(e) => setRatingInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder="0–10"
+          autoFocus
+          className="w-full px-4 py-3 mb-4 bg-black/60 border border-white/10 rounded-2xl text-white text-center text-4xl font-black tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+        />
+
+        <div className="grid grid-cols-5 gap-1.5 mb-6">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+            <button
+              key={n}
+              onClick={() => setRatingInput(String(n))}
+              className={`h-9 rounded-xl text-xs font-black tabular-nums transition-all ${
+                parseFloat(ratingInput) === n
+                  ? 'bg-amber-400 text-black shadow-lg shadow-amber-400/30 scale-105'
+                  : 'bg-white/5 text-zinc-300 hover:bg-white/15 hover:text-white border border-white/5'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl bg-white/10 text-zinc-300 text-sm font-semibold hover:bg-white/15 transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            onClick={submit}
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-black text-sm font-bold shadow-lg shadow-amber-500/25 hover:brightness-105 transition-all"
+          >
+            Сохранить
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Кинопоиск-style List Row:
+   1. Номер позиции (1, 2, 3...)
+   2. Аккуратный постер
+   3. Название + Год + Жанр + Страна + Режиссер/Тип
+   4. Кинопоиск/TMDB рейтинг (зеленый/серый/красный бейдж)
+   5. Личная оценка пользователя
+   6. Кнопка смены статуса и меню
+───────────────────────────────────────────────────────────── */
+function KinopoiskBookmarkRow({
+  bookmark,
+  index,
+  readOnly = false,
+}: {
+  bookmark: ContentBookmark;
+  index: number;
+  readOnly?: boolean;
+}) {
   const navigate = useNavigate();
   const { setStatus, removeBookmark, updateRating } = useBookmarks();
   const [ratingOpen, setRatingOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [ratingInput, setRatingInput] = useState(String(bookmark.userRating || ''));
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
 
   const theme = STATUS_THEME[bookmark.status];
-  const cfg = CONTENT_STATUS_CONFIG[bookmark.status];
+  const Icon = theme.icon;
 
   const openDetail = () => {
-    const route = bookmark.contentType === 'movie' ? 'movie'
-      : bookmark.contentType === 'series' ? 'series' : bookmark.contentType === 'game' ? 'game' : null;
+    const route =
+      bookmark.contentType === 'movie'
+        ? 'movie'
+        : bookmark.contentType === 'series'
+        ? 'series'
+        : bookmark.contentType === 'game'
+        ? 'game'
+        : null;
     if (route) navigate(`/${route}/${bookmark.contentId}`);
   };
 
@@ -85,425 +297,659 @@ function BookmarkRow({ bookmark, index }: { bookmark: ContentBookmark; index: nu
       synopsis: bookmark.synopsis,
       status: s,
     });
-    toast.success(`Статус → «${CONTENT_STATUS_CONFIG[s].label}»`);
-  };
-
-  const handleStatus = (e: React.MouseEvent, s: ContentStatus) => {
-    e.stopPropagation();
-    setMenuOpen(false);
-    applyStatus(s);
+    toast.success(`Перемещено в «${STATUS_THEME[s].name}»`);
   };
 
   const handleDelete = () => {
-    setMenuOpen(false);
+    setStatusMenuOpen(false);
     removeBookmark(bookmark.contentType, bookmark.contentId);
     toast.success('Удалено из закладок');
   };
 
-  const submitRating = () => {
-    const r = parseFloat(ratingInput);
-    if (isNaN(r) || r < 0 || r > 10) {
-      toast.error('Оценка от 0 до 10');
-      return;
-    }
-    updateRating(bookmark.id, r);
-    setRatingOpen(false);
-    toast.success(`Оценка ${r} сохранена`);
-  };
+  // Цвет рейтинга как на Кинопоиске (>= 7.0 зеленый, 5.0-6.9 серый, < 5.0 красный)
+  const extRating = bookmark.externalRating ? Number(bookmark.externalRating) : 0;
+  const ratingBadgeClass =
+    extRating >= 7.0
+      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+      : extRating >= 5.5
+      ? 'bg-zinc-800 text-zinc-300 border-zinc-700'
+      : 'bg-rose-500/15 text-rose-400 border-rose-500/30';
 
   return (
     <>
       <div
-        className={`bkc group relative flex gap-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.07] p-3 hover:border-amber-200/25 hover:bg-white/[0.05] transition-all duration-300 cursor-pointer ${menuOpen ? 'z-20' : ''}`}
-        style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
         onClick={openDetail}
+        className="group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-zinc-900/40 hover:bg-zinc-900/90 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer"
       >
-        {/* Poster */}
-        <div className="relative w-24 sm:w-28 shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-zinc-800">
-          {bookmark.posterUrl ? (
-            <img
-              src={bookmark.posterUrl}
-              alt={bookmark.title}
-              loading="lazy"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src =
-                  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="450"%3E%3Crect fill="%2318181b" width="300" height="450"/%3E%3C/svg%3E';
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <BookmarkIcon className="w-7 h-7 text-zinc-700" />
-            </div>
-          )}
-          {!!bookmark.externalRating && (
-            <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-md px-1.5 py-0.5">
-              <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
-              <span className="text-[11px] font-bold text-amber-200 tabular-nums">{Number(bookmark.externalRating).toFixed(1)}</span>
-            </span>
-          )}
+        {/* Номер в списке (как на Кинопоиске: 1, 2, 3...) */}
+        <span className="w-5 sm:w-7 text-center text-xs sm:text-sm font-bold text-zinc-500 tabular-nums shrink-0 select-none group-hover:text-zinc-300">
+          {index + 1}
+        </span>
+
+        {/* Компактный качественный постер */}
+        <div className="relative w-14 sm:w-16 md:w-20 aspect-[2/3] shrink-0 rounded-xl overflow-hidden bg-zinc-800 shadow-md border border-white/5">
+          <PosterImage
+            src={bookmark.posterUrl}
+            alt={bookmark.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
         </div>
 
-        {/* Body */}
-        <div className="flex-1 min-w-0 flex flex-col py-0.5">
-          <h3 className="text-[17px] font-semibold text-white leading-snug line-clamp-2 pr-8 group-hover:text-amber-100 transition-colors">
-            {bookmark.title}
-          </h3>
-          <p className="mt-1 flex items-center gap-1.5 text-[13px] text-zinc-400">
-            <span className="inline-flex text-zinc-500">{TYPE_ICON[bookmark.contentType]}</span>
-            {bookmark.releaseYear && <span className="tabular-nums">{bookmark.releaseYear}</span>}
-            {!!bookmark.userRating && (
-              <span className={`inline-flex items-center gap-0.5 font-semibold ${theme.text}`}>
-                <Star className="w-3 h-3 fill-current" />{Number(bookmark.userRating).toFixed(1)}
+        {/* Центральная колонка с информацией о фильме/сериале */}
+        <div className="flex-1 min-w-0 pr-2">
+          {/* Название + Год */}
+          <div className="flex flex-wrap items-baseline gap-2">
+            <h3 className="text-sm sm:text-base md:text-lg font-bold text-white group-hover:text-primary transition-colors line-clamp-1 leading-snug">
+              {bookmark.title}
+            </h3>
+            {bookmark.releaseYear && (
+              <span className="text-xs sm:text-sm text-zinc-400 font-medium tabular-nums shrink-0">
+                {bookmark.releaseYear}
               </span>
             )}
-          </p>
-          {bookmark.synopsis ? (
-            <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500 line-clamp-3">
-              {bookmark.synopsis}
-            </p>
-          ) : (
-            <p className="mt-1.5 text-[13px] text-zinc-700">Без описания</p>
-          )}
-          <div className="mt-auto pt-2 flex items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide ${theme.soft} ${theme.text} border border-white/[0.07]`}>
+          </div>
+
+          {/* Мета-информация: Тип контента · Жанр */}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1 text-xs text-zinc-400">
+            <span className="px-1.5 py-0.5 rounded bg-white/5 text-[11px] font-semibold text-zinc-300">
+              {TYPE_LABEL[bookmark.contentType]}
+            </span>
+            {bookmark.genre && (
+              <span className="truncate max-w-[220px] sm:max-w-md text-zinc-400">
+                · {bookmark.genre}
+              </span>
+            )}
+          </div>
+
+          {/* Статус-чип с цветной точкой (как в Anixart) */}
+          <div className="mt-2 flex items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${theme.badge} border`}
+            >
               <span className={`w-1.5 h-1.5 rounded-full ${theme.dot}`} />
-              {cfg.label}
+              {theme.name}
             </span>
           </div>
         </div>
 
-        {/* ⋮ menu */}
-        <div className="absolute top-2 right-2">
-          <button
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-            title="Действия"
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${menuOpen ? 'bg-white/15 text-white' : 'text-zinc-400 hover:bg-white/10 hover:text-white active:bg-white/15'}`}
-          >
-            <MoreVertical className="w-5 h-5" />
-          </button>
-
-          {menuOpen && (
-            <>
-              <div className="fixed inset-0 z-20" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
-              <div className="absolute right-0 top-9 z-30 w-52 rounded-xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/60 py-1.5 bkc-modal" onClick={(e) => e.stopPropagation()}>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); openDetail(); }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-zinc-200 hover:bg-white/[0.06] transition-colors text-left"
-                >
-                  <ExternalLink className="w-4 h-4 text-zinc-500" /> Открыть
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setRatingOpen(true); }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-zinc-200 hover:bg-white/[0.06] transition-colors text-left"
-                >
-                  <Star className="w-4 h-4 text-amber-300" /> Оценить{bookmark.userRating ? ` (${Number(bookmark.userRating).toFixed(1)})` : ''}
-                </button>
-                <div className="my-1.5 h-px bg-white/[0.07]" />
-                {STATUS_ORDER.map((s) => (
-                  <button
-                    key={s}
-                    onClick={(e) => handleStatus(e, s)}
-                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-zinc-200 hover:bg-white/[0.06] transition-colors text-left"
-                  >
-                    {(() => {
-                      const Icon = STATUS_ICON[s];
-                      return <Icon className="w-4 h-4 text-zinc-400" />;
-                    })()}
-                    <span className="flex-1">{CONTENT_STATUS_CONFIG[s].label}</span>
-                    {bookmark.status === s && <Check className="w-3.5 h-3.5 text-amber-300" />}
-                  </button>
-                ))}
-                <div className="my-1.5 h-px bg-white/[0.07]" />
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-red-300 hover:bg-red-500/10 transition-colors text-left"
-                >
-                  <Trash2 className="w-4 h-4" /> Удалить
-                </button>
-              </div>
-            </>
+        {/* Правая колонка: Рейтинги Кинопоиска/TMDB + Личная оценка + Меню */}
+        <div className="flex items-center gap-2 sm:gap-5 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* Внешний рейтинг (TMDB/Кинопоиск) */}
+          {extRating > 0 && (
+            <div className="hidden sm:flex flex-col items-end">
+              <span
+                className={`text-xs sm:text-sm font-black tabular-nums px-2 py-0.5 rounded-lg border ${ratingBadgeClass}`}
+              >
+                {extRating.toFixed(1)}
+              </span>
+              <span className="text-[10px] text-zinc-500 mt-0.5 uppercase tracking-wider font-semibold">
+                TMDB
+              </span>
+            </div>
           )}
-        </div>
-      </div>
 
-      {/* Rating modal */}
-      {ratingOpen && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center bkc-overlay"
-          onClick={() => setRatingOpen(false)}
-        >
-          <div className="w-80 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl bkc-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-4">
-              <div className="min-w-0 pr-2">
-                <h3 className="text-lg font-bold text-white">Ваша оценка</h3>
-                <p className="text-xs text-zinc-500 truncate">{bookmark.title}</p>
-              </div>
-              <button onClick={() => setRatingOpen(false)} className="p-1 rounded-lg hover:bg-zinc-800 transition-colors shrink-0">
-                <X className="w-4 h-4 text-zinc-400" />
-              </button>
-            </div>
-
-            <input
-              type="number" min="0" max="10" step="0.1"
-              value={ratingInput}
-              onChange={(e) => setRatingInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && submitRating()}
-              placeholder="0–10"
-              autoFocus
-              className="w-full px-4 py-3 mb-4 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-center text-3xl font-bold tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-200/40"
-            />
-
-            <div className="flex justify-center gap-1 mb-5 flex-wrap">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setRatingInput(String(n))}
-                  className={`w-7 h-7 rounded-lg text-[11px] font-bold tabular-nums transition-all ${
-                    parseFloat(ratingInput) === n ? 'bg-amber-300 text-black scale-110' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                  }`}
+          {/* Личная оценка пользователя */}
+          {readOnly ? (
+            bookmark.userRating ? (
+              <div className="flex flex-col items-center">
+                <div
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-300"
+                  title="Оценка пользователя"
                 >
-                  {n}
+                  <Star className="w-3.5 h-3.5 fill-current" />
+                  <span className="text-xs font-black tabular-nums">
+                    {Number(bookmark.userRating).toFixed(1)}
+                  </span>
+                </div>
+                <span className="text-[10px] text-zinc-500 mt-0.5 hidden sm:block">Оценка</span>
+              </div>
+            ) : null
+          ) : (
+            <div className="flex flex-col items-center">
+              {bookmark.userRating ? (
+                <button
+                  onClick={() => setRatingOpen(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-300 hover:bg-amber-400/25 transition-colors"
+                  title="Изменить оценку"
+                >
+                  <Star className="w-3.5 h-3.5 fill-current" />
+                  <span className="text-xs font-black tabular-nums">
+                    {Number(bookmark.userRating).toFixed(1)}
+                  </span>
                 </button>
-              ))}
+              ) : (
+                <button
+                  onClick={() => setRatingOpen(true)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-xl hover:bg-white/10 text-zinc-500 hover:text-amber-300 transition-colors text-xs font-medium"
+                  title="Поставить оценку"
+                >
+                  <Star className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Оценить</span>
+                </button>
+              )}
+              <span className="text-[10px] text-zinc-500 mt-0.5 hidden sm:block">Моя оценка</span>
             </div>
+          )}
 
-            <div className="flex gap-2">
-              <button onClick={() => setRatingOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-800 text-white text-sm font-medium hover:bg-zinc-700 transition-colors">
-                Отмена
+          {/* Действия / Переход */}
+          {readOnly ? (
+            <button
+              onClick={openDetail}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Открыть карточку"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="relative">
+              <button
+                onClick={() => setStatusMenuOpen(!statusMenuOpen)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                title="Действия"
+              >
+                <MoreVertical className="w-4 h-4" />
               </button>
-              <button onClick={submitRating} className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-b from-amber-200 to-amber-400 text-black text-sm font-semibold shadow-lg shadow-amber-500/25 hover:brightness-105 transition-all">
-                Сохранить
-              </button>
-            </div>
+
+            {statusMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setStatusMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-10 z-40 w-52 rounded-2xl border border-white/15 bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/80 py-2 animate-in zoom-in-95 duration-150">
+                  <button
+                    onClick={() => {
+                      setStatusMenuOpen(false);
+                      openDetail();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-zinc-200 hover:bg-white/10 transition-colors text-left"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-zinc-400" /> Открыть страницу
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setStatusMenuOpen(false);
+                      setRatingOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-zinc-200 hover:bg-white/10 transition-colors text-left"
+                  >
+                    <Star className="w-3.5 h-3.5 text-amber-400" />
+                    <span>
+                      {bookmark.userRating
+                        ? `Изменить оценку (${Number(bookmark.userRating).toFixed(1)})`
+                        : 'Поставить оценку'}
+                    </span>
+                  </button>
+
+                  <div className="my-1.5 h-px bg-white/10" />
+
+                  <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                    Переместить в:
+                  </div>
+
+                  {STATUS_ORDER.map((s) => {
+                    const itemTheme = STATUS_THEME[s];
+                    const ItemIcon = itemTheme.icon;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          setStatusMenuOpen(false);
+                          applyStatus(s);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-1.5 text-xs text-zinc-200 hover:bg-white/10 transition-colors text-left"
+                      >
+                        <ItemIcon className={`w-3.5 h-3.5 ${itemTheme.text}`} />
+                        <span className="flex-1">{itemTheme.name}</span>
+                        {bookmark.status === s && (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  <div className="my-1.5 h-px bg-white/10" />
+
+                  <button
+                    onClick={handleDelete}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-rose-400 hover:bg-rose-500/10 transition-colors text-left"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Удалить из списка
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-        </div>
+        )}
+      </div>
+    </div>
+
+      {ratingOpen && (
+        <RatingModal
+          title={bookmark.title}
+          currentRating={bookmark.userRating}
+          onClose={() => setRatingOpen(false)}
+          onSave={(r) => {
+            updateRating(bookmark.id, r);
+            setRatingOpen(false);
+            toast.success(`Оценка ${r} сохранена`);
+          }}
+        />
       )}
     </>
   );
 }
 
-/* ─────────── Page ─────────── */
+/* ─────────────────────────────────────────────────────────────
+   Main Bookmarks Page (Кинопоиск & Anixart Layout)
+───────────────────────────────────────────────────────────── */
 export default function BookmarksNew() {
-  const { userId, bookmarks, loading, isInTop50 } = useBookmarks();
-  const [activeTab, setActiveTab] = useState<ContentStatus>('favorite');
+  const { targetUserId } = useParams<{ targetUserId?: string }>();
+  const [searchParams] = useSearchParams();
+  const queryUserId = searchParams.get('user') || targetUserId || null;
+
+  const { userId: currentUserId, bookmarks: myBookmarks, loading: contextLoading } = useBookmarks();
+
+  // Режим просмотра: чужие закладки (публичный просмотр) или свои
+  const isOtherUser = Boolean(queryUserId && queryUserId !== currentUserId);
+  const effectiveUserId = isOtherUser ? queryUserId : currentUserId;
+
+  const [externalBookmarks, setExternalBookmarks] = useState<ContentBookmark[]>(() => {
+    if (queryUserId) {
+      try {
+        const cached = localStorage.getItem(`rx_public_bookmarks_${queryUserId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
+
+  const [targetProfile, setTargetProfile] = useState<{
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null>(null);
+
+  const [extLoading, setExtLoading] = useState<boolean>(isOtherUser);
+
+  // Загружаем профиль и закладки целевого пользователя при публичном просмотре
+  useEffect(() => {
+    if (!isOtherUser || !queryUserId) return;
+    let active = true;
+
+    // Профиль
+    supabase
+      .from('profiles')
+      .select('username, display_name, avatar_url')
+      .eq('id', queryUserId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active && data) setTargetProfile(data);
+      });
+
+    // Закладки
+    getUserBookmarks(queryUserId)
+      .then((data) => {
+        if (active) {
+          setExternalBookmarks(data);
+          try {
+            localStorage.setItem(`rx_public_bookmarks_${queryUserId}`, JSON.stringify(data));
+          } catch {}
+        }
+      })
+      .catch((err) => console.error('Error fetching target user bookmarks:', err))
+      .finally(() => {
+        if (active) setExtLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOtherUser, queryUserId]);
+
+  const bookmarks = isOtherUser ? externalBookmarks : myBookmarks;
+  const loading = isOtherUser ? extLoading : contextLoading;
+
+  const [activeTab, setActiveTab] = useState<ContentStatus>('watched');
   const [typeFilter, setTypeFilter] = useState<ContentType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'date' | 'rating' | 'title'>('date');
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'date' | 'rating' | 'title' | 'year'>('date');
 
+  // Подсчёт количества по каждому статусу
   const stats = useMemo(() => {
-    const s: Record<ContentStatus, number> = { favorite: 0, watching: 0, planned: 0, watched: 0, postponed: 0, dropped: 0 };
-    bookmarks.forEach((b) => { if (b.status in s) s[b.status]++; });
+    const s: Record<ContentStatus, number> = {
+      watching: 0,
+      planned: 0,
+      watched: 0,
+      postponed: 0,
+      dropped: 0,
+      favorite: 0,
+    };
+    bookmarks.forEach((b) => {
+      if (b.status in s) s[b.status]++;
+    });
     return s;
   }, [bookmarks]);
 
   const total = Object.values(stats).reduce((a, b) => a + b, 0);
 
+  // Умный фокус: если в текущей вкладке 0 тайтлов, но есть контент в других статусах,
+  // сразу открываем статус с контентом (например, "Просмотрено", где 4 тайтла)
+  useEffect(() => {
+    if (bookmarks.length > 0 && stats[activeTab] === 0) {
+      const best = STATUS_ORDER.find((s) => stats[s] > 0);
+      if (best) setActiveTab(best);
+    }
+  }, [bookmarks.length]);
+
+  // Подсчёт тайтлов по типу в текущей вкладке
+  const currentTabTypeCounts = useMemo(() => {
+    const inTab = bookmarks.filter((b) => b.status === activeTab);
+    const counts: Record<string, number> = { all: inTab.length, movie: 0, series: 0, anime: 0, game: 0 };
+    inTab.forEach((b) => {
+      if (b.contentType in counts) counts[b.contentType]++;
+    });
+    return counts;
+  }, [bookmarks, activeTab]);
+
+  // Фильтрация и сортировка
   const filtered = useMemo(() => {
     let list = bookmarks.filter((b) => b.status === activeTab);
-    if (typeFilter !== 'all') list = list.filter((b) => b.contentType === typeFilter);
+    if (typeFilter !== 'all') {
+      list = list.filter((b) => b.contentType === typeFilter);
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter((b) => b.title.toLowerCase().includes(q));
+      list = list.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          (b.genre && b.genre.toLowerCase().includes(q))
+      );
     }
     return [...list].sort((a, b) => {
-      if (sortBy === 'rating') return (b.userRating || 0) - (a.userRating || 0);
+      if (sortBy === 'rating') return (b.userRating || b.externalRating || 0) - (a.userRating || a.externalRating || 0);
       if (sortBy === 'title') return a.title.localeCompare(b.title);
+      if (sortBy === 'year') return parseInt(b.releaseYear || '0') - parseInt(a.releaseYear || '0');
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
   }, [bookmarks, activeTab, typeFilter, searchQuery, sortBy]);
 
-  const theme = STATUS_THEME[activeTab];
+  const activeTheme = STATUS_THEME[activeTab];
 
-  if (!userId && !loading) {
+  if (!effectiveUserId && !loading) {
     return (
-      <div className="min-h-screen font-ui flex items-center justify-center bg-zinc-950 px-4">
-        <div className="text-center max-w-sm w-full">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-b from-amber-200 to-amber-500 flex items-center justify-center shadow-2xl shadow-amber-500/25 rotate-3">
+      <div className="min-h-screen font-sans flex items-center justify-center bg-zinc-950 px-4">
+        <div className="text-center max-w-sm w-full p-8 rounded-3xl border border-white/10 bg-black/60 backdrop-blur-2xl shadow-2xl">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center shadow-xl shadow-amber-500/25">
             <BookmarkIcon className="w-9 h-9 text-black" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Требуется вход</h2>
-          <p className="text-zinc-500 text-sm mb-6">Войдите в аккаунт, чтобы увидеть свои закладки</p>
-          <a href="/auth" className="inline-block w-full py-3 rounded-xl bg-white text-black font-semibold text-sm hover:bg-zinc-200 transition-all">
-            Войти
-          </a>
+          <h2 className="text-2xl font-black text-white mb-2">Требуется вход</h2>
+          <p className="text-zinc-400 text-sm mb-6">
+            Войдите в аккаунт, чтобы просматривать личные списки и историю просмотров.
+          </p>
+          <Link
+            to="/auth"
+            className="inline-flex items-center justify-center w-full py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-zinc-200 transition-all shadow-lg"
+          >
+            Войти в аккаунт
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen font-ui bg-gradient-to-b from-zinc-950 via-zinc-950 to-zinc-900">
-      <style>{`
-        .bkc { animation: bkc-in .45s cubic-bezier(.16,1,.3,1) both; }
-        @keyframes bkc-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
-        .bkc-overlay { animation: bkc-fade .15s ease both; }
-        .bkc-modal { animation: bkc-pop .25s cubic-bezier(.16,1,.3,1) both; }
-        @keyframes bkc-fade { from { opacity: 0; } }
-        @keyframes bkc-pop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
-        .bkm-scroll::-webkit-scrollbar { height: 0; width: 0; }
-      `}</style>
+    <div className="min-h-screen font-sans bg-zinc-950 text-foreground relative pb-28">
+      {/* Деликатная фоновая подсветка текущего статуса */}
+      <div
+        style={{ backgroundColor: activeTheme.hex }}
+        className="absolute -top-40 left-1/2 -translate-x-1/2 w-[40rem] h-[24rem] rounded-full blur-[160px] opacity-[0.14] pointer-events-none transition-all duration-700"
+      />
 
-      {/* Hero header */}
-      <div className="relative overflow-visible">
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] rounded-full blur-[120px] opacity-[0.14] bg-gradient-to-br from-amber-200 to-orange-500" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-100/40 to-transparent" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-6">
-          <div className="flex items-end justify-between gap-4 mb-8">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.28em] text-amber-200/90 font-bold mb-2 flex items-center gap-2">
-                <span className="h-px w-6 bg-current opacity-60" />
-                <Sparkles className="w-3.5 h-3.5" /> Коллекция
-              </p>
-              <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
-                Мои закладки
-              </h1>
-              <p className="text-sm text-zinc-500 mt-1.5">
-                {total} сохранённых · {stats[activeTab]} в «{CONTENT_STATUS_CONFIG[activeTab].label}»
-              </p>
+      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-8">
+        {/* Шапка раздела в стиле Кинопоиска */}
+        {isOtherUser ? (
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 pb-4 border-b border-white/[0.08]">
+            <div className="flex items-center gap-4">
+              <Avatar className="w-14 h-14 rounded-2xl border-2 border-emerald-500/30 shrink-0">
+                <AvatarImage src={targetProfile?.avatar_url || undefined} />
+                <AvatarFallback className="bg-emerald-500/10 text-emerald-400 font-bold text-lg">
+                  {targetProfile?.username?.[0]?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">
+                  <BookmarkIcon className="w-3.5 h-3.5" />
+                  <span>Закладки пользователя @{targetProfile?.username || 'user'}</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  {targetProfile?.display_name || targetProfile?.username || 'Списки пользователя'}
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+                  {total} тайтлов в коллекции · {stats[activeTab]} в категории «{activeTheme.name}»
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <Link
+                to={`/profile/${effectiveUserId}`}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/10 shadow-sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Вернуться в профиль</span>
+              </Link>
             </div>
           </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 pb-4 border-b border-white/[0.08]">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+                <Film className="w-3.5 h-3.5 text-primary" />
+                <span>Личная медиатека</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                Мои списки
+              </h1>
+              <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+                {total} фильмов и сериалов · {stats[activeTab]} в категории «{activeTheme.name}»
+              </p>
+            </div>
 
-          {/* Status pills */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-4">
-            {STATUS_ORDER.map((s) => {
-              const c = CONTENT_STATUS_CONFIG[s];
-              const t = STATUS_THEME[s];
-              const active = activeTab === s;
-              const Icon = STATUS_ICON[s];
-              return (
-                <button
-                  key={s}
-                  onClick={() => setActiveTab(s)}
-                  className={`flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-colors duration-200 border ${
-                    active
-                      ? `${t.soft} ${t.text} border-transparent ring-1 ring-white/20`
-                      : 'bg-white/[0.04] text-zinc-400 border-white/[0.06] hover:bg-white/[0.08] hover:text-zinc-200'
+            <div className="flex items-center gap-2.5">
+              <ImportBookmarksDialog />
+            </div>
+          </div>
+        )}
+
+        {/* ── Вкладки статусов (как в Anixart: Смотрю, В планах, Просмотрено...) ── */}
+        <div className="flex gap-2 overflow-x-auto kp-scroll pb-2 mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
+          {STATUS_ORDER.map((s) => {
+            const t = STATUS_THEME[s];
+            const active = activeTab === s;
+            const Icon = t.icon;
+            const count = stats[s];
+
+            return (
+              <button
+                key={s}
+                onClick={() => setActiveTab(s)}
+                className={`group flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-[13px] font-bold whitespace-nowrap shrink-0 transition-all duration-200 border ${
+                  active ? `${t.activeTab}` : `${t.idleTab}`
+                }`}
+              >
+                <Icon
+                  className={`w-3.5 h-3.5 transition-transform ${
+                    active ? 'scale-110 fill-current' : 'group-hover:scale-110'
+                  }`}
+                />
+                <span>{t.name}</span>
+                <span
+                  className={`text-[11px] font-black px-2 py-0.5 rounded-full tabular-nums ${
+                    active ? 'bg-black/25 text-inherit' : 'bg-white/10 text-zinc-300'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${s === 'favorite' || s === 'watching' ? 'fill-current' : ''}`} />
-                  {c.label}
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold tabular-nums ${active ? 'bg-black/20' : 'bg-white/10'}`}>
-                    {stats[s]}
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Панель фильтров: Тип контента + Поиск + Сортировка ── */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6 p-2 rounded-2xl bg-zinc-900/60 border border-white/[0.08]">
+          {/* Фильтры типов (Все, Фильмы, Сериалы...) */}
+          <div className="flex items-center gap-1 overflow-x-auto kp-scroll p-0.5">
+            {TYPE_FILTERS.map((f) => {
+              const count = currentTabTypeCounts[f.key] || 0;
+              const active = typeFilter === f.key;
+
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setTypeFilter(f.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                    active
+                      ? 'bg-white text-black font-bold shadow-sm'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  <span
+                    className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
+                      active ? 'bg-black/20 text-black' : 'bg-white/10 text-zinc-400'
+                    }`}
+                  >
+                    {count}
                   </span>
                 </button>
               );
             })}
           </div>
 
-          {/* Search + one filter button */}
-          <div className="flex gap-2.5">
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          {/* Поиск и Сортировка */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Поиск по названию..."
-                className="w-full pl-10 pr-9 py-2.5 bg-white/[0.05] border border-white/10 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-200/30 focus:border-transparent"
+                className="w-full pl-8 pr-7 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-white/30"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-md hover:bg-white/10">
-                  <X className="w-4 h-4 text-zinc-500" />
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-            <div className="relative">
-              <button
-                onClick={() => setFilterOpen(!filterOpen)}
-                title="Тип и сортировка"
-                className={`h-[46px] px-4 rounded-xl border flex items-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors ${filterOpen || typeFilter !== 'all' || sortBy !== 'date' ? 'bg-white text-black border-transparent' : 'bg-white/[0.05] border-white/10 text-zinc-200 hover:bg-white/[0.09]'}`}
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-                {TYPE_FILTERS.find((f) => f.key === typeFilter)?.label}
-                <ChevronDown className={`w-3.5 h-3.5 opacity-60 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-              </button>
 
-              {filterOpen && (
-                <>
-                  <div className="fixed inset-0 z-20" onClick={() => setFilterOpen(false)} />
-                  <div className="absolute right-0 top-12 z-30 w-60 rounded-xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/60 py-1.5 bkc-modal">
-                    <p className="px-3.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500">Тип</p>
-                    {TYPE_FILTERS.map((f) => (
-                      <button
-                        key={f.key}
-                        onClick={() => { setTypeFilter(f.key); }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-zinc-200 hover:bg-white/[0.06] transition-colors text-left"
-                      >
-                        <span className="text-zinc-500">{f.icon}</span>
-                        <span className="flex-1">{f.label}</span>
-                        {typeFilter === f.key && <Check className="w-3.5 h-3.5 text-amber-300" />}
-                      </button>
-                    ))}
-                    <div className="my-1.5 h-px bg-white/[0.07]" />
-                    <p className="px-3.5 pt-1 pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500">Сортировка</p>
-                    {([
-                      { key: 'date', label: 'Недавние' },
-                      { key: 'rating', label: 'По оценке' },
-                      { key: 'title', label: 'По названию' },
-                    ] as const).map((o) => (
-                      <button
-                        key={o.key}
-                        onClick={() => { setSortBy(o.key); }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-zinc-200 hover:bg-white/[0.06] transition-colors text-left"
-                      >
-                        <span className="flex-1 pl-[26px]">{o.label}</span>
-                        {sortBy === o.key && <Check className="w-3.5 h-3.5 text-amber-300" />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-            <ImportBookmarksDialog />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="h-8 px-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-zinc-300 font-semibold focus:outline-none cursor-pointer"
+            >
+              <option value="date" className="bg-zinc-900 text-white">По дате</option>
+              <option value="rating" className="bg-zinc-900 text-white">По оценке</option>
+              <option value="year" className="bg-zinc-900 text-white">По году</option>
+              <option value="title" className="bg-zinc-900 text-white">По названию</option>
+            </select>
           </div>
         </div>
-      </div>
 
-      {/* List */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
+        {/* ── Кинопоиск-style Список тайтлов ── */}
         {loading ? (
-          <div className="flex flex-col gap-3 max-w-3xl">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex gap-3.5 rounded-2xl bg-zinc-900/60 p-3 animate-pulse" style={{ animationDelay: `${i * 60}ms` }}>
-                <div className="w-24 sm:w-28 shrink-0 aspect-[2/3] rounded-xl bg-zinc-800/70" />
-                <div className="flex-1 py-1 space-y-2.5">
-                  <div className="h-4 bg-zinc-800 rounded w-2/3" />
-                  <div className="h-3 bg-zinc-800/60 rounded w-1/3" />
-                  <div className="h-3 bg-zinc-800/60 rounded w-full" />
-                  <div className="h-3 bg-zinc-800/60 rounded w-5/6" />
-                </div>
-              </div>
+          <div className="flex flex-col gap-2.5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-24 sm:h-28 rounded-2xl bg-zinc-900/40 border border-white/5 animate-pulse"
+              />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className={`w-24 h-24 rounded-3xl mb-6 flex items-center justify-center bg-gradient-to-b from-amber-200 to-amber-500 shadow-2xl ${theme.glow} rotate-3`}>
+          /* Пустой список с подсказкой перехода */
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-3xl border border-dashed border-white/10 bg-zinc-900/20">
+            <div
+              className={`w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border ${activeTheme.border} ${activeTheme.bgSoft}`}
+            >
               {(() => {
-                const Icon = STATUS_ICON[activeTab];
-                return <Icon className="w-10 h-10 text-black/80 fill-black/20" />;
+                const Icon = activeTheme.icon;
+                return <Icon className={`w-8 h-8 ${activeTheme.text}`} />;
               })()}
             </div>
-            <h3 className="text-lg font-bold text-white mb-1">{EMPTY_TEXT[activeTab]}</h3>
-            <p className="text-sm text-zinc-500 max-w-xs">
-              Добавляйте контент кнопкой на постере в каталоге фильмов, сериалов, аниме и игр — он появится здесь моментально.
+
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-1.5">
+              В списке «{activeTheme.name}» пока пусто
+            </h3>
+            <p className="text-xs sm:text-sm text-zinc-400 max-w-sm mb-6 leading-relaxed">
+              Добавляйте фильмы и сериалы в этот список кликом на значок закладки в каталоге.
             </p>
+
+            {/* Если у пользователя есть тайтлы в другом статусе — предлагаем перейти туда в 1 клик */}
+            {total > 0 && stats[activeTab] === 0 ? (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {(() => {
+                  const populated = STATUS_ORDER.find((s) => stats[s] > 0);
+                  if (!populated) return null;
+                  const pt = STATUS_THEME[populated];
+                  return (
+                    <button
+                      onClick={() => setActiveTab(populated)}
+                      className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 ${pt.activeTab}`}
+                    >
+                      <span>Открыть «{pt.name}» ({stats[populated]})</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  );
+                })()}
+                <Link
+                  to="/movies"
+                  className="px-4 py-2.5 rounded-xl font-semibold text-xs text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                >
+                  Каталог фильмов
+                </Link>
+              </div>
+            ) : (
+              <Link
+                to="/movies"
+                className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-white text-black hover:bg-zinc-200 transition-colors"
+              >
+                Перейти в каталог
+              </Link>
+            )}
           </div>
         ) : (
-          <div className="flex flex-col gap-3 max-w-3xl">
-            {filtered.map((b, i) => <BookmarkRow key={b.id} bookmark={b} index={i} />)}
+          /* Список тайтлов */
+          <div className="flex flex-col gap-2.5">
+            {filtered.map((bookmark, index) => (
+              <KinopoiskBookmarkRow
+                key={bookmark.id}
+                bookmark={bookmark}
+                index={index}
+                readOnly={isOtherUser}
+              />
+            ))}
           </div>
         )}
 
-        {/* Top-50 hint */}
-        {bookmarks.some((b) =>
-          (b.contentType === 'movie' && isInTop50('movie', b.contentId)) ||
-          (b.contentType === 'series' && isInTop50('anime', b.contentId)) ||
-          (b.contentType === 'game' && isInTop50('game', b.contentId))
+        {/* Сноска о синхронизации с Топ-50 */}
+        {bookmarks.some(
+          (b) =>
+            (b.contentType === 'movie' && isInTop50('movie', b.contentId)) ||
+            (b.contentType === 'series' && isInTop50('anime', b.contentId)) ||
+            (b.contentType === 'game' && isInTop50('game', b.contentId))
         ) && (
-          <p className="mt-10 text-center text-xs text-zinc-600 flex items-center justify-center gap-1.5">
-            <Trophy className="w-3.5 h-3.5 text-amber-500/60" />
-            Часть закладок добавлена и в Топ-50
+          <p className="mt-10 text-center text-xs text-zinc-500 flex items-center justify-center gap-1.5">
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <span>Часть закладок также синхронизирована с вашим личным Топ-50 профиля</span>
           </p>
         )}
       </div>

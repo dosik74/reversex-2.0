@@ -31,3 +31,5 @@ downloads/
 # Local design refs & mock assets (OneDrive-locked)
 button/
 design-references/
+supabase/.temp/
+.temp/

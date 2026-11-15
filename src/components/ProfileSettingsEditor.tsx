@@ -59,7 +59,6 @@ const ALL_BLOCKS: ShowcaseBlock[] = [
   { type: 'achievements', visible: true, visibility: 'all' },
   { type: 'inventory', visible: false, visibility: 'friends' },
   { type: 'favorite', visible: true, visibility: 'all' },
-  { type: 'stats', visible: true, visibility: 'all' },
 ];
 
 const BLOCK_LABELS: Record<string, string> = {
@@ -68,7 +67,6 @@ const BLOCK_LABELS: Record<string, string> = {
   achievements: 'Витрина достижений',
   inventory: 'Витрина предметов / инвентаря',
   favorite: 'Любимый контент (баннер)',
-  stats: 'Витрина статистики',
 };
 
 /* ═══ Мини-Markdown рендер: **жирный**, *курсив*, [ссылка](url), ==спойлер== ═══ */

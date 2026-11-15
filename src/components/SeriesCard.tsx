@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { useIMDbRating } from "@/hooks/useIMDbRating";
 import ContentActionsButton from "@/components/ContentActionsButton";
+import PosterImage from "@/components/PosterImage";
 
 interface Series {
   id: number;
@@ -13,8 +14,6 @@ interface Series {
   description?: string;
 }
 
-const FALLBACK_IMAGE = 'https://placehold.co/342x513/1a1a2e/ffffff?text=No+Image';
-
 const SeriesCard = ({ series }: { series: Series }) => {
   const { rating: imdbRating, loading: imdbLoading } = useIMDbRating({
     tmdbId: series.id,
@@ -22,22 +21,18 @@ const SeriesCard = ({ series }: { series: Series }) => {
   });
 
   const posterUrl = useMemo(() => {
-    if (!series.poster) return FALLBACK_IMAGE;
+    if (!series.poster) return null;
     return series.poster.replace('/w500/', '/w342/');
   }, [series.poster]);
 
   return (
     <Link to={`/series/${series.id}`}>
       <Card className="overflow-hidden hover-lift cursor-pointer group relative">
-        <div className="aspect-[2/3] relative overflow-hidden bg-muted">
-          <img
+        <div className="aspect-[2/3] relative overflow-hidden bg-zinc-950">
+          <PosterImage
             src={posterUrl}
             alt={series.title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = FALLBACK_IMAGE;
-            }}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           {(() => {
             const r = Number(series.rating);

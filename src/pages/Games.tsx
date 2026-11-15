@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import GameCard from "@/components/GameCard";
 import CatalogHeader from "@/components/CatalogHeader";
 import CatalogFilterBar from "@/components/CatalogFilterBar";
@@ -47,15 +47,23 @@ const GAME_GENRES = [
   "Horror",
 ];
 
+// In-memory cache for Games page across navigation
+let gamesMemoryCache: Game[] | null = null;
+
 const Games = () => {
   const { t } = useTranslation();
   const observerTarget = useRef<HTMLDivElement>(null);
   
-  const [allGames, setAllGames] = useState<Game[]>([]);
+  const [allGames, setAllGamesState] = useState<Game[]>(() => gamesMemoryCache || []);
   const [displayGames, setDisplayGames] = useState<Game[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !gamesMemoryCache || gamesMemoryCache.length === 0);
+
+  const setAllGames = (games: Game[]) => {
+    gamesMemoryCache = games;
+    setAllGamesState(games);
+  };
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [sortBy, setSortBy] = useState<SortOption>('popularity');
@@ -124,6 +132,10 @@ const Games = () => {
   }, [allGames.length]);
 
   useEffect(() => {
+    if (gamesMemoryCache && gamesMemoryCache.length > 0) {
+      setLoading(false);
+      return;
+    }
     fetchPopularGames();
   }, []);
 
@@ -144,37 +156,31 @@ const Games = () => {
       // ordering=-added: реально популярные игры. -rating у RAWG забит
       // ноунеймом с 5 голосами 5★ — отсюда «одинаковые» 4.8 у всех.
       const byId = new Map<number, Game>();
-      const TOTAL_PAGES = 6; // 6 × 40 = до 240 игр
+      const TOTAL_PAGES = 5; // 5 × 40 = 200 игр
 
-      for (let pageNum = 1; pageNum <= TOTAL_PAGES; pageNum++) {
-        try {
-          const data = await fetchRawg(
-            `https://api.rawg.io/api/games?key=${RAWG_API_KEY}&page_size=40&page=${pageNum}&ordering=-added`
-          );
-          if (!data.results || data.results.length === 0) break;
+      // Загружаем страницы параллельно за ~400мс без задержек и дёрганья
+      const promises = Array.from({ length: TOTAL_PAGES }, (_, i) =>
+        fetchRawg(
+          `https://api.rawg.io/api/games?key=${RAWG_API_KEY}&page_size=40&page=${i + 1}&ordering=-added`
+        ).catch(() => null)
+      );
 
-          for (const g of data.results) {
-            if (!g.background_image || byId.has(g.id)) continue;
-            byId.set(g.id, {
-              id: g.id,
-              title: g.name,
-              year: g.released?.split('-')[0] || 'Unknown',
-              rating: Math.round((g.rating || 0) * 10) / 10,
-              ratingsCount: g.ratings_count || 0,
-              poster: g.background_image,
-              description: g.description || '',
-              genres: g.genres?.map((genre: any) => genre.name) || []
-            });
-          }
+      const results = await Promise.all(promises);
 
-          // Progressive render
-          if (pageNum >= 1) setLoading(false);
-          setAllGames([...byId.values()]);
-
-          await new Promise(resolve => setTimeout(resolve, 150));
-        } catch (err) {
-          console.warn(`Failed to load games page ${pageNum}:`, err);
-          continue; // одна упавшая страница не роняет весь каталог
+      for (const data of results) {
+        if (!data?.results) continue;
+        for (const g of data.results) {
+          if (!g.background_image || byId.has(g.id)) continue;
+          byId.set(g.id, {
+            id: g.id,
+            title: g.name,
+            year: g.released?.split('-')[0] || 'Unknown',
+            rating: Math.round((g.rating || 0) * 10) / 10,
+            ratingsCount: g.ratings_count || 0,
+            poster: g.background_image,
+            description: g.description || '',
+            genres: g.genres?.map((genre: any) => genre.name) || []
+          });
         }
       }
 
