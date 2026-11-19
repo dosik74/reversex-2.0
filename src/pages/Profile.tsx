@@ -641,6 +641,13 @@ const Profile = () => {
     }
   };
 
+  // Обновляем кнопку «В друзья» сразу после принятия заявки в уведомлениях
+  useEffect(() => {
+    const onChange = () => checkFriendshipStatus();
+    window.addEventListener('rx:friendship-changed', onChange);
+    return () => window.removeEventListener('rx:friendship-changed', onChange);
+  });
+
   // Состояния загрузки
   if (loading) {
     return (

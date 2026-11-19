@@ -5,10 +5,18 @@ import { toast } from "sonner";
 import { useState } from "react";
 interface FriendRequestActionsProps {
   friendshipId: string;
+  notificationId?: string;
   onAction?: (payload?: { friendshipId: string; status: 'accepted' | 'rejected' }) => void;
 }
 
-const FriendRequestActions = ({ friendshipId, onAction }: FriendRequestActionsProps) => {
+const FriendRequestActions = ({ friendshipId, notificationId, onAction }: FriendRequestActionsProps) => {
+  const notifyFriendsChanged = () =>
+    window.dispatchEvent(new CustomEvent('rx:friendship-changed'));
+
+  const removeNotification = async () => {
+    if (!notificationId) return;
+    await supabase.from('notifications').delete().eq('id', notificationId);
+  };
   const [loading, setLoading] = useState(false);
   const handleAccept = async () => {
     try {
@@ -19,7 +27,9 @@ const FriendRequestActions = ({ friendshipId, onAction }: FriendRequestActionsPr
         .eq('id', friendshipId);
 
       if (error) throw error;
-      toast.success('Friend request accepted!');
+      await removeNotification();
+      notifyFriendsChanged();
+      toast.success('Заявка принята — вы теперь друзья');
       onAction?.({ friendshipId, status: 'accepted' });
     } catch (error: any) {
       toast.error('Failed to accept request');
@@ -37,7 +47,9 @@ const FriendRequestActions = ({ friendshipId, onAction }: FriendRequestActionsPr
         .eq('id', friendshipId);
 
       if (error) throw error;
-      toast.success('Friend request rejected');
+      await removeNotification();
+      notifyFriendsChanged();
+      toast.success('Заявка отклонена');
       onAction?.({ friendshipId, status: 'rejected' });
     } catch (error: any) {
       toast.error('Failed to reject request');

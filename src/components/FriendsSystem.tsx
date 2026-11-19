@@ -150,6 +150,13 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
     };
   }, [userId, fetchFriends]);
 
+  // Обновляем список сразу после принятия/отклонения заявки из уведомлений
+  useEffect(() => {
+    const onChange = () => fetchFriends();
+    window.addEventListener('rx:friendship-changed', onChange);
+    return () => window.removeEventListener('rx:friendship-changed', onChange);
+  }, [fetchFriends]);
+
   const handleSearch = async () => {
     if (!searchQuery.trim() || !currentUserId) return;
     setSearching(true);

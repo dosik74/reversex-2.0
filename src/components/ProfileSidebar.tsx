@@ -34,6 +34,9 @@ const ProfileSidebar = ({ userId, userLevel = 1, userXP = 0 }: ProfileSidebarPro
 
   useEffect(() => {
     fetchData();
+    const onChange = () => fetchData();
+    window.addEventListener('rx:friendship-changed', onChange);
+    return () => window.removeEventListener('rx:friendship-changed', onChange);
   }, [userId]);
 
   const fetchData = async () => {

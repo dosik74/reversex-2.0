@@ -233,7 +233,12 @@ const NotificationsPanel = ({
                       {notification.type === 'friend_request' && notification.friendshipId && (
                         <FriendRequestActions
                           friendshipId={notification.friendshipId}
-                          onAction={fetchNotifications}
+                          notificationId={notification.id}
+                          onAction={() =>
+                            setNotifications((prev) =>
+                              prev.filter((n) => n.id !== notification.id)
+                            )
+                          }
                         />
                       )}
                     </div>
