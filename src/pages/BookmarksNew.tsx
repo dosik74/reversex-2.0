@@ -209,7 +209,7 @@ function RatingModal({
           onKeyDown={(e) => e.key === 'Enter' && submit()}
           placeholder="0–10"
           autoFocus
-          className="w-full px-4 py-3 mb-4 bg-black/60 border border-white/10 rounded-2xl text-white text-center text-4xl font-black tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+          className="w-full px-4 py-3 mb-4 bg-black/60 border border-white/10 rounded-full text-white text-center text-4xl font-black tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400/50"
         />
 
         <div className="grid grid-cols-5 gap-1.5 mb-6">
@@ -217,7 +217,7 @@ function RatingModal({
             <button
               key={n}
               onClick={() => setRatingInput(String(n))}
-              className={`h-9 rounded-xl text-xs font-black tabular-nums transition-all ${
+              className={`h-9 rounded-full text-xs font-black tabular-nums transition-all ${
                 parseFloat(ratingInput) === n
                   ? 'bg-amber-400 text-black shadow-lg shadow-amber-400/30 scale-105'
                   : 'bg-white/5 text-zinc-300 hover:bg-white/15 hover:text-white border border-white/5'
@@ -231,13 +231,13 @@ function RatingModal({
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl bg-white/10 text-zinc-300 text-sm font-semibold hover:bg-white/15 transition-colors"
+            className="flex-1 py-2.5 rounded-full bg-white/10 text-zinc-300 text-sm font-semibold hover:bg-white/15 transition-colors"
           >
             Отмена
           </button>
           <button
             onClick={submit}
-            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-black text-sm font-bold shadow-lg shadow-amber-500/25 hover:brightness-105 transition-all"
+            className="flex-1 py-2.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-black text-sm font-bold shadow-lg shadow-amber-500/25 hover:brightness-105 transition-all"
           >
             Сохранить
           </button>
@@ -388,7 +388,7 @@ function KinopoiskBookmarkRow({
           {extRating > 0 && (
             <div className="hidden sm:flex flex-col items-end">
               <span
-                className={`bk-epic text-xl sm:text-2xl font-black tabular-nums px-3 py-1 rounded-xl border ${ratingBadgeClass}`}
+                className={`bk-epic text-xl sm:text-2xl font-black tabular-nums px-3 py-1 rounded-full border ${ratingBadgeClass}`}
               >
                 {extRating.toFixed(1)}
               </span>
@@ -403,7 +403,7 @@ function KinopoiskBookmarkRow({
             bookmark.userRating ? (
               <div className="flex flex-col items-center">
                 <div
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-300"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300"
                   title="Оценка пользователя"
                 >
                   <Star className="w-3.5 h-3.5 fill-current" />
@@ -419,7 +419,7 @@ function KinopoiskBookmarkRow({
               {bookmark.userRating ? (
                 <button
                   onClick={() => setRatingOpen(true)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-300 hover:bg-amber-400/25 transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 hover:bg-amber-400/25 transition-colors"
                   title="Изменить оценку"
                 >
                   <Star className="w-3.5 h-3.5 fill-current" />
@@ -430,7 +430,7 @@ function KinopoiskBookmarkRow({
               ) : (
                 <button
                   onClick={() => setRatingOpen(true)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-xl hover:bg-white/10 text-zinc-500 hover:text-amber-300 transition-colors text-xs font-medium"
+                  className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/10 text-zinc-500 hover:text-amber-300 transition-colors text-xs font-medium"
                   title="Поставить оценку"
                 >
                   <Star className="w-3.5 h-3.5" />
@@ -454,7 +454,7 @@ function KinopoiskBookmarkRow({
             <div className="relative">
               <button
                 onClick={() => setStatusMenuOpen(!statusMenuOpen)}
-                className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-300 hover:text-white hover:bg-white/15 border border-white/10 transition-colors"
+                className="w-11 h-11 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:bg-white/15 border border-white/10 transition-colors"
                 title="Действия"
               >
                 <MoreVertical className="w-4 h-4" />
@@ -719,7 +719,7 @@ export default function BookmarksNew() {
           </p>
           <Link
             to="/auth"
-            className="inline-flex items-center justify-center w-full py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-zinc-200 transition-all shadow-lg"
+            className="inline-flex items-center justify-center w-full py-3 rounded-full bg-white text-black font-bold text-sm hover:bg-zinc-200 transition-all shadow-lg"
           >
             Войти в аккаунт
           </Link>
@@ -765,7 +765,7 @@ export default function BookmarksNew() {
             <div className="relative flex items-center gap-2.5 shrink-0">
               <Link
                 to={targetProfile?.username ? `/${targetProfile.username}` : `/profile/${effectiveUserId}`}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-black transition-all border border-white/15 shadow-lg"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-black transition-all border border-white/15 shadow-lg"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Вернуться в профиль</span>
@@ -804,7 +804,7 @@ export default function BookmarksNew() {
               <button
                 key={s}
                 onClick={() => setActiveTab(s)}
-                className={`bk-tab group flex items-center gap-2 px-4 py-3 rounded-xl text-sm sm:text-base whitespace-nowrap shrink-0 transition-all duration-200 border ${
+                className={`bk-tab group flex items-center gap-2 px-5 py-3 rounded-full text-sm sm:text-base whitespace-nowrap shrink-0 transition-all duration-200 border ${
                   active ? `${t.activeTab}` : `${t.idleTab}`
                 }`}
               >
@@ -838,7 +838,7 @@ export default function BookmarksNew() {
                 <button
                   key={f.key}
                   onClick={() => setTypeFilter(f.key)}
-                  className={`bk-benzin flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm whitespace-nowrap transition-all ${
+                  className={`bk-benzin flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm whitespace-nowrap transition-all ${
                     active
                       ? 'bg-white text-black shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
@@ -865,7 +865,7 @@ export default function BookmarksNew() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Поиск по названию..."
-                className="w-full pl-8 pr-7 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-white/30"
+                className="w-full pl-8 pr-7 py-2 bg-black/40 border border-white/10 rounded-full text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-white/30"
               />
               {searchQuery && (
                 <button
@@ -880,7 +880,7 @@ export default function BookmarksNew() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="h-8 px-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-zinc-300 font-semibold focus:outline-none cursor-pointer"
+              className="h-9 px-3 rounded-full bg-black/40 border border-white/10 text-xs text-zinc-300 font-semibold focus:outline-none cursor-pointer"
             >
               <option value="date" className="bg-zinc-900 text-white">По дате</option>
               <option value="rating" className="bg-zinc-900 text-white">По оценке</option>
@@ -933,7 +933,7 @@ export default function BookmarksNew() {
                   return (
                     <button
                       onClick={() => setActiveTab(populated)}
-                      className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 ${pt.activeTab}`}
+                      className={`px-5 py-2.5 rounded-full font-bold text-xs sm:text-sm flex items-center gap-2 ${pt.activeTab}`}
                     >
                       <span>Открыть «{pt.name}» ({stats[populated]})</span>
                       <ArrowRight className="w-4 h-4" />
@@ -942,7 +942,7 @@ export default function BookmarksNew() {
                 })()}
                 <Link
                   to="/movies"
-                  className="px-4 py-2.5 rounded-xl font-semibold text-xs text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                  className="px-5 py-2.5 rounded-full font-semibold text-xs text-zinc-300 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
                 >
                   Каталог фильмов
                 </Link>
@@ -950,7 +950,7 @@ export default function BookmarksNew() {
             ) : (
               <Link
                 to="/movies"
-                className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-white text-black hover:bg-zinc-200 transition-colors"
+                className="px-5 py-2.5 rounded-full font-bold text-xs sm:text-sm bg-white text-black hover:bg-zinc-200 transition-colors"
               >
                 Перейти в каталог
               </Link>
