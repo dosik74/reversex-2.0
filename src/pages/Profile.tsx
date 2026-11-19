@@ -41,6 +41,7 @@ import {
  } from "lucide-react";
 import { Link } from "react-router-dom";
 import ProfileSidebar from "@/components/ProfileSidebar";
+import { useUserOnline } from "@/hooks/useUserOnline";
 import Top50Profile from "@/components/Top50Profile";
 import ProfileBookmarks from "@/components/ProfileBookmarks";
 import ProfileSettingsEditor, { renderMarkdown } from "@/components/ProfileSettingsEditor";
@@ -216,6 +217,7 @@ const Profile = () => {
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(initialResolvedId);
 
   const [profile, setProfile] = useState<Profile | null>(() => (rawIdentifier ? profileCache.get(rawIdentifier) || null : null));
+  const { online: isOnline } = useUserOnline(profile?.id);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFriend, setIsFriend] = useState(false);
@@ -646,16 +648,6 @@ const Profile = () => {
     }
   };
 
-  // Вспомогательные функции
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "online": return "bg-green-400 text-green-400";
-      case "idle": return "bg-yellow-400 text-yellow-400";
-      case "dnd": return "bg-red-500 text-red-500";
-      default: return "bg-gray-500 text-gray-500";
-    }
-  };
-
   // Состояния загрузки
   if (loading) {
     return (
@@ -800,8 +792,8 @@ const Profile = () => {
                     </Avatar>
                   </div>
                   <span
-                    title={profile.status}
-                    className={`rxp-status ${getStatusColor(profile.status)}`}
+                    title={isOnline ? 'В сети' : 'Не в сети'}
+                    className={`rxp-status ${isOnline ? 'bg-green-400 text-green-400' : 'bg-gray-500 text-gray-500'}`}
                   />
                 </div>
 
