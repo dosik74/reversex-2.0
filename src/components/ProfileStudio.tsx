@@ -248,9 +248,16 @@ const ProfileStudio = ({ enabled, onExit, userId }: Props) => {
       const id = `${el.dataset.studioBlock}-${i}`;
       const cfg = d.blocks[id];
       if (!cfg) return;
-      el.style.transform = `translate(${cfg.x}px, ${cfg.y}px) rotate(${cfg.rotation}deg)`;
+      // Реальные координаты в потоке: блок двигается и задаёт размер,
+      // а не просто визуально смещается через transform
+      el.style.position = "relative";
+      el.style.left = `${cfg.x}px`;
+      el.style.top = `${cfg.y}px`;
+      el.style.transform = cfg.rotation ? `rotate(${cfg.rotation}deg)` : "";
       el.style.width = `${cfg.w}px`;
+      el.style.minWidth = `${cfg.w}px`;
       el.style.height = cfg.h ? `${cfg.h}px` : "";
+      el.style.minHeight = cfg.h ? `${cfg.h}px` : "";
       el.style.zIndex = String(cfg.z);
       el.style.borderRadius = `${cfg.radius}px`;
       el.style.opacity = String(cfg.opacity / 100);
@@ -542,7 +549,11 @@ const ProfileStudio = ({ enabled, onExit, userId }: Props) => {
               width: selRect.width,
               height: selRect.height,
             }}
-          />
+          >
+            <span className="studio-size-badge">
+              {Math.round(selectedCfg.w)}×{Math.round(selectedCfg.h)} | {Math.round(selectedCfg.x)},{Math.round(selectedCfg.y)}
+            </span>
+          </div>
           {mode === "blocks" && ["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((dir) => (
             <div
               key={dir}

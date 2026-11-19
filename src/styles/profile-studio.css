@@ -30,6 +30,21 @@
   background: rgba(34, 211, 238, 0.04);
 }
 
+.studio-size-badge {
+  position: absolute;
+  left: 50%;
+  bottom: -28px;
+  transform: translateX(-50%);
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: #22d3ee;
+  color: #04161c;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+
 .studio-handle {
   position: absolute;
   z-index: 9001;
