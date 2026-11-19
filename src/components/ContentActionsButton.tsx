@@ -50,7 +50,7 @@ export default function ContentActionsButton({
   const [showRateModal, setShowRateModal] = useState(false);
   const [ratingInput, setRatingInput] = useState('');
   const [pendingStatus, setPendingStatus] = useState<ContentStatus | null>(null);
-  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const bookmark = getBookmark(contentType, contentId);
@@ -68,13 +68,34 @@ export default function ContentActionsButton({
       const el = containerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const right = Math.max(8, window.innerWidth - rect.right);
-      const openUp = rect.bottom + 420 > window.innerHeight && rect.top > 420;
-      setMenuPos(
-        openUp
-          ? { bottom: Math.max(8, window.innerHeight - rect.top + 8), right }
-          : { top: rect.bottom + 8, right }
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const margin = 8;
+      // ширина меню из CSS: 360px на десктопе, min(320px, 100vw - 20px) на мобиле
+      const menuWidth = vw >= 768 ? 360 : Math.min(320, vw - 20);
+      const menuHeight = 430; // примерная высота меню со всеми статусами
+
+      // Правый край меню совпадает с кнопкой, но меню не выходит за экран
+      const left = Math.max(
+        margin,
+        Math.min(rect.right - menuWidth, vw - menuWidth - margin)
       );
+
+      // Сначала пробуем открыть вниз; если не помещается — вверх;
+      // если и там тесно — прижимаем к верхнему краю экрана
+      let top: number | undefined = rect.bottom + margin;
+      let bottom: number | undefined;
+      if (top + menuHeight > vh - margin) {
+        const upBottom = vh - rect.top + margin;
+        if (vh - upBottom - menuHeight >= margin) {
+          bottom = upBottom;
+          top = undefined;
+        } else {
+          top = Math.max(margin, vh - menuHeight - margin);
+        }
+      }
+
+      setMenuPos({ left, top, bottom });
     };
     place();
     const close = () => setOpen(false);
@@ -215,7 +236,7 @@ export default function ContentActionsButton({
           <div className="fixed inset-0 z-[90]" onClick={() => setOpen(false)} />
           <div
             className="gpb-menu fixed z-[91]"
-            style={{ right: menuPos.right, top: menuPos.top, bottom: menuPos.bottom }}
+            style={{ left: menuPos.left, top: menuPos.top, bottom: menuPos.bottom }}
           >
             {/* Каскад 1: быстрые карточки */}
             <div className="gpb-stagger" style={{ '--stagger': 1 } as React.CSSProperties}>
