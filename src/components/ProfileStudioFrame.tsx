@@ -39,7 +39,7 @@ async function loadProfileData(userId: string) {
       .single(),
     supabase
       .from("content_bookmarks")
-      .select("title, external_rating, status, release_year, genre, content_type")
+      .select("title, poster_url, status, release_year, genre, content_type")
       .eq("user_id", userId)
       .limit(60),
     supabase
@@ -57,10 +57,19 @@ async function loadProfileData(userId: string) {
       .eq("author_id", userId),
     supabase
       .from("top_lists")
-      .select("title")
+      .select("id, title")
       .eq("user_id", userId)
       .limit(3),
   ]);
+
+  const listIds = (listsRes.data || []).map((l: any) => l.id);
+  const listItemsRes = listIds.length
+    ? await supabase
+        .from("top_list_items")
+        .select("top_list_id, item_id, title, poster_url")
+        .in("top_list_id", listIds)
+        .order("rank", { ascending: true })
+    : { data: [] as any[] };
 
   const p: any = profileRes.data || {};
   const media = (bookmarksRes.data || []).map((b: any, i: number) => ({
@@ -68,10 +77,19 @@ async function loadProfileData(userId: string) {
     year: Number(String(b.release_year || "0").slice(0, 4)) || 0,
     cat: TYPE_RU[b.content_type] || "Фильмы",
     status: STATUS_RU[b.status] || "Просмотрено",
-    rating: Number(b.external_rating || 0),
+    poster: b.poster_url || "",
     color: PALETTE[i % PALETTE.length],
     genre: b.genre || "",
   }));
+
+  const topLists = (listsRes.data || []).map((l: any) => {
+    const items = (listItemsRes.data || []).filter((it: any) => it.top_list_id === l.id);
+    return {
+      title: l.title,
+      poster: items[0]?.poster_url || "",
+      items: items.slice(0, 6).map((it: any) => ({ id: it.item_id, title: it.title })),
+    };
+  });
 
   return {
     username: p.username || "user",
@@ -88,7 +106,7 @@ async function loadProfileData(userId: string) {
     },
     friendsCount: friendsRes.count || 0,
     media,
-    topLists: listsRes.data || [],
+    topLists,
   };
 }
 

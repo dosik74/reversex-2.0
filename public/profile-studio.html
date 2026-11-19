@@ -952,6 +952,7 @@
       searchQuery: '',
       sortBy: 'date',
       profile: null,     // реальные данные профиля с сервера
+      topPosters: [],
       history: [],
       historyIdx: -1
     };
@@ -995,8 +996,10 @@
       if (p.friendsCount !== undefined) state.texts['blk_friends_count'] = String(p.friendsCount);
       if (p.bio !== undefined) state.texts['blk_bio_bio'] = escHtml(p.bio || '...');
       if (p.topLists && p.topLists.length) {
+        state.topPosters = [];
         p.topLists.slice(0, 3).forEach((l, i) => {
           state.texts['blk_toplists_i' + (i + 1)] = escHtml(l.title);
+          state.topPosters[i] = l.poster || '';
         });
       }
       if (Array.isArray(p.media) && p.media.length) SAMPLE_MEDIA = p.media;
@@ -1474,15 +1477,18 @@
               </div>
               <div class="rx-part flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80" data-part-id="item1" data-part-name="Элемент #1 Top 50 Movies">
                 <span class="text-rxCyan font-display font-bold text-xs">#1</span>
-                <div class="min-w-0"><div class="text-xs font-semibold text-white">${t('i1', 'Top 50 Movies')}</div><div class="text-[10px] text-rxCyan">★ 5</div></div>
+                ${(state.topPosters && state.topPosters[0]) ? `<img src="${escAttr(state.topPosters[0])}" alt="" class="w-8 h-11 object-cover rounded shadow" onerror="this.style.display='none'" />` : ''}
+                <div class="min-w-0"><div class="text-xs font-semibold text-white">${t('i1', 'Top 50 Movies')}</div><div class="text-[10px] text-rxCyan">Топ-50</div></div>
               </div>
               <div class="rx-part flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80" data-part-id="item2" data-part-name="Элемент #2 Top 50 Games">
                 <span class="text-rxCyan font-display font-bold text-xs">#2</span>
-                <div class="min-w-0"><div class="text-xs font-semibold text-white">${t('i2', 'Top 50 Games')}</div><div class="text-[10px] text-rxCyan">★ 12</div></div>
+                ${(state.topPosters && state.topPosters[1]) ? `<img src="${escAttr(state.topPosters[1])}" alt="" class="w-8 h-11 object-cover rounded shadow" onerror="this.style.display='none'" />` : ''}
+                <div class="min-w-0"><div class="text-xs font-semibold text-white">${t('i2', 'Top 50 Games')}</div><div class="text-[10px] text-rxCyan">Топ-50</div></div>
               </div>
               <div class="rx-part flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80" data-part-id="item3" data-part-name="Элемент #3 Top 50 Series">
                 <span class="text-rxCyan font-display font-bold text-xs">#3</span>
-                <div class="min-w-0"><div class="text-xs font-semibold text-white">${t('i3', 'Top 50 Series')}</div><div class="text-[10px] text-rxCyan">★ 8</div></div>
+                ${(state.topPosters && state.topPosters[2]) ? `<img src="${escAttr(state.topPosters[2])}" alt="" class="w-8 h-11 object-cover rounded shadow" onerror="this.style.display='none'" />` : ''}
+                <div class="min-w-0"><div class="text-xs font-semibold text-white">${t('i3', 'Top 50 Series')}</div><div class="text-[10px] text-rxCyan">Топ-50</div></div>
               </div>
             </div>
           `;
@@ -1581,7 +1587,6 @@
                          class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:border-rxCyan focus:outline-none w-44">
                   <select onchange="setMediaSort(this.value)" class="px-2.5 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none">
                     <option value="date">По дате</option>
-                    <option value="rating">По рейтингу</option>
                     <option value="title">По названию</option>
                   </select>
                 </div>
@@ -1634,7 +1639,6 @@
         const qOk = !state.searchQuery || m.title.toLowerCase().includes(state.searchQuery.toLowerCase());
         return sOk && cOk && qOk;
       }).sort((a, b) => {
-        if (state.sortBy === 'rating') return b.rating - a.rating;
         if (state.sortBy === 'title') return a.title.localeCompare(b.title);
         return b.year - a.year;
       });
@@ -1642,16 +1646,20 @@
       if (!items.length) {
         return `<div class="col-span-full py-10 text-center text-xs text-slate-500">В этом списке пока нет тайтлов</div>`;
       }
+      const fallback = 'https://placehold.co/300x450/10121a/22d3ee?text=RX';
       return items.map(m => `
-        <div onclick="if(!state.editMode) showToast('${escAttr(m.title)} (${m.year}) — ★ ${m.rating}')"
-             class="rounded-xl bg-slate-900/75 border border-slate-800 hover:border-rxCyan/45 p-3 flex flex-col justify-between gap-2 cursor-pointer transition">
-          <div class="h-1.5 w-10 rounded-full" style="background:${m.color}"></div>
-          <div>
+        <div onclick="if(!state.editMode) showToast('${escAttr(m.title)} (${m.year})')"
+             class="group rounded-xl bg-slate-900/75 border border-slate-800 hover:border-rxCyan/45 overflow-hidden cursor-pointer transition flex flex-col">
+          <div class="relative aspect-[2/3] w-full overflow-hidden bg-slate-800">
+            <img src="${escAttr(m.poster || fallback)}" alt="${escAttr(m.title)}" loading="lazy"
+                 onerror="this.src='${fallback}'"
+                 class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+            <div class="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/90 to-transparent pointer-events-none"></div>
+            <span class="absolute left-2 top-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur">${escHtml(m.cat || '')}</span>
+          </div>
+          <div class="p-2.5">
             <div class="text-xs font-bold text-white truncate">${escHtml(m.title)}</div>
-            <div class="text-[11px] text-slate-400 flex justify-between mt-1">
-              <span>${m.year} · ${m.genre}</span>
-              <span class="text-amber-400 font-bold">★ ${m.rating}</span>
-            </div>
+            <div class="text-[11px] text-slate-400 mt-1">${m.year} · ${escHtml(m.genre || '')}</div>
           </div>
         </div>
       `).join('');
