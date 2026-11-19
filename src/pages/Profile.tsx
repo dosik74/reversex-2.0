@@ -621,10 +621,18 @@ const Profile = () => {
     if (!currentUserId || !targetUid) return;
 
     try {
-      const { error } = await supabase
+      const { data: created, error } = await supabase
         .from('friendships')
-        .insert({ requester_id: currentUserId, addressee_id: targetUid });
+        .insert({ requester_id: currentUserId, addressee_id: targetUid })
+        .select('id')
+        .single();
       if (error) throw error;
+      await supabase.from('notifications').insert({
+        user_id: targetUid,
+        actor_id: currentUserId,
+        type: 'friend_request',
+        data: { friendship_id: created?.id },
+      });
       toast.success("Запрос на дружбу отправлен");
       setFriendshipStatus("pending");
     } catch (err) {

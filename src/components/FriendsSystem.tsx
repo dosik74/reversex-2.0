@@ -208,13 +208,20 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
         return;
       }
 
-      const { error } = await supabase.from("friendships").insert({
+      const { data: created, error } = await supabase.from("friendships").insert({
         requester_id: currentUserId,
         addressee_id: friendId,
         status: "pending",
-      });
+      }).select("id").single();
 
       if (error) throw error;
+      // Уведомление в колокольчик (живая схема: actor_id + data)
+      await supabase.from("notifications").insert({
+        user_id: friendId,
+        actor_id: currentUserId,
+        type: "friend_request",
+        data: { friendship_id: created?.id },
+      });
       toast.success("Запрос отправлен");
       fetchFriends();
     } catch (err) {
