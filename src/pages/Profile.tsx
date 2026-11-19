@@ -846,6 +846,10 @@ const Profile = () => {
 
                 {isOwnProfile ? (
                   <>
+                    <Link to="/profile-studio" className="rxp-btn rxp-btn-ghost">
+                      <Sparkles className="w-4 h-4" />
+                      Конструктор
+                    </Link>
                     <button
                       onClick={() => setShowEditor(true)}
                       className="rxp-btn rxp-btn-neon shadow-lg hover:shadow-cyan-500/25"
