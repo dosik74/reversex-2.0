@@ -783,15 +783,17 @@ const Profile = () => {
                   <div className="rxp-avatar-frame">
                     {/* Пользовательская рамка (GIF/APNG) поверх аватара */}
                     {profile.avatar_frame_url && (
-                      <img
-                        src={profile.avatar_frame_url}
-                        alt=""
-                        className="absolute inset-0 w-full h-full pointer-events-none"
-                        style={{ transform: 'scale(1.35)', zIndex: 5 }}
-                      />
+                      <div className="absolute inset-0 z-[5] rounded-full overflow-hidden pointer-events-none">
+                        <img
+                          src={profile.avatar_frame_url}
+                          alt=""
+                          className="w-full h-full object-cover rounded-full"
+                          style={{ transform: 'scale(1.35)' }}
+                        />
+                      </div>
                     )}
                     <Avatar className="avatar-wrap w-28 h-28 md:w-36 md:h-36 rounded-full shadow-2xl">
-                      <AvatarImage src={profile.avatar_url || undefined} />
+                      <AvatarImage src={profile.avatar_url || undefined} className="rounded-full object-cover" />
                       <AvatarFallback className="rounded-full text-4xl font-grotesk font-bold bg-gradient-to-br from-primary to-accent text-primary-foreground">
                         {profile.username?.[0]?.toUpperCase()}
                       </AvatarFallback>

@@ -741,7 +741,7 @@ export default function BookmarksNew() {
         {isOtherUser ? (
           <div className="bk-hero p-5 sm:p-7 mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-5">
             <div className="relative flex items-center gap-4 sm:gap-5 min-w-0">
-              <Avatar className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-emerald-400/40 shrink-0 shadow-xl shadow-black/50">
+              <Avatar className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-emerald-400/40 shrink-0 shadow-xl shadow-black/50">
                 <AvatarImage src={targetProfile?.avatar_url || undefined} />
                 <AvatarFallback className="bk-benzin bg-emerald-500/15 text-emerald-300 text-2xl">
                   {targetProfile?.username?.[0]?.toUpperCase() || 'U'}

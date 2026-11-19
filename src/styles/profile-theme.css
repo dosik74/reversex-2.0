@@ -107,9 +107,12 @@
   }
 }
 .rxp-avatar-frame [data-radix-avatar],
-.rxp-avatar-frame .avatar-wrap {
-  border-radius: 999px;
+.rxp-avatar-frame .avatar-wrap,
+.rxp-avatar-frame img,
+.rxp-avatar-frame [data-radix-avatar-image] {
+  border-radius: 9999px !important;
   overflow: hidden;
+  object-fit: cover;
   display: block;
 }
 
