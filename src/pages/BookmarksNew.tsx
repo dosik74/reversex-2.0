@@ -319,15 +319,25 @@ function KinopoiskBookmarkRow({
     <>
       <div
         onClick={openDetail}
-        className="bk-row group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl transition-all duration-200 cursor-pointer"
+        className="bk-row group relative flex items-center gap-4 sm:gap-6 p-4 sm:p-6 rounded-2xl overflow-hidden min-h-[150px] sm:min-h-[200px] md:min-h-[250px] transition-all duration-300 cursor-pointer"
       >
+        {/* Индивидуальный фон карточки — размытый постер конкретного фильма */}
+        {bookmark.posterUrl && (
+          <div
+            className="absolute inset-0 bg-cover bg-center blur-3xl scale-125 opacity-30 group-hover:opacity-45 transition-opacity duration-500 pointer-events-none"
+            style={{ backgroundImage: `url(${bookmark.posterUrl})` }}
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/75 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-purple-400/70 to-transparent opacity-60 pointer-events-none" />
+
         {/* Номер в списке (как на Кинопоиске: 1, 2, 3...) */}
-        <span className="bk-rank w-7 sm:w-9 text-center text-zinc-400 shrink-0 select-none group-hover:text-purple-300 transition-colors">
+        <span className="bk-rank relative z-10 w-8 sm:w-12 text-center text-xl sm:text-3xl text-zinc-400 shrink-0 select-none group-hover:text-purple-300 transition-colors">
           {index + 1}
         </span>
 
         {/* Компактный качественный постер */}
-        <div className="relative w-14 sm:w-16 md:w-20 aspect-[2/3] shrink-0 rounded-xl overflow-hidden bg-zinc-800 shadow-md border border-white/5">
+        <div className="relative z-10 w-24 sm:w-36 md:w-48 aspect-[2/3] shrink-0 rounded-xl overflow-hidden bg-zinc-800 shadow-2xl shadow-black/80 border border-white/15 ring-1 ring-white/10">
           <PosterImage
             src={bookmark.posterUrl}
             alt={bookmark.title}
@@ -336,21 +346,21 @@ function KinopoiskBookmarkRow({
         </div>
 
         {/* Центральная колонка с информацией о фильме/сериале */}
-        <div className="flex-1 min-w-0 pr-2">
+        <div className="relative z-10 flex-1 min-w-0 pr-2">
           {/* Название + Год */}
           <div className="flex flex-wrap items-baseline gap-2">
-            <h3 className="bk-benzin text-sm sm:text-base md:text-lg text-white group-hover:text-purple-200 transition-colors line-clamp-1">
+            <h3 className="bk-benzin text-base sm:text-2xl md:text-3xl text-white group-hover:text-purple-200 transition-colors line-clamp-2 leading-tight">
               {bookmark.title}
             </h3>
             {bookmark.releaseYear && (
-              <span className="bk-epic text-xs sm:text-sm text-zinc-300 font-bold tabular-nums shrink-0">
+              <span className="bk-epic text-sm sm:text-lg text-zinc-300 font-bold tabular-nums shrink-0">
                 {bookmark.releaseYear}
               </span>
             )}
           </div>
 
           {/* Мета-информация: Тип контента · Жанр */}
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1 text-xs text-zinc-400">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 text-xs sm:text-sm text-zinc-300">
             <span className="bk-benzin px-2 py-0.5 rounded bg-white/10 text-[11px] text-zinc-200">
               {TYPE_LABEL[bookmark.contentType]}
             </span>
@@ -362,7 +372,7 @@ function KinopoiskBookmarkRow({
           </div>
 
           {/* Статус-чип с цветной точкой (как в Anixart) */}
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-3 flex items-center gap-2">
             <span
               className={`bk-benzin inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] ${theme.badge} border`}
             >
@@ -373,12 +383,12 @@ function KinopoiskBookmarkRow({
         </div>
 
         {/* Правая колонка: Рейтинги Кинопоиска/TMDB + Личная оценка + Меню */}
-        <div className="flex items-center gap-2 sm:gap-5 shrink-0" onClick={(e) => e.stopPropagation()}>
+        <div className="relative z-10 flex items-center gap-3 sm:gap-6 shrink-0" onClick={(e) => e.stopPropagation()}>
           {/* Внешний рейтинг (TMDB/Кинопоиск) */}
           {extRating > 0 && (
             <div className="hidden sm:flex flex-col items-end">
               <span
-                className={`bk-epic text-base sm:text-lg font-black tabular-nums px-2 py-0.5 rounded-lg border ${ratingBadgeClass}`}
+                className={`bk-epic text-xl sm:text-2xl font-black tabular-nums px-3 py-1 rounded-xl border ${ratingBadgeClass}`}
               >
                 {extRating.toFixed(1)}
               </span>
@@ -397,7 +407,7 @@ function KinopoiskBookmarkRow({
                   title="Оценка пользователя"
                 >
                   <Star className="w-3.5 h-3.5 fill-current" />
-                  <span className="text-xs font-black tabular-nums">
+                  <span className="bk-epic text-base font-black tabular-nums">
                     {Number(bookmark.userRating).toFixed(1)}
                   </span>
                 </div>
@@ -413,7 +423,7 @@ function KinopoiskBookmarkRow({
                   title="Изменить оценку"
                 >
                   <Star className="w-3.5 h-3.5 fill-current" />
-                  <span className="text-xs font-black tabular-nums">
+                  <span className="bk-epic text-base font-black tabular-nums">
                     {Number(bookmark.userRating).toFixed(1)}
                   </span>
                 </button>
@@ -444,7 +454,7 @@ function KinopoiskBookmarkRow({
             <div className="relative">
               <button
                 onClick={() => setStatusMenuOpen(!statusMenuOpen)}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-zinc-300 hover:text-white hover:bg-white/15 border border-white/10 transition-colors"
                 title="Действия"
               >
                 <MoreVertical className="w-4 h-4" />
@@ -456,7 +466,7 @@ function KinopoiskBookmarkRow({
                   className="fixed inset-0 z-30"
                   onClick={() => setStatusMenuOpen(false)}
                 />
-                <div className="absolute right-0 top-10 z-40 w-52 rounded-2xl border border-white/15 bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/80 py-2 animate-in zoom-in-95 duration-150">
+                <div className="absolute right-0 top-12 z-40 w-56 rounded-2xl border border-white/15 bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/80 py-2 animate-in zoom-in-95 duration-150">
                   <button
                     onClick={() => {
                       setStatusMenuOpen(false);
@@ -726,7 +736,7 @@ export default function BookmarksNew() {
         className="absolute -top-40 left-1/2 -translate-x-1/2 w-[40rem] h-[24rem] rounded-full blur-[160px] opacity-[0.14] pointer-events-none transition-all duration-700"
       />
 
-      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-8">
+      <div className="relative w-full max-w-[1680px] mx-auto px-4 sm:px-8 pt-8">
         {/* Шапка раздела в стиле Кинопоиска */}
         {isOtherUser ? (
           <div className="bk-hero p-5 sm:p-7 mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-5">
@@ -890,7 +900,7 @@ export default function BookmarksNew() {
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="h-24 sm:h-28 rounded-2xl bg-zinc-900/40 border border-white/5 animate-pulse"
+                className="h-40 sm:h-56 rounded-2xl bg-zinc-900/40 border border-white/5 animate-pulse"
               />
             ))}
           </div>
@@ -948,7 +958,7 @@ export default function BookmarksNew() {
           </div>
         ) : (
           /* Список тайтлов */
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-4 sm:gap-5">
             {filtered.map((bookmark, index) => (
               <KinopoiskBookmarkRow
                 key={bookmark.id}
