@@ -259,13 +259,13 @@ const ProfileSettingsEditor = ({ userId, open, onClose, initial, onSaved }: Prof
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Настройка профиля</DialogTitle>
+      <DialogContent className="ps-settings max-w-5xl max-h-[92vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/10">
+          <DialogTitle className="ps-title">Настройка профиля</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 h-auto">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)} className="ps-tabs flex-1 overflow-hidden flex flex-col">
+          <TabsList className="ps-tabs-list grid w-full grid-cols-4 lg:grid-cols-8 h-auto">
             <TabsTrigger value="avatar">Аватар</TabsTrigger>
             <TabsTrigger value="background">Фон</TabsTrigger>
             <TabsTrigger value="theme">Тема</TabsTrigger>
@@ -288,12 +288,14 @@ const ProfileSettingsEditor = ({ userId, open, onClose, initial, onSaved }: Prof
                   onError={(e) => ((e.target as HTMLImageElement).style.opacity = '0.15')}
                 />
                 {data.avatar_frame_url && (
-                  <img
-                    src={data.avatar_frame_url}
-                    alt=""
-                    className="absolute inset-0 w-full h-full pointer-events-none"
-                    style={{ transform: 'scale(1.35)' }}
-                  />
+                  <div className="absolute inset-0 rounded-full overflow-hidden pointer-events-none">
+                    <img
+                      src={data.avatar_frame_url}
+                      alt=""
+                      className="w-full h-full object-cover rounded-full"
+                      style={{ transform: 'scale(1.35)' }}
+                    />
+                  </div>
                 )}
               </div>
               <div className="flex-1 space-y-2">
@@ -684,7 +686,7 @@ const ProfileSettingsEditor = ({ userId, open, onClose, initial, onSaved }: Prof
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <div className="ps-footer flex justify-end gap-2 px-6 py-4 border-t border-white/10 bg-black/30">
           <Button variant="ghost" onClick={onClose}>
             Отмена
           </Button>
