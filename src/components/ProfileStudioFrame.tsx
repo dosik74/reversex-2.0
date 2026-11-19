@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 import supabase from "@/lib/supabase";
+import Top50Profile from "@/components/Top50Profile";
 
 const STORAGE_KEY = "reversex_profile_studio_v2";
 
@@ -64,7 +66,7 @@ async function loadProfileData(userId: string) {
   const listItemsRes = listIds.length
     ? await supabase
         .from("top_list_items")
-        .select("top_list_id, item_id, title, poster_url")
+        .select("top_list_id, item_id, title, poster_url, metadata")
         .in("top_list_id", listIds)
         .order("rank", { ascending: true })
     : { data: [] as any[] };
@@ -85,7 +87,11 @@ async function loadProfileData(userId: string) {
     return {
       title: l.title,
       poster: items[0]?.poster_url || "",
-      items: items.slice(0, 6).map((it: any) => ({ id: it.item_id, title: it.title })),
+      items: items.slice(0, 10).map((it: any) => ({
+        id: it.item_id,
+        title: it.title,
+        poster: it.poster_url || (it.metadata as any)?.poster_url || "",
+      })),
     };
   });
 
@@ -129,6 +135,7 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
   const stage = useRef<"load-studio" | "inject-data" | "done">("load-studio");
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [top50Open, setTop50Open] = useState(false);
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -206,6 +213,22 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
     }
   };
 
+  // Команды из встроенного редактора
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      const type = e.data?.type;
+      if (type === "RX_NAV" && typeof e.data.path === "string") {
+        window.location.href = e.data.path;
+      } else if (type === "RX_SAVE") {
+        void saveToServer();
+      } else if (type === "RX_OPEN_TOP50") {
+        setTop50Open(true);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [saveToServer]);
+
   // Автосохранение каждые 12 секунд, пока открыт конструктор
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -222,6 +245,18 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
         title="Конструктор профиля ReverseX"
         className="min-h-0 w-full flex-1 border-0 bg-[#090a0f]"
       />
+
+      {top50Open && (
+        <div className="fixed inset-0 z-[2147483647] overflow-y-auto bg-[#090a0f]">
+          <button
+            onClick={() => setTop50Open(false)}
+            className="fixed right-5 top-5 z-[2147483647] inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/70 px-4 py-2 text-sm font-bold text-white backdrop-blur hover:bg-white/20"
+          >
+            <X className="h-4 w-4" /> Закрыть
+          </button>
+          <Top50Profile userId={userId} isOwnProfile />
+        </div>
+      )}
     </div>
   );
 };

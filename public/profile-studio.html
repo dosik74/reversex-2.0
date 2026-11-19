@@ -50,6 +50,18 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    /* Верхняя навигация: всегда сверху, не участвует в редактировании */
+    .rx-fixed-nav {
+      position: fixed !important;
+      top: 12px;
+      left: 0;
+      right: 0;
+      z-index: 2147483000 !important;
+      pointer-events: none;
+    }
+    .rx-fixed-nav nav { pointer-events: auto; }
+    #profileCanvas { padding-top: 72px; }
+
     /* Subtle dark header grid */
     .rx-hero-grid {
       background-image:
@@ -312,10 +324,10 @@
   <!-- ========================================================= -->
   <!-- TOP NAVIGATION BAR (ReverseX Floating Pill)               -->
   <!-- ========================================================= -->
-  <header class="sticky top-3 z-[8000] px-3 sm:px-6 max-w-[1440px] mx-auto">
+  <header class="rx-fixed-nav px-3 sm:px-6 max-w-[1440px] mx-auto">
     <nav class="rx-surface rounded-2xl px-4 py-2.5 flex items-center justify-between gap-4 shadow-2xl shadow-black/70">
       <!-- ReverseX Geometric Logo -->
-      <a href="#top" onclick="showToast('Профиль DOSIKTE — ReverseX')" class="flex items-center gap-2.5 shrink-0 group">
+      <a href="#" onclick="event.preventDefault(); rxNav('/')" class="flex items-center gap-2.5 shrink-0 group">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-purple-500/20 border border-fuchsia-500/35 flex items-center justify-center group-hover:scale-105 transition">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M5 12L17 4V9L11 12L17 15V20L5 12Z" fill="url(#rxGrad)"/>
@@ -332,31 +344,37 @@
 
       <!-- Centered Nav Links -->
       <div class="hidden lg:flex items-center gap-1 text-[13px] font-medium text-slate-400">
-        <button onclick="showToast('Раздел: Home')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
+        <button onclick="rxNav('/')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>Home
         </button>
-        <button onclick="showToast('Раздел: Movies')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
+        <button onclick="rxNav('/movies')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 4v16M17 4v16"/></svg>Movies
         </button>
-        <button onclick="showToast('Раздел: Series')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
+        <button onclick="rxNav('/series')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M17 2l-5 5-5-5"/></svg>Series
         </button>
-        <button onclick="showToast('Раздел: Games')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
+        <button onclick="rxNav('/games')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/></svg>Games
         </button>
-        <button onclick="showToast('Раздел: Bookmarks')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white bg-white/5 transition">
+        <button onclick="rxNav('/bookmarks')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white bg-white/5 transition">
           <svg class="w-4 h-4 text-rxTeal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Bookmarks
         </button>
-        <button onclick="showToast('Раздел: Music')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
+        <button onclick="rxNav('/music')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Music
         </button>
-        <button onclick="showToast('Раздел: Books')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
+        <button onclick="rxNav('/books')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Books
         </button>
       </div>
 
       <!-- Right Controls -->
       <div class="flex items-center gap-2">
+        <button onclick="window.parent.postMessage({type:'RX_OPEN_TOP50'}, '*')" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 transition">
+          🏆 Топ 50
+        </button>
+        <button onclick="window.parent.postMessage({type:'RX_SAVE'}, '*')" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-emerald-400/40 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20 transition">
+          💾 Сохранить
+        </button>
         <button id="navStudioBtn" onclick="toggleEditMode()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-rxCyan/50 bg-rxCyan/15 text-rxCyan hover:bg-rxCyan/25 transition">
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           <span id="navStudioText">Конструктор</span>
@@ -364,10 +382,10 @@
         <button onclick="openPageBgModal()" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Фон всей страницы">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
         </button>
-        <button onclick="showToast('Новых уведомлений нет')" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Уведомления">
+        <button onclick="rxNav('/friends')" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Уведомления">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </button>
-        <button onclick="showToast('Чат пуст')" class="hidden sm:flex w-8 h-8 rounded-xl items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Сообщения">
+        <button onclick="rxNav('/friends')" class="hidden sm:flex w-8 h-8 rounded-xl items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition" title="Сообщения">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
         <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-200">D</div>
@@ -928,7 +946,8 @@
         { id: 'blk_tabs', type: 'tabs', title: 'Вкладки профиля', x: 356, y: 506, w: 982, h: 62, z: 11, radius: 22, rotation: 0, opacity: 1, locked: false, pinned: false, overflowHidden: true, font: '', bg: defaultBg() },
         { id: 'blk_bm_banner', type: 'bmBanner', title: 'Баннер закладок', x: 356, y: 584, w: 982, h: 74, z: 10, radius: 18, rotation: 0, opacity: 1, locked: false, pinned: false, overflowHidden: true, font: '', bg: defaultBg() },
         { id: 'blk_filters', type: 'filters', title: 'Фильтры статусов', x: 356, y: 672, w: 982, h: 52, z: 10, radius: 16, rotation: 0, opacity: 1, locked: false, pinned: false, overflowHidden: false, font: '', bg: { ...defaultBg(), mode: 'color', alpha: 0 } },
-        { id: 'blk_collection', type: 'collection', title: 'Коллекция тайтлов', x: 356, y: 736, w: 982, h: 380, z: 10, radius: 18, rotation: 0, opacity: 1, locked: false, pinned: false, overflowHidden: true, font: '', bg: defaultBg() }
+        { id: 'blk_collection', type: 'collection', title: 'Коллекция тайтлов', x: 356, y: 736, w: 982, h: 380, z: 10, radius: 18, rotation: 0, opacity: 1, locked: false, pinned: false, overflowHidden: true, font: '', bg: defaultBg() },
+        { id: 'blk_top50', type: 'top50', title: 'Мой Топ 50', x: 24, y: 1130, w: 1314, h: 320, z: 10, radius: 18, rotation: 0, opacity: 1, locked: false, pinned: false, overflowHidden: true, font: '', bg: defaultBg() }
       ];
     }
 
@@ -1049,6 +1068,12 @@
             state.globalFont = data.globalFont || 'Inter';
             state.pageBg = Object.assign(defaultPageBg(), data.pageBg || {});
             state.blocks = data.blocks;
+            // Добавляем новые блоки (например, Топ 50), которых не было в старом сохранении
+            const ids = new Set(state.blocks.map(b => b.id));
+            getDefaultBlocks().forEach(b => {
+              if (!ids.has(b.id)) state.blocks.push(JSON.parse(JSON.stringify(b)));
+            });
+            state.blocks.sort((a, b) => getDefaultBlocks().findIndex(x => x.id === a.id) - getDefaultBlocks().findIndex(x => x.id === b.id));
             state.parts = data.parts || {};
             state.texts = data.texts || {};
             return;
@@ -1623,6 +1648,33 @@
           return `
             <div class="rx-part w-full h-full overflow-hidden rounded-2xl" data-part-id="img" data-part-name="Картинка">
               <img data-custom-img="true" src="${escAttr(src)}" alt="Media" onerror="this.src='https://placehold.co/600x400/10121a/22d3ee?text=Image'" class="w-full h-full object-cover pointer-events-none" />
+            </div>
+          `;
+        }
+
+        case 'top50': {
+          const list = state.profile && state.profile.topLists && state.profile.topLists[0];
+          const items = (list && list.items) || [];
+          const cards = items.length
+            ? items.slice(0, 10).map((it, i) => `
+                <div class="relative w-[130px] sm:w-[150px] shrink-0">
+                  <div class="font-display italic font-black text-4xl text-amber-300/90 leading-none mb-1 pl-1" style="text-shadow:0 2px 12px rgba(0,0,0,.9)">${i + 1}</div>
+                  <div class="aspect-[2/3] w-full rounded-xl overflow-hidden border border-amber-400/30 bg-slate-800 shadow-lg">
+                    ${it.poster ? `<img src="${escAttr(it.poster)}" alt="" class="w-full h-full object-cover" onerror="this.style.display='none'" />` : ''}
+                  </div>
+                  <div class="mt-1.5 text-[11px] font-bold text-white truncate">${escHtml(it.title || '')}</div>
+                </div>
+              `).join('')
+            : `<div class="text-sm text-slate-500 py-10">Нажми «🏆 Топ 50», чтобы открыть свой список</div>`;
+          return `
+            <div class="w-full h-full p-4 flex flex-col">
+              <div class="flex items-center justify-between mb-3">
+                <div class="rx-part flex items-center gap-2 text-sm font-black text-white" data-part-id="title" data-part-name="Заголовок Мой Топ 50">
+                  <span class="text-amber-300">🏆</span>${t('title', 'МОЙ ТОП 50')}
+                </div>
+                <button onclick="if(!state.editMode){window.parent.postMessage({type:'RX_OPEN_TOP50'},'*')}" class="rx-part rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-400/20" data-part-id="open" data-part-name="Кнопка открыть Топ 50">Открыть весь список →</button>
+              </div>
+              <div class="rx-part flex gap-3 overflow-x-auto kp-scroll pb-2" data-part-id="row" data-part-name="Постеры Топ 50">${cards}</div>
             </div>
           `;
         }
@@ -2845,6 +2897,15 @@
       const g = parseInt(h.substring(2, 4), 16) || 18;
       const b = parseInt(h.substring(4, 6), 16) || 26;
       return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    // Переход по сайту через родительское окно (iframe не может менять URL сайта)
+    function rxNav(path) {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'RX_NAV', path }, '*');
+      } else {
+        location.href = path;
+      }
     }
 
     function showToast(msg, type = 'info') {
