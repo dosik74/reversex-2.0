@@ -5,8 +5,7 @@ import {
   ChevronUp, ChevronDown, Trash2, Eye, EyeOff, Layers, Link2,
 } from "lucide-react";
 import { toast } from "sonner";
-
-const STORAGE_KEY = "reversex_profile_studio_site_v1";
+import supabase from "@/lib/supabase";
 
 const FONTS = [
   "Inter", "Unbounded", "Russo One", "Dela Gothic One", "Rubik Glitch",
@@ -113,29 +112,22 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 };
 
-const readStored = (): StudioState => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyState();
-    const data = JSON.parse(raw);
-    return {
-      ...emptyState(),
-      ...data,
-      pageBg: { ...emptyState().pageBg, ...(data.pageBg || {}) },
-      blocks: data.blocks || {},
-      parts: data.parts || {},
-      texts: data.texts || {},
-      widgets: data.widgets || [],
-    };
-  } catch {
-    return emptyState();
-  }
-};
+const normalize = (input: any): StudioState => ({
+  ...emptyState(),
+  ...(input || {}),
+  pageBg: { ...emptyState().pageBg, ...(input?.pageBg || {}) },
+  blocks: input?.blocks || {},
+  parts: input?.parts || {},
+  texts: input?.texts || {},
+  widgets: input?.widgets || [],
+});
 
-type Props = { enabled: boolean; onExit: () => void };
+type Props = { enabled: boolean; onExit: () => void; userId: string };
 
-const ProfileStudio = ({ enabled, onExit }: Props) => {
-  const [data, setData] = useState<StudioState>(readStored);
+const ProfileStudio = ({ enabled, onExit, userId }: Props) => {
+  const [data, setData] = useState<StudioState>(emptyState);
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<"blocks" | "parts" | "text">("blocks");
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
@@ -178,9 +170,46 @@ const ProfileStudio = ({ enabled, onExit }: Props) => {
     commit({ ...cur, parts: { ...cur.parts, [id]: { ...cur.parts[id], ...patch } } });
   };
 
+  const uploadImage = async (file: File): Promise<string> => {
+    const ext = file.name.split(".").pop() || "png";
+    const path = `${userId}/studio/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("profile-media").upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (error) throw error;
+    const { data: pub } = supabase.storage.from("profile-media").getPublicUrl(path);
+    return pub.publicUrl;
+  };
+
+  // Настройки приходят с сервера (profiles.customization->studio)
+  useEffect(() => {
+    if (!enabled || !userId) return;
+    let active = true;
+    setLoaded(false);
+    supabase
+      .from("profiles")
+      .select("customization")
+      .eq("id", userId)
+      .single()
+      .then(({ data: row, error }) => {
+        if (!active) return;
+        if (error) console.error("Studio load error:", error.message);
+        const studio = normalize((row?.customization as any)?.studio);
+        setData(studio);
+        dataRef.current = studio;
+        historyRef.current = [JSON.parse(JSON.stringify(studio))];
+        historyIdx.current = 0;
+        setLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [enabled, userId]);
+
   // Первый запуск: запоминаем исходную геометрию блоков
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !loaded) return;
     rootRef.current = document.querySelector<HTMLElement>("[data-studio-root]");
     const root = rootRef.current;
     if (!root) return;
@@ -366,12 +395,39 @@ const ProfileStudio = ({ enabled, onExit }: Props) => {
     return { ...dataRef.current, texts };
   }, []);
 
-  const saveAll = useCallback(() => {
-    const next = captureTexts();
-    setData(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    toast.success("Все изменения сохранены!");
-  }, [captureTexts]);
+  const saveAll = useCallback(async () => {
+    if (!userId) return;
+    setSaving(true);
+    try {
+      const { data: row } = await supabase
+        .from("profiles")
+        .select("customization")
+        .eq("id", userId)
+        .single();
+      const existing = (row?.customization as any) || {};
+      const next = captureTexts();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ customization: { ...existing, studio: next } })
+        .eq("id", userId);
+      if (error) throw error;
+      setData(next);
+      toast.success("Настройки сохранены на сервере");
+    } catch (e: any) {
+      toast.error("Ошибка сохранения: " + (e?.message || "неизвестная"));
+    } finally {
+      setSaving(false);
+    }
+  }, [captureTexts, userId]);
+
+  // Автосохранение на сервер после каждого изменения (с небольшой задержкой)
+  useEffect(() => {
+    if (!enabled || !loaded || !userId) return;
+    const timer = window.setTimeout(() => {
+      void saveAll();
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [data, enabled, loaded, userId, saveAll]);
 
   const undo = useCallback(() => {
     if (historyIdx.current <= 0) return toast.info("Больше нет действий");
@@ -446,14 +502,27 @@ const ProfileStudio = ({ enabled, onExit }: Props) => {
     toast.success("Блок добавлен");
   };
 
-  const resetAll = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setData(emptyState());
-    historyRef.current = [];
-    historyIdx.current = -1;
+  const resetAll = async () => {
+    const fresh = emptyState();
+    setData(fresh);
+    dataRef.current = fresh;
+    historyRef.current = [JSON.parse(JSON.stringify(fresh))];
+    historyIdx.current = 0;
     setModal(null);
     setSelectedBlock(null);
-    toast.success("Профиль сброшен");
+    try {
+      const { data: row } = await supabase
+        .from("profiles")
+        .select("customization")
+        .eq("id", userId)
+        .single();
+      const existing = (row?.customization as any) || {};
+      delete existing.studio;
+      await supabase.from("profiles").update({ customization: existing }).eq("id", userId);
+      toast.success("Профиль сброшен на сервере");
+    } catch (e: any) {
+      toast.error("Ошибка сброса: " + (e?.message || "неизвестная"));
+    }
   };
 
   if (!enabled) return null;
@@ -517,7 +586,7 @@ const ProfileStudio = ({ enabled, onExit }: Props) => {
         <button className="studio-tool" onClick={undo} title="Отменить (Ctrl+Z)"><Undo2 /></button>
         <button className="studio-tool" onClick={() => { setJsonText(JSON.stringify(data, null, 2)); setModal("json"); }}><FileJson /> JSON</button>
         <button className="studio-tool" onClick={() => setModal("reset")}><RotateCcw /> Сброс</button>
-        <button className="studio-tool studio-save" onClick={saveAll}><Save /> Сохранить</button>
+        <button className="studio-tool studio-save" onClick={saveAll} disabled={saving}><Save /> {saving ? "Сохраняем..." : "Сохранить"}</button>
         <button className="studio-tool studio-done" onClick={onExit}><Check /> Готово</button>
       </div>
 
@@ -579,9 +648,9 @@ const ProfileStudio = ({ enabled, onExit }: Props) => {
                   <label className="studio-file">📁 Загрузить картинку
                     <input type="file" accept="image/*" onChange={(e) => {
                       const f = e.target.files?.[0]; if (!f) return;
-                      const r = new FileReader();
-                      r.onload = () => patchBlock(selectedCfg.id, { bg: { ...selectedCfg.bg, imageSrc: String(r.result) } });
-                      r.readAsDataURL(f);
+                      uploadImage(f)
+                        .then((url) => patchBlock(selectedCfg.id, { bg: { ...selectedCfg.bg, imageSrc: url } }))
+                        .catch((err) => toast.error("Загрузка не удалась: " + err.message));
                     }} />
                   </label>
                   <input type="range" min={0} max={30} value={selectedCfg.bg.blur} onChange={(e) => patchBlock(selectedCfg.id, { bg: { ...selectedCfg.bg, blur: Number(e.target.value) } })} />
@@ -693,9 +762,9 @@ const ProfileStudio = ({ enabled, onExit }: Props) => {
                 <label className="studio-file">📁 Загрузить фон
                   <input type="file" accept="image/*" onChange={(e) => {
                     const f = e.target.files?.[0]; if (!f) return;
-                    const r = new FileReader();
-                    r.onload = () => commit({ ...dataRef.current, pageBg: { ...data.pageBg, mode: "image", imageSrc: String(r.result) } });
-                    r.readAsDataURL(f);
+                    uploadImage(f)
+                      .then((url) => commit({ ...dataRef.current, pageBg: { ...data.pageBg, mode: "image", imageSrc: url } }))
+                      .catch((err) => toast.error("Загрузка не удалась: " + err.message));
                   }} />
                 </label>
                 {(["blur", "dim", "zoom"] as const).map((k) => (

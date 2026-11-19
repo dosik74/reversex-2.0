@@ -1300,7 +1300,11 @@ const Profile = () => {
         />
       )}
 
-      <ProfileStudio enabled={studioMode} onExit={() => setStudioMode(false)} />
+      <ProfileStudio
+        enabled={studioMode}
+        onExit={() => setStudioMode(false)}
+        userId={targetId || profile.id}
+      />
     </div>
   );
 };
