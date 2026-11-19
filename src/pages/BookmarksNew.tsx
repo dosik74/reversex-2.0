@@ -319,10 +319,10 @@ function KinopoiskBookmarkRow({
     <>
       <div
         onClick={openDetail}
-        className="group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-zinc-900/40 hover:bg-zinc-900/90 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer"
+        className="bk-row group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl transition-all duration-200 cursor-pointer"
       >
         {/* Номер в списке (как на Кинопоиске: 1, 2, 3...) */}
-        <span className="w-5 sm:w-7 text-center text-xs sm:text-sm font-bold text-zinc-500 tabular-nums shrink-0 select-none group-hover:text-zinc-300">
+        <span className="bk-rank w-7 sm:w-9 text-center text-zinc-400 shrink-0 select-none group-hover:text-purple-300 transition-colors">
           {index + 1}
         </span>
 
@@ -339,11 +339,11 @@ function KinopoiskBookmarkRow({
         <div className="flex-1 min-w-0 pr-2">
           {/* Название + Год */}
           <div className="flex flex-wrap items-baseline gap-2">
-            <h3 className="text-sm sm:text-base md:text-lg font-bold text-white group-hover:text-primary transition-colors line-clamp-1 leading-snug">
+            <h3 className="bk-benzin text-sm sm:text-base md:text-lg text-white group-hover:text-purple-200 transition-colors line-clamp-1">
               {bookmark.title}
             </h3>
             {bookmark.releaseYear && (
-              <span className="text-xs sm:text-sm text-zinc-400 font-medium tabular-nums shrink-0">
+              <span className="bk-epic text-xs sm:text-sm text-zinc-300 font-bold tabular-nums shrink-0">
                 {bookmark.releaseYear}
               </span>
             )}
@@ -351,7 +351,7 @@ function KinopoiskBookmarkRow({
 
           {/* Мета-информация: Тип контента · Жанр */}
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1 text-xs text-zinc-400">
-            <span className="px-1.5 py-0.5 rounded bg-white/5 text-[11px] font-semibold text-zinc-300">
+            <span className="bk-benzin px-2 py-0.5 rounded bg-white/10 text-[11px] text-zinc-200">
               {TYPE_LABEL[bookmark.contentType]}
             </span>
             {bookmark.genre && (
@@ -364,7 +364,7 @@ function KinopoiskBookmarkRow({
           {/* Статус-чип с цветной точкой (как в Anixart) */}
           <div className="mt-2 flex items-center gap-2">
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${theme.badge} border`}
+              className={`bk-benzin inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] ${theme.badge} border`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${theme.dot}`} />
               {theme.name}
@@ -378,11 +378,11 @@ function KinopoiskBookmarkRow({
           {extRating > 0 && (
             <div className="hidden sm:flex flex-col items-end">
               <span
-                className={`text-xs sm:text-sm font-black tabular-nums px-2 py-0.5 rounded-lg border ${ratingBadgeClass}`}
+                className={`bk-epic text-base sm:text-lg font-black tabular-nums px-2 py-0.5 rounded-lg border ${ratingBadgeClass}`}
               >
                 {extRating.toFixed(1)}
               </span>
-              <span className="text-[10px] text-zinc-500 mt-0.5 uppercase tracking-wider font-semibold">
+              <span className="bk-eyebrow text-zinc-500 mt-0.5">
                 TMDB
               </span>
             </div>
@@ -703,7 +703,7 @@ export default function BookmarksNew() {
           <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center shadow-xl shadow-amber-500/25">
             <BookmarkIcon className="w-9 h-9 text-black" />
           </div>
-          <h2 className="text-2xl font-black text-white mb-2">Требуется вход</h2>
+          <h2 className="bk-title text-2xl mb-2">Требуется вход</h2>
           <p className="text-zinc-400 text-sm mb-6">
             Войдите в аккаунт, чтобы просматривать личные списки и историю просмотров.
           </p>
@@ -729,32 +729,33 @@ export default function BookmarksNew() {
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-8">
         {/* Шапка раздела в стиле Кинопоиска */}
         {isOtherUser ? (
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 pb-4 border-b border-white/[0.08]">
-            <div className="flex items-center gap-4">
-              <Avatar className="w-14 h-14 rounded-2xl border-2 border-emerald-500/30 shrink-0">
+          <div className="bk-hero p-5 sm:p-7 mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-5">
+            <div className="relative flex items-center gap-4 sm:gap-5 min-w-0">
+              <Avatar className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-emerald-400/40 shrink-0 shadow-xl shadow-black/50">
                 <AvatarImage src={targetProfile?.avatar_url || undefined} />
-                <AvatarFallback className="bg-emerald-500/10 text-emerald-400 font-bold text-lg">
+                <AvatarFallback className="bk-benzin bg-emerald-500/15 text-emerald-300 text-2xl">
                   {targetProfile?.username?.[0]?.toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">
-                  <BookmarkIcon className="w-3.5 h-3.5" />
-                  <span>Закладки пользователя @{targetProfile?.username || 'user'}</span>
+              <div className="min-w-0">
+                <div className="bk-eyebrow flex items-center gap-2 text-emerald-300 mb-2">
+                  <BookmarkIcon className="w-4 h-4" />
+                  <span className="truncate">Закладки пользователя @{targetProfile?.username || 'user'}</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                <h1 className="bk-title truncate">
                   {targetProfile?.display_name || targetProfile?.username || 'Списки пользователя'}
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+                <div className="bk-script text-xl sm:text-2xl text-emerald-200/70 leading-none mt-1">bookmarks</div>
+                <p className="text-xs sm:text-sm font-bold text-zinc-300 mt-3">
                   {total} тайтлов в коллекции · {stats[activeTab]} в категории «{activeTheme.name}»
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="relative flex items-center gap-2.5 shrink-0">
               <Link
                 to={targetProfile?.username ? `/${targetProfile.username}` : `/profile/${effectiveUserId}`}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/10 shadow-sm"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-black transition-all border border-white/15 shadow-lg"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Вернуться в профиль</span>
@@ -762,21 +763,20 @@ export default function BookmarksNew() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 pb-4 border-b border-white/[0.08]">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                <Film className="w-3.5 h-3.5 text-primary" />
+          <div className="bk-hero p-5 sm:p-7 mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-5">
+            <div className="relative min-w-0">
+              <div className="bk-eyebrow flex items-center gap-2 text-zinc-300 mb-2">
+                <Film className="w-4 h-4 text-primary" />
                 <span>Личная медиатека</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                Мои списки
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+              <h1 className="bk-title">Мои списки</h1>
+              <div className="bk-script text-2xl sm:text-3xl text-purple-200/70 leading-none mt-1">my collection</div>
+              <p className="text-xs sm:text-sm font-bold text-zinc-300 mt-3">
                 {total} фильмов и сериалов · {stats[activeTab]} в категории «{activeTheme.name}»
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="relative flex items-center gap-2.5 shrink-0">
               <ImportBookmarksDialog />
             </div>
           </div>
@@ -794,7 +794,7 @@ export default function BookmarksNew() {
               <button
                 key={s}
                 onClick={() => setActiveTab(s)}
-                className={`group flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-[13px] font-bold whitespace-nowrap shrink-0 transition-all duration-200 border ${
+                className={`bk-tab group flex items-center gap-2 px-4 py-3 rounded-xl text-sm sm:text-base whitespace-nowrap shrink-0 transition-all duration-200 border ${
                   active ? `${t.activeTab}` : `${t.idleTab}`
                 }`}
               >
@@ -805,7 +805,7 @@ export default function BookmarksNew() {
                 />
                 <span>{t.name}</span>
                 <span
-                  className={`text-[11px] font-black px-2 py-0.5 rounded-full tabular-nums ${
+                  className={`bk-epic text-xs font-black px-2 py-0.5 rounded-full tabular-nums ${
                     active ? 'bg-black/25 text-inherit' : 'bg-white/10 text-zinc-300'
                   }`}
                 >
@@ -828,15 +828,15 @@ export default function BookmarksNew() {
                 <button
                   key={f.key}
                   onClick={() => setTypeFilter(f.key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  className={`bk-benzin flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm whitespace-nowrap transition-all ${
                     active
-                      ? 'bg-white text-black font-bold shadow-sm'
+                      ? 'bg-white text-black shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <span>{f.label}</span>
                   <span
-                    className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
+                    className={`bk-epic text-[11px] tabular-nums font-black px-1.5 py-0.5 rounded-full ${
                       active ? 'bg-black/20 text-black' : 'bg-white/10 text-zinc-400'
                     }`}
                   >
@@ -881,6 +881,10 @@ export default function BookmarksNew() {
         </div>
 
         {/* ── Кинопоиск-style Список тайтлов ── */}
+        <div className="flex items-end justify-between gap-4 mb-3 px-1">
+          <h2 className="bk-benzin text-lg sm:text-2xl text-white">Коллекция</h2>
+          <span className="bk-script text-xl sm:text-3xl text-zinc-500 leading-none">collection</span>
+        </div>
         {loading ? (
           <div className="flex flex-col gap-2.5">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -902,7 +906,7 @@ export default function BookmarksNew() {
               })()}
             </div>
 
-            <h3 className="text-lg sm:text-xl font-bold text-white mb-1.5">
+            <h3 className="bk-benzin text-lg sm:text-2xl text-white mb-1.5">
               В списке «{activeTheme.name}» пока пусто
             </h3>
             <p className="text-xs sm:text-sm text-zinc-400 max-w-sm mb-6 leading-relaxed">

@@ -6,6 +6,113 @@
    источник или стилевой фолбэк.
    ============================================ */
 
+/* ── BOOKMARKS: жирная типографика ──
+   Benzin — кириллические заголовки,
+   Epic Pro — только латиница/цифры (unicode-range выше),
+   Monplesir Script — декоративные акценты. */
+.bk-benzin {
+  font-family: "Benzin-Bold", "Epic Pro", ui-sans-serif, sans-serif !important;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+}
+
+.bk-epic {
+  font-family: "Epic Pro", "Benzin-Bold", ui-sans-serif, sans-serif !important;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.bk-script {
+  font-family: "Monplesir Script", "Martina Script", cursive !important;
+  font-weight: 400;
+}
+
+.bk-eyebrow {
+  font-family: "Epic Pro", "Benzin-Bold", ui-sans-serif, sans-serif !important;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.bk-title {
+  font-family: "Benzin-Bold", "Epic Pro", ui-sans-serif, sans-serif !important;
+  font-size: clamp(1.75rem, 4.5vw, 3rem);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 6px 28px rgba(0, 0, 0, 0.85);
+}
+
+.bk-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 45%),
+    linear-gradient(180deg, rgba(28, 28, 34, 0.96), rgba(8, 8, 11, 0.99));
+  box-shadow:
+    0 28px 70px -24px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.bk-hero::before {
+  content: "";
+  position: absolute;
+  inset: -30% -10% auto auto;
+  width: 60%;
+  height: 220%;
+  background: radial-gradient(ellipse at center, rgba(167, 139, 250, 0.28), transparent 65%);
+  pointer-events: none;
+}
+
+.bk-hero::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(167, 139, 250, 0.9),
+    rgba(52, 211, 153, 0.9),
+    transparent
+  );
+  opacity: 0.7;
+}
+
+.bk-tab {
+  font-family: "Benzin-Bold", "Epic Pro", ui-sans-serif, sans-serif !important;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.bk-row {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  box-shadow: 0 6px 20px -12px rgba(0, 0, 0, 0.9);
+}
+
+.bk-row:hover {
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  border-color: rgba(167, 139, 250, 0.5) !important;
+  box-shadow: 0 16px 36px -18px rgba(0, 0, 0, 0.95);
+}
+
+.bk-rank {
+  font-family: "Epic Pro", "Benzin-Bold", ui-sans-serif, sans-serif !important;
+  font-weight: 900;
+  font-size: 1rem;
+}
+
+
 /* Benzin-Bold — кнопка закладок (из макета button/) */
 @font-face {
   font-family: "Benzin-Bold";
