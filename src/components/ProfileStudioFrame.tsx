@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, Save, Sparkles, Bookmark, Users } from "lucide-react";
 import { toast } from "sonner";
 import supabase from "@/lib/supabase";
 
@@ -218,43 +216,6 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
 
   return (
     <div className="fixed inset-0 z-[9998] flex flex-col bg-[#090a0f]">
-      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-white/10 bg-[#0b0d13] px-4">
-        <button
-          onClick={onExit}
-          className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10 hover:text-white"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Назад в профиль
-        </button>
-        <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cyan-300">
-          <Sparkles className="h-3.5 w-3.5" />
-          Полный контроль над профилем
-        </span>
-        <Link
-          to="/bookmarks"
-          className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10"
-        >
-          <Bookmark className="h-3.5 w-3.5" /> Закладки
-        </Link>
-        <Link
-          to="/friends"
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10"
-        >
-          <Users className="h-3.5 w-3.5" /> Друзья
-        </Link>
-        <span className="hidden text-[11px] text-zinc-500 lg:block">
-          {lastSaved ? `Сохранено: ${new Date(lastSaved).toLocaleTimeString("ru-RU")}` : "Есть несохранённые изменения"}
-        </span>
-        <button
-          onClick={saveToServer}
-          disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-4 py-2 text-xs font-black text-[#04161c] hover:bg-cyan-300 disabled:opacity-60"
-        >
-          <Save className="h-3.5 w-3.5" />
-          {saving ? "Сохраняем..." : "Сохранить на сервере"}
-        </button>
-      </div>
-
       <iframe
         ref={iframeRef}
         src="/profile-studio.html"

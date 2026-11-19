@@ -1591,7 +1591,7 @@
                   </select>
                 </div>
               </div>
-              <div id="mediaCardsGrid" class="rx-part grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" data-part-id="mediaGrid" data-part-name="Сетка карточек тайтлов">
+              <div id="mediaCardsGrid" class="rx-part flex flex-col gap-2.5" data-part-id="mediaGrid" data-part-name="Список карточек тайтлов">
                 ${renderMediaCardsHTML()}
               </div>
             </div>
@@ -1647,19 +1647,29 @@
         return `<div class="col-span-full py-10 text-center text-xs text-slate-500">В этом списке пока нет тайтлов</div>`;
       }
       const fallback = 'https://placehold.co/300x450/10121a/22d3ee?text=RX';
-      return items.map(m => `
+      return items.map((m, i) => `
         <div onclick="if(!state.editMode) showToast('${escAttr(m.title)} (${m.year})')"
-             class="group rounded-xl bg-slate-900/75 border border-slate-800 hover:border-rxCyan/45 overflow-hidden cursor-pointer transition flex flex-col">
-          <div class="relative aspect-[2/3] w-full overflow-hidden bg-slate-800">
+             class="group relative flex items-center gap-3 sm:gap-5 p-3 sm:p-4 rounded-2xl border border-white/[0.06] hover:border-purple-400/50 bg-[#10121a]/85 hover:bg-[#171922] transition-all duration-200 cursor-pointer min-h-[140px]">
+          <span class="w-5 sm:w-8 text-center text-sm sm:text-base font-black tabular-nums text-slate-500 group-hover:text-purple-300 shrink-0 select-none">${i + 1}</span>
+          <div class="relative w-16 sm:w-20 aspect-[2/3] shrink-0 rounded-xl overflow-hidden bg-slate-800 shadow-xl shadow-black/50 border border-white/10 ring-1 ring-white/5">
             <img src="${escAttr(m.poster || fallback)}" alt="${escAttr(m.title)}" loading="lazy"
                  onerror="this.src='${fallback}'"
                  class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-            <div class="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/90 to-transparent pointer-events-none"></div>
-            <span class="absolute left-2 top-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur">${escHtml(m.cat || '')}</span>
           </div>
-          <div class="p-2.5">
-            <div class="text-xs font-bold text-white truncate">${escHtml(m.title)}</div>
-            <div class="text-[11px] text-slate-400 mt-1">${m.year} · ${escHtml(m.genre || '')}</div>
+          <div class="flex-1 min-w-0 pr-2">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <h3 class="font-display font-black text-base sm:text-xl md:text-2xl text-white truncate group-hover:text-purple-200 transition-colors">${escHtml(m.title)}</h3>
+              <span class="font-mono text-xs sm:text-sm text-slate-400 font-bold tabular-nums">${m.year}</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-400">
+              <span class="px-2 py-0.5 rounded bg-white/10 text-[11px] font-bold text-slate-200">${escHtml(m.cat || '')}</span>
+              ${m.genre ? `<span class="truncate max-w-[220px]">· ${escHtml(m.genre)}</span>` : ''}
+            </div>
+            <div class="mt-2.5 flex">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border border-white/10 bg-white/5 text-slate-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>${escHtml(m.status || '')}
+              </span>
+            </div>
           </div>
         </div>
       `).join('');
