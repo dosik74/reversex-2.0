@@ -685,6 +685,18 @@ const Profile = () => {
   }
 
   const targetId = resolvedUserId || profile?.id;
+
+  // Основной вид профиля — полноценный конструктор с реальными данными
+  if (!loading && profile && targetId) {
+    return (
+      <ProfileStudioFrame
+        userId={targetId}
+        onExit={() => {
+          window.location.href = "/";
+        }}
+      />
+    );
+  }
   const isOwnProfile = Boolean(currentUserId && targetId && currentUserId === targetId);
 
   const accentColor = profile.accent_color || profile.profile_accent;
@@ -1299,12 +1311,6 @@ const Profile = () => {
         />
       )}
 
-      {studioMode && (
-        <ProfileStudioFrame
-          userId={targetId || profile.id}
-          onExit={() => setStudioMode(false)}
-        />
-      )}
     </div>
   );
 };

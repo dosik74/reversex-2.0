@@ -886,7 +886,7 @@
       { id: 'Amatic SC', name: 'Amatic SC', tag: 'Скетч / Постер' }
     ];
 
-    const SAMPLE_MEDIA = [
+    let SAMPLE_MEDIA = [
       { title: 'Зелёная миля', year: 1999, cat: 'Фильмы', status: 'Просмотрено', rating: 9.6, color: '#14b8a6', genre: 'Драма' },
       { title: 'Интерстеллар', year: 2014, cat: 'Фильмы', status: 'Просмотрено', rating: 9.8, color: '#0ea5e9', genre: 'Sci-Fi' },
       { title: 'Бойцовский клуб', year: 1999, cat: 'Фильмы', status: 'Просмотрено', rating: 9.4, color: '#ec4899', genre: 'Триллер' },
@@ -951,9 +951,67 @@
       activeCat: 'Все',
       searchQuery: '',
       sortBy: 'date',
+      profile: null,     // реальные данные профиля с сервера
       history: [],
       historyIdx: -1
     };
+
+    // ── Получение реальных данных профиля из родительского окна ──
+    function applyServerProfile(p) {
+      if (!p) return;
+      state.profile = p;
+
+      if (p.avatar_url) {
+        state.avatarSrc = p.avatar_url;
+        document.querySelectorAll('[data-avatar-img]').forEach(img => { img.src = p.avatar_url; });
+      }
+
+      const statKeys = ['bookmarks', 'followers', 'following', 'comments'];
+      if (p.stats) {
+        state.blocks.forEach(b => {
+          if (b.type === 'stat' && b.meta && b.meta.label) {
+            const idx = ['ЗАКЛАДКИ', 'ПОДПИСЧИКИ', 'ПОДПИСКИ', 'КОММЕНТАРИИ'].indexOf(b.meta.label);
+            if (idx >= 0 && p.stats[statKeys[idx]] !== undefined) {
+              b.meta.val = String(p.stats[statKeys[idx]]);
+              state.texts[b.id + '_val'] = b.meta.val;
+            }
+          }
+        });
+      }
+
+      const name = (p.display_name || p.username || 'DOSIKTE').toUpperCase();
+      state.texts['blk_header_username'] = escHtml(name);
+      state.texts['blk_header_handle'] = '@' + escHtml(p.username || 'user');
+      if (p.level !== undefined) {
+        state.texts['blk_header_lv'] = '✦ LV.' + p.level;
+        state.texts['blk_level_num'] = String(p.level);
+        state.texts['blk_level_pill'] = 'LV.' + p.level;
+      }
+      if (p.xp !== undefined) {
+        state.texts['blk_header_xp'] = p.xp + '/500 XP';
+        state.texts['blk_level_xp'] = p.xp + '/500 XP';
+        state.texts['blk_level_next'] = '-' + Math.max(0, 500 - p.xp) + ' NEXT';
+      }
+      if (p.friendsCount !== undefined) state.texts['blk_friends_count'] = String(p.friendsCount);
+      if (p.bio !== undefined) state.texts['blk_bio_bio'] = escHtml(p.bio || '...');
+      if (p.topLists && p.topLists.length) {
+        p.topLists.slice(0, 3).forEach((l, i) => {
+          state.texts['blk_toplists_i' + (i + 1)] = escHtml(l.title);
+        });
+      }
+      if (Array.isArray(p.media) && p.media.length) SAMPLE_MEDIA = p.media;
+    }
+
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'RX_PROFILE_DATA') {
+        applyServerProfile(e.data.payload);
+        try {
+          applyGlobalFont();
+          mountAllBlocks();
+          refreshMediaGrid();
+        } catch (err) { console.error('RX data apply error', err); }
+      }
+    });
 
     // Active drag/resize interaction
     let dragCtx = null;

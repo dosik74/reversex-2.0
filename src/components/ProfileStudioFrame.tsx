@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Save, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Save, Sparkles, Bookmark, Users } from "lucide-react";
 import { toast } from "sonner";
 import supabase from "@/lib/supabase";
 
@@ -9,6 +10,87 @@ type Props = {
   userId: string;
   onExit: () => void;
 };
+
+const STATUS_RU: Record<string, string> = {
+  watched: "Просмотрено",
+  watching: "Смотрю",
+  planned: "В планах",
+  postponed: "Отложено",
+  dropped: "Брошено",
+  favorite: "Избранное",
+};
+
+const TYPE_RU: Record<string, string> = {
+  movie: "Фильмы",
+  series: "Сериалы",
+  game: "Игры",
+  anime: "Аниме",
+};
+
+const PALETTE = ["#14b8a6", "#0ea5e9", "#ec4899", "#f59e0b", "#ef4444", "#22c55e", "#eab308", "#8b5cf6"];
+
+/** Реальные данные профиля: аватар, статистика, закладки, друзья, списки */
+async function loadProfileData(userId: string) {
+  const [profileRes, bookmarksRes, friendsRes, followingRes, commentsRes, listsRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("username, display_name, avatar_url, about_me, bio, level, xp")
+      .eq("id", userId)
+      .single(),
+    supabase
+      .from("content_bookmarks")
+      .select("title, external_rating, status, release_year, genre, content_type")
+      .eq("user_id", userId)
+      .limit(60),
+    supabase
+      .from("friendships")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
+    supabase
+      .from("follows")
+      .select("id", { count: "exact", head: true })
+      .eq("follower_id", userId),
+    supabase
+      .from("comments")
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", userId),
+    supabase
+      .from("top_lists")
+      .select("title")
+      .eq("user_id", userId)
+      .limit(3),
+  ]);
+
+  const p: any = profileRes.data || {};
+  const media = (bookmarksRes.data || []).map((b: any, i: number) => ({
+    title: b.title,
+    year: Number(String(b.release_year || "0").slice(0, 4)) || 0,
+    cat: TYPE_RU[b.content_type] || "Фильмы",
+    status: STATUS_RU[b.status] || "Просмотрено",
+    rating: Number(b.external_rating || 0),
+    color: PALETTE[i % PALETTE.length],
+    genre: b.genre || "",
+  }));
+
+  return {
+    username: p.username || "user",
+    display_name: p.display_name || p.username || "USER",
+    avatar_url: p.avatar_url || null,
+    bio: p.about_me || p.bio || "",
+    level: p.level ?? 1,
+    xp: p.xp ?? 0,
+    stats: {
+      bookmarks: bookmarksRes.data?.length || 0,
+      followers: 0,
+      following: followingRes.count || 0,
+      comments: commentsRes.count || 0,
+    },
+    friendsCount: friendsRes.count || 0,
+    media,
+    topLists: listsRes.data || [],
+  };
+}
 
 /**
  * Встраиваемый в профиль конструктор.
@@ -28,7 +110,7 @@ type Props = {
  */
 const ProfileStudioFrame = ({ userId, onExit }: Props) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const initialized = useRef(false);
+  const stage = useRef<"load-studio" | "inject-data" | "done">("load-studio");
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
@@ -37,26 +119,39 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
     if (!iframe) return;
 
     const onLoad = async () => {
-      if (initialized.current) return;
-      initialized.current = true;
-      try {
-        const { data } = await supabase
-          .from("profiles")
-          .select("customization")
-          .eq("id", userId)
-          .single();
-        const studio = (data?.customization as any)?.studio;
-        const win = iframe.contentWindow;
-        if (!win) return;
-        if (studio) {
-          win.localStorage.setItem(STORAGE_KEY, JSON.stringify(studio));
-          setLastSaved(new Date().toISOString());
-        } else {
-          win.localStorage.removeItem(STORAGE_KEY);
+      const win = iframe.contentWindow;
+      if (!win) return;
+
+      if (stage.current === "load-studio") {
+        stage.current = "inject-data";
+        try {
+          const { data } = await supabase
+            .from("profiles")
+            .select("customization")
+            .eq("id", userId)
+            .single();
+          const studio = (data?.customization as any)?.studio;
+          if (studio) {
+            win.localStorage.setItem(STORAGE_KEY, JSON.stringify(studio));
+            setLastSaved(new Date().toISOString());
+          } else {
+            win.localStorage.removeItem(STORAGE_KEY);
+          }
+        } catch (e) {
+          console.error("Studio settings load error:", e);
         }
         win.location.reload();
-      } catch (e) {
-        console.error("Studio load error:", e);
+        return;
+      }
+
+      if (stage.current === "inject-data") {
+        stage.current = "done";
+        try {
+          const payload = await loadProfileData(userId);
+          win.postMessage({ type: "RX_PROFILE_DATA", payload }, "*");
+        } catch (e) {
+          console.error("Profile data load error:", e);
+        }
       }
     };
 
@@ -117,7 +212,19 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
           <Sparkles className="h-3.5 w-3.5" />
           Полный контроль над профилем
         </span>
-        <span className="ml-auto hidden text-[11px] text-zinc-500 sm:block">
+        <Link
+          to="/bookmarks"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10"
+        >
+          <Bookmark className="h-3.5 w-3.5" /> Закладки
+        </Link>
+        <Link
+          to="/friends"
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10"
+        >
+          <Users className="h-3.5 w-3.5" /> Друзья
+        </Link>
+        <span className="hidden text-[11px] text-zinc-500 lg:block">
           {lastSaved ? `Сохранено: ${new Date(lastSaved).toLocaleTimeString("ru-RU")}` : "Есть несохранённые изменения"}
         </span>
         <button
