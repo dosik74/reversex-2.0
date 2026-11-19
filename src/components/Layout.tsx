@@ -66,7 +66,6 @@ const Layout = () => {
     { icon: Gamepad, label: 'Games', path: '/games' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
     { icon: Users, label: 'Друзья', path: '/friends' },
-    { icon: Settings, label: 'Конструктор', path: '/profile-studio' },
     { icon: Music, label: 'Music', path: '/music' },
     { icon: Book, label: 'Books', path: '/books' },
   ];

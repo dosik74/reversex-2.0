@@ -42,6 +42,8 @@ import {
 import { Link } from "react-router-dom";
 import ProfileSidebar from "@/components/ProfileSidebar";
 import ChatWindow from "@/components/ChatWindow";
+import ProfileStudio from "@/components/ProfileStudio";
+import "@/styles/profile-studio.css";
 import { useUserOnline } from "@/hooks/useUserOnline";
 import Top50Profile from "@/components/Top50Profile";
 import ProfileBookmarks from "@/components/ProfileBookmarks";
@@ -211,6 +213,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(() => (rawIdentifier ? !profileCache.has(rawIdentifier) : true));
   const [showEditor, setShowEditor] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [studioMode, setStudioMode] = useState(false);
   const [comments, setComments] = useState<Comment[]>(() => (rawIdentifier ? profileCommentsCache.get(rawIdentifier) || [] : []));
   const [newComment, setNewComment] = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -729,7 +732,8 @@ const Profile = () => {
 
   return (
     <div
-      className="rxp-scope min-h-screen text-foreground"
+      data-studio-root
+      className="rxp-scope relative min-h-screen text-foreground"
       style={{ ['--rxp-accent' as any]: accentColor }}
     >
       {/* ===== ПОЛЬЗОВАТЕЛЬСКИЙ ФОН (обои на весь экран) ===== */}
@@ -761,7 +765,7 @@ const Profile = () => {
       )}
       <div className={hasCustomBg ? 'relative z-10' : ''}>
       {/* ===== HERO ===== */}
-      <header className="rxp-hero relative h-[320px] md:h-[380px]" style={backgroundStyle}>
+      <header data-studio-block="hero" className="rxp-hero relative h-[320px] md:h-[380px]" style={backgroundStyle}>
         {/* затемнение для читаемости */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-background/95" />
 
@@ -772,7 +776,7 @@ const Profile = () => {
               <div className="flex items-end gap-5 md:gap-7 min-w-0">
                 {/* Аватар */}
                 <div className="relative flex-shrink-0">
-                  <div className="rxp-avatar-frame">
+                  <div data-studio-part="avatar" className="rxp-avatar-frame">
                     {/* Пользовательская рамка (GIF/APNG) поверх аватара */}
                     {profile.avatar_frame_url && (
                       <div className="absolute inset-0 z-[5] rounded-full overflow-hidden pointer-events-none">
@@ -799,11 +803,11 @@ const Profile = () => {
 
                 {/* Имя, ник, уровень, опыт */}
                 <div className="flex-1 min-w-0 pb-1">
-                  <h1 className="rxp-name text-white text-3xl md:text-5xl font-bold break-words drop-shadow-md">
+                  <h1 data-studio-part="name" data-studio-text="name" className="rxp-name text-white text-3xl md:text-5xl font-bold break-words drop-shadow-md">
                     {profile.display_name || profile.username}
                   </h1>
                   <div className="mt-2 flex items-center gap-2 flex-wrap">
-                    <span className="rxp-neon-handle">@{profile.username}</span>
+                    <span data-studio-part="handle" data-studio-text="handle" className="rxp-neon-handle">@{profile.username}</span>
                     <span className="rxp-caret hidden sm:inline-block" />
                   </div>
 
@@ -846,10 +850,13 @@ const Profile = () => {
 
                 {isOwnProfile ? (
                   <>
-                    <Link to="/profile-studio" className="rxp-btn rxp-btn-ghost">
+                    <button
+                      onClick={() => setStudioMode((v) => !v)}
+                      className={`rxp-btn ${studioMode ? 'rxp-btn-neon' : 'rxp-btn-ghost'}`}
+                    >
                       <Sparkles className="w-4 h-4" />
-                      Конструктор
-                    </Link>
+                      {studioMode ? "Выйти из конструктора" : "Конструктор"}
+                    </button>
                     <button
                       onClick={() => setShowEditor(true)}
                       className="rxp-btn rxp-btn-neon shadow-lg hover:shadow-cyan-500/25"
@@ -909,14 +916,15 @@ const Profile = () => {
           {statTiles.map(({ icon, value, label, onClick }) => (
             <div
               key={label}
+              data-studio-block="stat"
               onClick={onClick}
               className={`rxp-stat-tile ${onClick ? 'cursor-pointer hover:border-primary/80 transition-all' : ''}`}
               title={onClick ? `Перейти к ${label}` : undefined}
             >
               <IconChip icon={icon} />
               <div>
-                <div className="rxp-stat-value">{value}</div>
-                <div className="rxp-stat-label">{label}</div>
+                <div data-studio-part="stat-value" data-studio-text="stat-value" className="rxp-stat-value">{value}</div>
+                <div data-studio-part="stat-label" data-studio-text="stat-label" className="rxp-stat-label">{label}</div>
               </div>
             </div>
           ))}
@@ -928,14 +936,14 @@ const Profile = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* Левая колонка — уровень и друзья */}
-          <aside className="lg:col-span-3 order-2 lg:order-1">
+          <aside data-studio-block="sidebar" className="lg:col-span-3 order-2 lg:order-1">
             <div className="lg:sticky lg:top-6 space-y-6">
               <ProfileSidebar userId={targetId!} userLevel={profile.level} userXP={profile.xp} />
             </div>
           </aside>
 
           {/* Правая колонка — био и вкладки */}
-          <main className="lg:col-span-9 order-1 lg:order-2 space-y-6">
+          <main data-studio-block="content" className="lg:col-span-9 order-1 lg:order-2 space-y-6">
 
             {/* Витринные блоки — порядок и видимость из настроек профиля */}
             {(() => {
@@ -1066,7 +1074,7 @@ const Profile = () => {
             )}
 
             {/* Вкладки */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} data-studio-block="tabs" className="space-y-6">
               <div className="rxp-tabs-shell">
                 <TabsList className={`grid w-full ${isOwnProfile ? 'grid-cols-4' : 'grid-cols-3'} bg-transparent p-0 h-auto`}>
                   <TabsTrigger value="favorites" className="rxp-tab-trigger">
@@ -1291,6 +1299,8 @@ const Profile = () => {
           currentUserId={currentUserId!}
         />
       )}
+
+      <ProfileStudio enabled={studioMode} onExit={() => setStudioMode(false)} />
     </div>
   );
 };

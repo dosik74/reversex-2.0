@@ -36,7 +36,6 @@ import Settings from "./pages/Settings";
 import TierLists from "./pages/TierLists";
 import BookmarksNew from "./pages/BookmarksNew";
 import FriendsPage from "./pages/Friends";
-import ProfileStudio from "./pages/ProfileStudio";
 import ScrollRestoration from "./components/ScrollRestoration";
 import Recommendations from "./pages/Recommendations";
 import FileDownload from "./pages/FileDownload";
@@ -216,7 +215,6 @@ const App = () => {
                     <Route path="/id/:slug" element={<Profile />} />
                     <Route path="/bookmarks" element={<BookmarksNew />} />
                     <Route path="/friends" element={<FriendsPage />} />
-                    <Route path="/profile-studio" element={<ProfileStudio />} />
                     <Route path="/bookmarks/:targetUserId" element={<BookmarksNew />} />
                     <Route path="/qr-scan" element={<QrScanPage />} />
                     <Route path="/settings" element={<Settings />} />
