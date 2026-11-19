@@ -18,7 +18,7 @@ import ChatWindow from "./ChatWindow";
 interface Message {
   id: string;
   content: string;
-  read: boolean;
+  is_read: boolean;
   created_at: string;
   sender: {
     id: string;
@@ -68,18 +68,25 @@ const MessagesPanel = ({
 
   const fetchConversations = async () => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          id, content, read, created_at, sender_id, receiver_id,
+      const base = `id, content, created_at, sender_id, receiver_id,
           sender:sender_id ( id, username, avatar_url ),
-          receiver:receiver_id ( id, username, avatar_url )
-        `)
+          receiver:receiver_id ( id, username, avatar_url )`;
+      let result = await supabase
+        .from('messages')
+        .select(`${base}, is_read`)
         .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
         .order('created_at', { ascending: false })
         .limit(100);
-
-      if (error) throw error;
+      if (result.error?.code === '42703') {
+        result = await supabase
+          .from('messages')
+          .select(`${base}, read`)
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+          .order('created_at', { ascending: false })
+          .limit(100);
+      }
+      if (result.error) throw result.error;
+      const data = result.data;
 
       // Группируем по собеседнику — учитываем и входящие, и исходящие
       const grouped = new Map<string, any>();
@@ -97,7 +104,7 @@ const MessagesPanel = ({
         }
         const conv = grouped.get(other.id);
         conv.messages.push(msg);
-        if (incoming && !msg.read) conv.unreadCount++;
+        if (incoming && !(msg.is_read ?? (msg as any).read)) conv.unreadCount++;
       }
 
       setConversations(

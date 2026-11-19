@@ -40,11 +40,11 @@ const ProfileSidebar = ({ userId, userLevel = 1, userXP = 0 }: ProfileSidebarPro
     try {
       setLoading(true);
 
-      // Загружаем друзей из базы данных (схема: user_id / friend_id)
+      // Загружаем друзей из базы данных (живая схема: requester_id / addressee_id)
       const { data: friendshipRows, error: friendshipError } = await supabase
         .from('friendships')
-        .select('user_id, friend_id')
-        .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+        .select('requester_id, addressee_id')
+        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
         .eq('status', 'accepted')
         .limit(5);
 
@@ -53,7 +53,7 @@ const ProfileSidebar = ({ userId, userLevel = 1, userXP = 0 }: ProfileSidebarPro
         setTopFriends([]);
       } else {
         const friendIds = (friendshipRows || []).map((r: any) =>
-          r.user_id === userId ? r.friend_id : r.user_id
+          r.requester_id === userId ? r.addressee_id : r.requester_id
         );
 
         let friends: Friend[] = [];

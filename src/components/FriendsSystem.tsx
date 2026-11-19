@@ -19,8 +19,8 @@ interface ProfileMini {
 
 interface FriendshipRow {
   id: string;
-  user_id: string;
-  friend_id: string;
+  requester_id: string;
+  addressee_id: string;
   status: string;
   created_at: string;
   user?: ProfileMini;
@@ -47,15 +47,15 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
     try {
       const { data: acceptedData, error: acceptedErr } = await supabase
         .from("friendships")
-        .select("id,user_id,friend_id,status,created_at")
+        .select("id,requester_id,addressee_id,status,created_at")
         .eq("status", "accepted")
-        .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
+        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
 
       if (acceptedErr) throw acceptedErr;
 
       // Get friend IDs
       const friendIds = (acceptedData || []).map((row: any) => {
-        return row.user_id === userId ? row.friend_id : row.user_id;
+        return row.requester_id === userId ? row.addressee_id : row.requester_id;
       });
 
       if (friendIds.length > 0) {
@@ -72,13 +72,13 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
       // incoming
       const { data: incomingData, error: incomingErr } = await supabase
         .from("friendships")
-        .select("id,user_id,friend_id,status,created_at")
+        .select("id,requester_id,addressee_id,status,created_at")
         .eq("status", "pending")
-        .eq("friend_id", userId);
+        .eq("addressee_id", userId);
 
       if (incomingErr) throw incomingErr;
 
-      const incomingIds = (incomingData || []).map((r: any) => r.user_id);
+      const incomingIds = (incomingData || []).map((r: any) => r.requester_id);
       if (incomingIds.length > 0) {
         const { data: incomingProfiles } = await supabase
           .from("profiles")
@@ -87,7 +87,7 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
 
         const mappedIncoming = (incomingData || []).map((row: any) => ({
           ...row,
-          user: (incomingProfiles || []).find((p: any) => p.id === row.user_id),
+          user: (incomingProfiles || []).find((p: any) => p.id === row.requester_id),
         }));
         setIncoming(mappedIncoming);
       } else {
@@ -97,13 +97,13 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
       // outgoing
       const { data: outgoingData, error: outgoingErr } = await supabase
         .from("friendships")
-        .select("id,user_id,friend_id,status,created_at")
+        .select("id,requester_id,addressee_id,status,created_at")
         .eq("status", "pending")
-        .eq("user_id", userId);
+        .eq("requester_id", userId);
 
       if (outgoingErr) throw outgoingErr;
 
-      const outgoingIds = (outgoingData || []).map((r: any) => r.friend_id);
+      const outgoingIds = (outgoingData || []).map((r: any) => r.addressee_id);
       if (outgoingIds.length > 0) {
         const { data: outgoingProfiles } = await supabase
           .from("profiles")
@@ -112,7 +112,7 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
 
         const mappedOutgoing = (outgoingData || []).map((row: any) => ({
           ...row,
-          friend: (outgoingProfiles || []).find((p: any) => p.id === row.friend_id),
+          friend: (outgoingProfiles || []).find((p: any) => p.id === row.addressee_id),
         }));
         setOutgoing(mappedOutgoing);
       } else {
@@ -138,7 +138,7 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
         (payload) => {
           const row: any = (payload as any).new || (payload as any).old;
           if (!row) return;
-          if (row.user_id === userId || row.friend_id === userId) {
+          if (row.requester_id === userId || row.addressee_id === userId) {
             fetchFriends();
           }
         }
@@ -200,7 +200,7 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
       const { data: existing } = await supabase
         .from("friendships")
         .select("id,status")
-        .or(`and(user_id.eq.${currentUserId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${currentUserId})`)
+        .or(`and(requester_id.eq.${currentUserId},addressee_id.eq.${friendId}),and(requester_id.eq.${friendId},addressee_id.eq.${currentUserId})`)
         .maybeSingle();
 
       if (existing) {
@@ -209,8 +209,8 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
       }
 
       const { error } = await supabase.from("friendships").insert({
-        user_id: currentUserId,
-        friend_id: friendId,
+        requester_id: currentUserId,
+        addressee_id: friendId,
         status: "pending",
       });
 

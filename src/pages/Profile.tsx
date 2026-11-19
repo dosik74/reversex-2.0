@@ -516,8 +516,8 @@ const Profile = () => {
         .from('friendships')
         .select('status')
         .or(
-          `and(user_id.eq.${currentUserId},friend_id.eq.${targetUid}),` +
-          `and(user_id.eq.${targetUid},friend_id.eq.${currentUserId})`
+          `and(requester_id.eq.${currentUserId},addressee_id.eq.${targetUid}),` +
+          `and(requester_id.eq.${targetUid},addressee_id.eq.${currentUserId})`
         )
         .maybeSingle();
 
@@ -623,7 +623,7 @@ const Profile = () => {
     try {
       const { error } = await supabase
         .from('friendships')
-        .insert({ user_id: currentUserId, friend_id: targetUid });
+        .insert({ requester_id: currentUserId, addressee_id: targetUid });
       if (error) throw error;
       toast.success("Запрос на дружбу отправлен");
       setFriendshipStatus("pending");

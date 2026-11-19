@@ -37,7 +37,7 @@ interface Message {
   sender_id: string;
   receiver_id: string;
   content: string;
-  read: boolean;
+  is_read: boolean;
   created_at: string;
   sender: { username: string; avatar_url: string | null } | null;
 }
@@ -104,25 +104,34 @@ const ChatWindow = ({
 
   const fetchMessages = async () => {
     try {
-      const { data, error } = await supabase
+      const pairFilter = `and(sender_id.eq.${currentUserId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${currentUserId})`;
+      const selectBase = `id, sender_id, receiver_id, content, created_at,
+           sender:profiles(username, avatar_url)`;
+
+      let result = await supabase
         .from("messages")
-        .select(
-          `id, sender_id, receiver_id, content, read, created_at,
-           sender:profiles(username, avatar_url)`
-        )
-        .or(
-          `and(sender_id.eq.${currentUserId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${currentUserId})`
-        )
+        .select(`${selectBase}, is_read`)
+        .or(pairFilter)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
-      setMessages((data || []) as unknown as Message[]);
+      // fallback для альтернативной схемы БД, где колонка называется read
+      if (result.error?.code === "42703") {
+        result = await supabase
+          .from("messages")
+          .select(`${selectBase}, read`)
+          .or(pairFilter)
+          .order("created_at", { ascending: true });
+      }
+      if (result.error) throw result.error;
+
+      setMessages((result.data || []) as unknown as Message[]);
+      const readKey = result.data?.some((m: any) => "is_read" in m) ? "is_read" : "read";
       await supabase
         .from("messages")
-        .update({ read: true })
+        .update({ [readKey]: true })
         .eq("sender_id", friendId)
         .eq("receiver_id", currentUserId)
-        .eq("read", false);
+        .eq(readKey, false);
     } catch (err) {
       console.error("Error fetching messages:", err);
     } finally {

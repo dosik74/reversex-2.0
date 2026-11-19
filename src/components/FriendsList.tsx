@@ -7,8 +7,8 @@ import { Link } from "react-router-dom";
 
 interface FriendshipRow {
   id: string;
-  user_id: string;
-  friend_id: string;
+  requester_id: string;
+  addressee_id: string;
   status: string;
 }
 
@@ -44,13 +44,13 @@ const FriendsList = ({ userId }: { userId: string }) => {
       const { data: relations, error } = await supabase
         .from('friendships')
         .select('*')
-        .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
         .eq('status', 'accepted');
 
       if (error) throw error;
 
-      const friendIds = (relations || []).map((r: FriendshipRow) =>
-        r.user_id === userId ? r.friend_id : r.user_id
+      const friendIds = (relations || []).map((r: any) =>
+        r.requester_id === userId ? r.addressee_id : r.requester_id
       );
 
       if (friendIds.length === 0) {

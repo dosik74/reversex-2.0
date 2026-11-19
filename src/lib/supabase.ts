@@ -122,6 +122,8 @@ if (supabaseUrl && supabaseAnonKey) {
         detectSessionInUrl: true,
         flowType: "pkce",
         storageKey: "sb-reversex-auth-token",
+        // Много вкладок с одним storageKey не должны ронять auth локом
+        lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => await fn(),
       },
     });
     console.log("✅ Supabase клиент инициализирован с URL:", supabaseUrl);
