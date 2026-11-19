@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import supabase from "@/lib/supabase";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -403,6 +403,9 @@ const ChatWindow = ({
               <span className="w-2 h-2 rounded-full bg-emerald-400" /> онлайн
             </span>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Личная переписка с {friendUsername}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-3 px-4 py-4 bg-zinc-950/60">
