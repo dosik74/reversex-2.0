@@ -27,6 +27,8 @@ interface BookmarkContextValue {
     synopsis?: string;
     status: ContentStatus;
     userRating?: number;
+    /** всего сезонов/эпизодов — нужен для прогресса на постерах */
+    totalItems?: number;
   }) => void;
   removeBookmark: (contentType: ContentType, contentId: string) => void;
   updateRating: (id: string, rating: number) => void;
@@ -186,6 +188,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
           status: data.status,
           isFavorite: data.status === 'favorite',
           userRating: data.userRating !== undefined ? data.userRating : existing.userRating,
+          totalItems: data.totalItems && data.totalItems > 0 ? data.totalItems : existing.totalItems,
           updatedAt: now,
         };
         setBookmarks((prev) => prev.map((b) => (b.id === existing.id ? optimisticRow : b)));
@@ -201,7 +204,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
           userRating: data.userRating ?? 0,
           externalRating: data.externalRating,
           progress: 0,
-          totalItems: 0,
+          totalItems: data.totalItems ?? 0,
           isFavorite: data.status === 'favorite',
           synopsis: data.synopsis,
           genre: data.genre,
@@ -217,6 +220,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         if (existing) {
           const updates: any = { status: data.status, is_favorite: data.status === 'favorite', updated_at: now };
           if (data.userRating !== undefined) updates.user_rating = data.userRating;
+          if (data.totalItems && data.totalItems > 0) updates.total_items = data.totalItems;
           const { error } = await supabase.from('content_bookmarks').update(updates).eq('id', existing.id);
           if (error) throw error;
         } else {
@@ -229,7 +233,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
             is_favorite: data.status === 'favorite',
             user_rating: data.userRating ?? 0,
             progress: 0,
-            total_items: 0,
+            total_items: data.totalItems ?? 0,
           };
           if (data.posterUrl) insertData.poster_url = data.posterUrl;
           if (data.externalRating != null) insertData.external_rating = data.externalRating;

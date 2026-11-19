@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { useIMDbRating } from "@/hooks/useIMDbRating";
 import ContentActionsButton from "@/components/ContentActionsButton";
 import PosterImage from "@/components/PosterImage";
+import PosterStatus, { posterStatusRing } from "@/components/PosterStatus";
+import { useBookmarks } from "@/context/BookmarkContext";
 
 interface Movie {
   id: number;
@@ -16,6 +18,8 @@ interface Movie {
 }
 
 const MovieCard = ({ movie }: { movie: Movie }) => {
+  const { getBookmark } = useBookmarks();
+  const bookmark = getBookmark('movie', String(movie.id));
   const { rating: imdbRating, loading: imdbLoading } = useIMDbRating({
     tmdbId: movie.id,
     mediaType: 'movie'
@@ -29,12 +33,14 @@ const MovieCard = ({ movie }: { movie: Movie }) => {
   return (
     <Link to={`/movie/${movie.id}`}>
       <Card className="overflow-hidden hover-lift cursor-pointer group relative">
-        <div className="aspect-[2/3] relative overflow-hidden bg-zinc-950">
+        <div className={`aspect-[2/3] relative overflow-hidden bg-zinc-950 ${posterStatusRing(bookmark)}`}>
           <PosterImage
             src={posterUrl}
             alt={movie.title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
+          {/* чуть ниже, чтобы не перекрывать бейдж # ранга в сетке */}
+          <PosterStatus bookmark={bookmark} badgeTopClass="top-9" />
           {(() => {
             const r = Number(movie.rating);
             const color = r >= 7 ? 'bg-green-500' : r >= 5 ? 'bg-yellow-500' : 'bg-red-500';

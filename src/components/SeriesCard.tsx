@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { useIMDbRating } from "@/hooks/useIMDbRating";
 import ContentActionsButton from "@/components/ContentActionsButton";
 import PosterImage from "@/components/PosterImage";
+import PosterStatus, { posterStatusRing } from "@/components/PosterStatus";
+import { useBookmarks } from "@/context/BookmarkContext";
 
 interface Series {
   id: number;
@@ -14,7 +16,9 @@ interface Series {
   description?: string;
 }
 
-const SeriesCard = ({ series }: { series: Series }) => {
+const SeriesCard = ({ series, totalSeasons }: { series: Series; totalSeasons?: number }) => {
+  const { getBookmark } = useBookmarks();
+  const bookmark = getBookmark('series', String(series.id));
   const { rating: imdbRating, loading: imdbLoading } = useIMDbRating({
     tmdbId: series.id,
     mediaType: 'tv'
@@ -28,12 +32,13 @@ const SeriesCard = ({ series }: { series: Series }) => {
   return (
     <Link to={`/series/${series.id}`}>
       <Card className="overflow-hidden hover-lift cursor-pointer group relative">
-        <div className="aspect-[2/3] relative overflow-hidden bg-zinc-950">
+        <div className={`aspect-[2/3] relative overflow-hidden bg-zinc-950 ${posterStatusRing(bookmark)}`}>
           <PosterImage
             src={posterUrl}
             alt={series.title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
+          <PosterStatus bookmark={bookmark} unit="сез." />
           {(() => {
             const r = Number(series.rating);
             const color = r >= 7 ? 'bg-green-500' : r >= 5 ? 'bg-yellow-500' : 'bg-red-500';
@@ -53,6 +58,7 @@ const SeriesCard = ({ series }: { series: Series }) => {
               externalRating={series.rating}
               releaseYear={series.year}
               synopsis={series.description}
+              totalItems={totalSeasons}
             />
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

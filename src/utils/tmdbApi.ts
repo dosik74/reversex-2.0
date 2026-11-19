@@ -18,6 +18,7 @@ export interface TMDBMovie {
   budget: number;
   revenue: number;
   status?: string;
+  number_of_seasons?: number;
   production_companies?: Array<{ id: number; name: string; logo_path: string | null; origin_country: string }>;
 }
 

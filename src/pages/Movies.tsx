@@ -6,6 +6,8 @@ import ContentActionsButton from "@/components/ContentActionsButton";
 import CatalogFilterBar from "@/components/CatalogFilterBar";
 import CinemaNav from "@/components/CinemaNav";
 import PosterRow from "@/components/PosterRow";
+import PosterStatus, { posterStatusRing } from "@/components/PosterStatus";
+import { useBookmarks } from "@/context/BookmarkContext";
 import { SortOption, GenreFilter, GENRE_TMDB_IDS, GENRE_LIST } from "@/components/MovieSortFilter";
 import { claimExclusive, dedupeById } from "@/utils/dedupe";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
@@ -52,6 +54,7 @@ let moviesTrendingMemoryCache: Movie[] | null = null;
 
 const Movies = () => {
   const { t } = useTranslation();
+  const { getBookmark } = useBookmarks();
   const observerTarget = useRef<HTMLDivElement>(null);
   
   const [tab, setTab] = useState<'trending' | 'top1000'>(() => moviesMemoryCache?.tab || 'trending');
@@ -757,12 +760,13 @@ const Movies = () => {
                         >
                           {i + 1}
                         </span>
-                        <div className="relative z-10 w-[136px] sm:w-[158px] aspect-[2/3] rounded-2xl overflow-hidden border border-white/10 dark:border-white/15 shadow-[0_12px_28px_rgba(0,0,0,0.65)] transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-[0_22px_45px_rgba(0,0,0,0.88)] group-hover:border-primary/50">
+                        <div className={`relative z-10 w-[136px] sm:w-[158px] aspect-[2/3] rounded-2xl overflow-hidden border border-white/10 dark:border-white/15 shadow-[0_12px_28px_rgba(0,0,0,0.65)] transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-[0_22px_45px_rgba(0,0,0,0.88)] group-hover:border-primary/50 ${posterStatusRing(getBookmark('movie', String(m.id)))}`}>
                           <PosterImage
                             src={m.poster}
                             alt={m.title}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           />
+                          <PosterStatus bookmark={getBookmark('movie', String(m.id))} />
                         </div>
                       </div>
 

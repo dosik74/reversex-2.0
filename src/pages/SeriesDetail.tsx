@@ -20,6 +20,7 @@ interface SeriesDetails {
   budget: number;
   revenue: number;
   status: string;
+  number_of_seasons?: number;
   genres: Array<{ id: number; name: string }>;
   production_companies?: Array<{ id: number; name: string; logo_path: string | null; origin_country: string }>;
 }
@@ -199,6 +200,7 @@ const SeriesDetail = () => {
                   releaseYear={String(releaseYear || '')}
                   genre={series.genres?.map(g => g.name).join(', ')}
                   synopsis={series.overview}
+                  totalItems={series.number_of_seasons}
                   variant="detail"
                 />
 

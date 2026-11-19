@@ -6,6 +6,8 @@ import CatalogHeader from "@/components/CatalogHeader";
 import CatalogFilterBar from "@/components/CatalogFilterBar";
 import CinemaNav from "@/components/CinemaNav";
 import PosterRow from "@/components/PosterRow";
+import PosterStatus, { posterStatusRing } from "@/components/PosterStatus";
+import { useBookmarks } from "@/context/BookmarkContext";
 import { SortOption, GenreFilter, GENRE_TMDB_IDS, GENRE_LIST } from "@/components/MovieSortFilter";
 import { claimExclusive, dedupeById } from "@/utils/dedupe";
 import { getPopularSeries, getTrendingSeries, searchSeries, getMoviePosterUrl } from "@/utils/tmdbApi";
@@ -23,6 +25,7 @@ interface Series {
   description: string;
   rank?: number;
   genre_ids?: number[];
+  totalSeasons?: number;
 }
 
 const SERIES_PER_PAGE = 20;
@@ -33,6 +36,7 @@ let seriesTrendingMemoryCache: Series[] | null = null;
 
 const SeriesPage = () => {
   const { t } = useTranslation();
+  const { getBookmark } = useBookmarks();
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const [trendingSeries, setTrendingSeriesState] = useState<Series[]>(() => seriesTrendingMemoryCache || []);
@@ -190,7 +194,8 @@ const SeriesPage = () => {
         year: series.first_air_date ? new Date(series.first_air_date).getFullYear().toString() : '',
         rating: series.vote_average,
         poster: getMoviePosterUrl(series.poster_path, 'w342'),
-        description: series.overview
+        description: series.overview,
+        totalSeasons: series.number_of_seasons || 0
       })));
 
       setAllSeries(transformed);
@@ -231,7 +236,8 @@ const SeriesPage = () => {
             rating: Math.round((series.vote_average || 0) * 10) / 10,
             poster: getMoviePosterUrl(series.poster_path, 'w342'),
             description: series.overview || '',
-            genre_ids: series.genre_ids || []
+            genre_ids: series.genre_ids || [],
+            totalSeasons: series.number_of_seasons || 0
           }));
       }
 
@@ -246,7 +252,8 @@ const SeriesPage = () => {
               rating: Math.round((series.vote_average || 0) * 10) / 10,
               poster: getMoviePosterUrl(series.poster_path, 'w342'),
               description: series.overview || '',
-              genre_ids: series.genre_ids || []
+              genre_ids: series.genre_ids || [],
+              totalSeasons: series.number_of_seasons || 0
             }));
           transformed.forEach(s => seen.add(s.id));
           all.push(...transformed);
@@ -274,7 +281,8 @@ const SeriesPage = () => {
                   rating: series.vote_average,
                   poster: getMoviePosterUrl(series.poster_path, 'w342'),
                   description: series.overview,
-                  genre_ids: series.genre_ids || []
+                  genre_ids: series.genre_ids || [],
+                  totalSeasons: series.number_of_seasons || 0
                 }));
               transformed.forEach(s => seen.add(s.id));
               bgSeries.push(...transformed);
@@ -433,12 +441,13 @@ const SeriesPage = () => {
                       >
                         {i + 1}
                       </span>
-                      <div className="relative z-10 w-[136px] sm:w-[158px] aspect-[2/3] rounded-2xl overflow-hidden border border-white/10 dark:border-white/15 shadow-[0_12px_28px_rgba(0,0,0,0.65)] transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-[0_22px_45px_rgba(0,0,0,0.88)] group-hover:border-primary/50">
+                      <div className={`relative z-10 w-[136px] sm:w-[158px] aspect-[2/3] rounded-2xl overflow-hidden border border-white/10 dark:border-white/15 shadow-[0_12px_28px_rgba(0,0,0,0.65)] transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-[0_22px_45px_rgba(0,0,0,0.88)] group-hover:border-primary/50 ${posterStatusRing(getBookmark('series', String(s.id)))}`}>
                         <PosterImage
                           src={s.poster}
                           alt={s.title}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
+                        <PosterStatus bookmark={getBookmark('series', String(s.id))} unit="сез." />
                       </div>
                     </div>
 
@@ -464,17 +473,17 @@ const SeriesPage = () => {
             </section>
           )}
 
-          <PosterRow title="Популярные сериалы" items={popularSeries} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
-          <PosterRow title="Высокий рейтинг" items={topRatedSeries} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
+          <PosterRow title="Популярные сериалы" items={popularSeries} render={(s) => <SeriesCard series={s} totalSeasons={s.totalSeasons} />} getKey={(s) => s.id} />
+          <PosterRow title="Высокий рейтинг" items={topRatedSeries} render={(s) => <SeriesCard series={s} totalSeasons={s.totalSeasons} />} getKey={(s) => s.id} />
           {genreRows.map((row) => (
-            <PosterRow key={row.id} title={row.name} items={row.items} render={(s) => <SeriesCard series={s} />} getKey={(s) => s.id} />
+            <PosterRow key={row.id} title={row.name} items={row.items} render={(s) => <SeriesCard series={s} totalSeasons={s.totalSeasons} />} getKey={(s) => s.id} />
           ))}
         </>
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
             {displaySeries.map((series) => (
-              <SeriesCard key={series.id} series={series} />
+              <SeriesCard key={series.id} series={series} totalSeasons={series.totalSeasons} />
             ))}
           </div>
           

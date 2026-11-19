@@ -16,6 +16,8 @@ interface ContentActionsButtonProps {
   genre?: string;
   releaseYear?: string;
   synopsis?: string;
+  /** всего сезонов/эпизодов — для прогресса на постерах */
+  totalItems?: number;
   /** poster = small round icon on cards, detail = large pill on detail pages */
   variant?: 'poster' | 'detail';
 }
@@ -32,6 +34,7 @@ export default function ContentActionsButton({
   genre,
   releaseYear,
   synopsis,
+  totalItems,
   variant = 'poster',
 }: ContentActionsButtonProps) {
   const {
@@ -102,6 +105,7 @@ export default function ContentActionsButton({
       genre,
       releaseYear,
       synopsis,
+      totalItems,
       status,
     });
     toast.success(
@@ -142,6 +146,7 @@ export default function ContentActionsButton({
       synopsis,
       status: bookmark ? bookmark.status : 'watched',
       userRating: rating,
+      totalItems,
     });
     toast.success(`Оценка ${rating} сохранена`);
     setShowRateModal(false);
