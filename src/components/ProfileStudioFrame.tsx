@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { X } from "lucide-react";
 import supabase from "@/lib/supabase";
-import Top50Profile from "@/components/Top50Profile";
 
 const STORAGE_KEY = "reversex_profile_studio_v2";
 
@@ -135,7 +133,7 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
   const stage = useRef<"load-studio" | "inject-data" | "done">("load-studio");
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
-  const [top50Open, setTop50Open] = useState(false);
+
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -222,7 +220,11 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
       } else if (type === "RX_SAVE") {
         void saveToServer();
       } else if (type === "RX_OPEN_TOP50") {
-        setTop50Open(true);
+        window.location.href = "/tier-lists";
+      } else if (type === "RX_SHARE") {
+        navigator.clipboard?.writeText(window.location.href).then(() =>
+          toast.success("Ссылка на профиль скопирована")
+        );
       }
     };
     window.addEventListener("message", onMessage);
@@ -238,25 +240,15 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
   }, [userId]);
 
   return (
-    <div className="fixed inset-0 z-[9998] flex flex-col bg-[#090a0f]">
+    <div className="relative min-h-screen w-full bg-[#090a0f]">
       <iframe
         ref={iframeRef}
         src="/profile-studio.html"
         title="Конструктор профиля ReverseX"
-        className="min-h-0 w-full flex-1 border-0 bg-[#090a0f]"
+        className="block w-full border-0 bg-[#090a0f]"
+        style={{ minHeight: "calc(100vh - 70px)" }}
       />
 
-      {top50Open && (
-        <div className="fixed inset-0 z-[2147483647] overflow-y-auto bg-[#090a0f]">
-          <button
-            onClick={() => setTop50Open(false)}
-            className="fixed right-5 top-5 z-[2147483647] inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/70 px-4 py-2 text-sm font-bold text-white backdrop-blur hover:bg-white/20"
-          >
-            <X className="h-4 w-4" /> Закрыть
-          </button>
-          <Top50Profile userId={userId} isOwnProfile />
-        </div>
-      )}
     </div>
   );
 };

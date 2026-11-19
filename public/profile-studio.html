@@ -51,16 +51,9 @@
     }
 
     /* Верхняя навигация: всегда сверху, не участвует в редактировании */
-    .rx-fixed-nav {
-      position: fixed !important;
-      top: 12px;
-      left: 0;
-      right: 0;
-      z-index: 2147483000 !important;
-      pointer-events: none;
-    }
-    .rx-fixed-nav nav { pointer-events: auto; }
-    #profileCanvas { padding-top: 72px; }
+    /* Шапка сайта берётся из Layout — собственную шапку студии скрываем */
+    .rx-fixed-nav { display: none !important; }
+    #profileCanvas { padding-top: 0; }
 
     /* Subtle dark header grid */
     .rx-hero-grid {
@@ -1408,7 +1401,7 @@
               <button onclick="if(!state.editMode) toggleEditMode(true)" class="rx-part px-4 h-10 rounded-xl rx-btn-cyan text-xs font-extrabold flex items-center gap-1.5 shrink-0" data-part-id="btnEdit" data-part-name="Кнопка Редактировать">
                 <span>✦</span>${t('btnEdit', 'Редактировать профиль')}
               </button>
-              <button onclick="if(!state.editMode){ copyStr(location.href); showToast('Ссылка скопирована!','success'); }" class="rx-part px-3.5 h-10 rounded-xl bg-[#10121a] hover:bg-[#171a26] border border-[#1e222e] text-xs font-semibold text-slate-200 flex items-center gap-1.5 shrink-0" data-part-id="btnShare" data-part-name="Кнопка Поделиться">
+              <button onclick="if(!state.editMode) window.parent.postMessage({type:'RX_SHARE'},'*')" class="rx-part px-3.5 h-10 rounded-xl bg-[#10121a] hover:bg-[#171a26] border border-[#1e222e] text-xs font-semibold text-slate-200 flex items-center gap-1.5 shrink-0" data-part-id="btnShare" data-part-name="Кнопка Поделиться">
                 <span>↗</span>${t('btnShare', 'Поделиться')}
               </button>
             </div>
@@ -1595,6 +1588,24 @@
           const cats = [
             { id: 'Все', c: 35 }, { id: 'Фильмы', c: 34 }, { id: 'Сериалы', c: 1 }, { id: 'Аниме', c: 0 }, { id: 'Игры', c: 0 }
           ];
+          const isTop50 = state.activeTab === 'TOP50';
+          if (isTop50) {
+            return `
+              <div class="w-full h-full p-4 flex flex-col gap-3 overflow-y-auto">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="rx-part flex items-baseline gap-3" data-part-id="top50head" data-part-name="Заголовок Топ 50">
+                    <h2 class="font-display font-black text-2xl text-white">МОЙ ТОП 50</h2>
+                    <span class="text-xs text-slate-400">${(state.profile?.topLists?.[0]?.items || []).length} / 50</span>
+                  </div>
+                  <button onclick="if(!state.editMode) window.parent.postMessage({type:'RX_OPEN_TOP50'},'*')"
+                          class="rx-part rounded-full bg-amber-400 text-black px-4 py-2 text-xs font-black hover:bg-amber-300" data-part-id="top50add" data-part-name="Кнопка добавить в Топ 50">+ Добавить</button>
+                </div>
+                <div id="mediaCardsGrid" class="rx-part grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" data-part-id="mediaGrid" data-part-name="Сетка Топ 50">
+                  ${renderTop50GridHTML()}
+                </div>
+              </div>
+            `;
+          }
           return `
             <div class="w-full h-full p-4 flex flex-col gap-3.5 overflow-y-auto">
               <div class="flex flex-wrap items-center justify-between gap-3">
@@ -1682,6 +1693,27 @@
         default:
           return `<div class="p-4 text-xs">Блок</div>`;
       }
+    }
+
+    // Сетка Топ 50 — внутри вкладки TOP50 профиля
+    function renderTop50GridHTML() {
+      const list = state.profile && state.profile.topLists && state.profile.topLists[0];
+      const items = (list && list.items) || [];
+      const fallback = 'https://placehold.co/300x450/10121a/22d3ee?text=RX';
+      if (!items.length) {
+        return `<div class="col-span-full py-10 text-center text-sm text-slate-400">Список пока пуст. Нажми «+ Добавить», чтобы выбрать фильм, сериал или игру.</div>`;
+      }
+      return items.slice(0, 50).map((it, i) => `
+        <div class="group relative rounded-xl overflow-hidden border border-white/10 hover:border-amber-400/50 bg-slate-900/80 transition">
+          <div class="font-display italic font-black text-4xl text-amber-300/90 absolute left-1.5 top-0 z-10" style="text-shadow:0 2px 12px rgba(0,0,0,.95)">${i + 1}</div>
+          <div class="aspect-[2/3] w-full bg-slate-800">
+            ${it.poster ? `<img src="${escAttr(it.poster)}" alt="" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" onerror="this.src='${fallback}'" />` : `<img src="${fallback}" alt="" class="w-full h-full object-cover" />`}
+          </div>
+          <div class="p-2">
+            <div class="text-[11px] font-bold text-white truncate">${escHtml(it.title || '')}</div>
+          </div>
+        </div>
+      `).join('');
     }
 
     function renderMediaCardsHTML() {
@@ -2787,7 +2819,10 @@
         btn.className = `rx-part flex-1 h-full rounded-full flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold tracking-wider transition ${active ? 'rx-btn-cyan' : 'text-slate-400 hover:text-white'}`;
       });
       if (tab === 'THEME') openPageBgModal();
-      else showToast(`Вкладка: ${tab}`);
+      else {
+        // Пересобираем блок коллекции: внутри вкладки TOP50 показывается своя сетка
+        mountAllBlocks();
+      }
     }
 
     function setStatusFilter(s) {
