@@ -42,8 +42,7 @@ import {
 import { Link } from "react-router-dom";
 import ProfileSidebar from "@/components/ProfileSidebar";
 import ChatWindow from "@/components/ChatWindow";
-import ProfileStudio from "@/components/ProfileStudio";
-import "@/styles/profile-studio.css";
+import ProfileStudioFrame from "@/components/ProfileStudioFrame";
 import { useUserOnline } from "@/hooks/useUserOnline";
 import Top50Profile from "@/components/Top50Profile";
 import ProfileBookmarks from "@/components/ProfileBookmarks";
@@ -1300,11 +1299,12 @@ const Profile = () => {
         />
       )}
 
-      <ProfileStudio
-        enabled={studioMode}
-        onExit={() => setStudioMode(false)}
-        userId={targetId || profile.id}
-      />
+      {studioMode && (
+        <ProfileStudioFrame
+          userId={targetId || profile.id}
+          onExit={() => setStudioMode(false)}
+        />
+      )}
     </div>
   );
 };

@@ -1,0 +1,143 @@
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Save, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import supabase from "@/lib/supabase";
+
+const STORAGE_KEY = "reversex_profile_studio_v2";
+
+type Props = {
+  userId: string;
+  onExit: () => void;
+};
+
+/**
+ * Встраиваемый в профиль конструктор.
+ *
+ * Внутри — оригинальный движок reversex_profile_studio.html:
+ * ▶ 3 режима (Блоки / Детали внутри / Текст)
+ * ▶ перетаскивание ЛЮБОГО блока и каждой внутренней детали
+ * ▶ 8 ручек ресайза, размеры до 2000px, привязка к сетке 8px
+ * ▶ закрепление к экрану, Z-слои, вращение, скругление, прозрачность
+ * ▶ фоны (цвет/картинка/аватарка) с blur/dim/zoom
+ * ▶ 18 кириллических шрифтов, inline-форматирование текста
+ * ▶ добавление новых блоков и кнопок, Undo, JSON, сброс
+ *
+ * Настройки НЕ остаются в localStorage: при открытии подтягиваются
+ * с сервера (profiles.customization -> studio), а кнопка «Сохранить»
+ * и автосохранение пишут результат обратно в Supabase.
+ */
+const ProfileStudioFrame = ({ userId, onExit }: Props) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const initialized = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const onLoad = async () => {
+      if (initialized.current) return;
+      initialized.current = true;
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("customization")
+          .eq("id", userId)
+          .single();
+        const studio = (data?.customization as any)?.studio;
+        const win = iframe.contentWindow;
+        if (!win) return;
+        if (studio) {
+          win.localStorage.setItem(STORAGE_KEY, JSON.stringify(studio));
+          setLastSaved(new Date().toISOString());
+        } else {
+          win.localStorage.removeItem(STORAGE_KEY);
+        }
+        win.location.reload();
+      } catch (e) {
+        console.error("Studio load error:", e);
+      }
+    };
+
+    iframe.addEventListener("load", onLoad);
+    return () => iframe.removeEventListener("load", onLoad);
+  }, [userId]);
+
+  const saveToServer = async () => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+    setSaving(true);
+    try {
+      const raw = win.localStorage.getItem(STORAGE_KEY);
+      const studio = raw ? JSON.parse(raw) : null;
+
+      const { data: row } = await supabase
+        .from("profiles")
+        .select("customization")
+        .eq("id", userId)
+        .single();
+      const customization = ((row?.customization as any) || {}) as Record<string, any>;
+      if (studio) customization.studio = studio;
+      else delete customization.studio;
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({ customization })
+        .eq("id", userId);
+      if (error) throw error;
+      setLastSaved(new Date().toISOString());
+      toast.success("Профиль сохранён на сервере");
+    } catch (e: any) {
+      toast.error("Ошибка сохранения: " + (e?.message || "неизвестная"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Автосохранение каждые 12 секунд, пока открыт конструктор
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void saveToServer();
+    }, 12000);
+    return () => window.clearInterval(timer);
+  }, [userId]);
+
+  return (
+    <div className="fixed inset-0 z-[9998] flex flex-col bg-[#090a0f]">
+      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-white/10 bg-[#0b0d13] px-4">
+        <button
+          onClick={onExit}
+          className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10 hover:text-white"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Назад в профиль
+        </button>
+        <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cyan-300">
+          <Sparkles className="h-3.5 w-3.5" />
+          Полный контроль над профилем
+        </span>
+        <span className="ml-auto hidden text-[11px] text-zinc-500 sm:block">
+          {lastSaved ? `Сохранено: ${new Date(lastSaved).toLocaleTimeString("ru-RU")}` : "Есть несохранённые изменения"}
+        </span>
+        <button
+          onClick={saveToServer}
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-4 py-2 text-xs font-black text-[#04161c] hover:bg-cyan-300 disabled:opacity-60"
+        >
+          <Save className="h-3.5 w-3.5" />
+          {saving ? "Сохраняем..." : "Сохранить на сервере"}
+        </button>
+      </div>
+
+      <iframe
+        ref={iframeRef}
+        src="/profile-studio.html"
+        title="Конструктор профиля ReverseX"
+        className="min-h-0 w-full flex-1 border-0 bg-[#090a0f]"
+      />
+    </div>
+  );
+};
+
+export default ProfileStudioFrame;
