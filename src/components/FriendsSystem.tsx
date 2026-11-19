@@ -30,7 +30,7 @@ interface FriendshipRow {
 interface FriendsSystemProps {
   userId: string;
   currentUserId: string | null;
-  onMessage?: (friendId: string) => void;
+  onMessage?: (friend: ProfileMini) => void;
 }
 
 const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps) => {
@@ -174,7 +174,7 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
         const result = await supabase
           .from("profiles")
           .select("id,username,display_name,avatar_url")
-          .ilike("username", `%${searchQuery}%`)
+          .or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`)
           .neq("id", currentUserId)
           .limit(10);
         data = result.data;
@@ -287,7 +287,7 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
       <div className="flex gap-2">
         {currentUserId && (
           <>
-            <Button size="sm" variant="outline" onClick={() => onMessage?.(friend.id)}>
+            <Button size="sm" variant="outline" onClick={() => onMessage?.(friend)}>
               <MessageSquare className="w-4 h-4" />
             </Button>
             <Button 

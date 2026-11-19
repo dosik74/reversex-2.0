@@ -27,6 +27,25 @@ interface Message {
   };
 }
 
+const messagePreview = (content: string) => {
+  if (!content?.startsWith("RXMSG:")) return content;
+  try {
+    const rich = JSON.parse(content.slice(6));
+    switch (rich.kind) {
+      case "image": return "📷 Фото";
+      case "voice": return "🎤 Голосовое сообщение";
+      case "sticker": return `${rich.emoji} Стикер`;
+      case "movie_link": return `🎬 ${rich.title}`;
+      case "series_link": return `📺 ${rich.title}`;
+      case "game_link": return `🎮 ${rich.title}`;
+      case "list_share": return `📋 ${rich.title}`;
+      default: return "Вложение";
+    }
+  } catch {
+    return "Вложение";
+  }
+};
+
 const MessagesPanel = ({
   open,
   onClose,
@@ -52,35 +71,40 @@ const MessagesPanel = ({
       const { data, error } = await supabase
         .from('messages')
         .select(`
-          *,
-          sender:sender_id (
-            id,
-            username,
-            avatar_url
-          )
+          id, content, read, created_at, sender_id, receiver_id,
+          sender:sender_id ( id, username, avatar_url ),
+          receiver:receiver_id ( id, username, avatar_url )
         `)
-        .eq('receiver_id', userId)
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
 
-      // Group by sender
-      const grouped = data?.reduce((acc: any, msg: any) => {
-        const senderId = msg.sender.id;
-        if (!acc[senderId]) {
-          acc[senderId] = {
-            sender: msg.sender,
+      // Группируем по собеседнику — учитываем и входящие, и исходящие
+      const grouped = new Map<string, any>();
+      for (const msg of data || []) {
+        const incoming = msg.sender_id !== userId;
+        const other = incoming ? msg.sender : msg.receiver;
+        if (!other) continue;
+        if (!grouped.has(other.id)) {
+          grouped.set(other.id, {
+            sender: other,
             messages: [],
             unreadCount: 0,
-          };
+            lastAt: msg.created_at,
+          });
         }
-        acc[senderId].messages.push(msg);
-        if (!msg.read) acc[senderId].unreadCount++;
-        return acc;
-      }, {});
+        const conv = grouped.get(other.id);
+        conv.messages.push(msg);
+        if (incoming && !msg.read) conv.unreadCount++;
+      }
 
-      setConversations(Object.values(grouped || {}));
+      setConversations(
+        [...grouped.values()].sort(
+          (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()
+        )
+      );
     } catch (error: any) {
       toast.error('Failed to load messages');
     } finally {
@@ -170,7 +194,7 @@ const MessagesPanel = ({
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground truncate">
-                          {latestMessage.content}
+                          {messagePreview(latestMessage.content)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {formatDistanceToNow(new Date(latestMessage.created_at), {

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone, FlaskConical } from "lucide-react";
+import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone, FlaskConical, Users } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,8 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import supabase, { ensureSession } from "@/utils/supabase";
-import NotificationsPanelComponent from "./NotificationsPanelComponent";
-import MessagesPanelComponent from "./MessagesPanelComponent";
+import NotificationsPanel from "./NotificationsPanel";
+import MessagesPanel from "./MessagesPanel";
 import { useTheme } from "@/context/ThemeContext";
 import { useBeta } from "@/context/BetaContext";
 
@@ -65,6 +65,7 @@ const Layout = () => {
     { icon: Tv, label: 'Series', path: '/series' },
     { icon: Gamepad, label: 'Games', path: '/games' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
+    { icon: Users, label: 'Друзья', path: '/friends' },
     { icon: Music, label: 'Music', path: '/music' },
     { icon: Book, label: 'Books', path: '/books' },
   ];
@@ -295,16 +296,20 @@ const Layout = () => {
                   </DropdownMenu>
 
                   {/* Notifications Panel */}
-                  {showNotifications && (
-                    <NotificationsPanelComponent 
+                  {showNotifications && session?.user?.id && (
+                    <NotificationsPanel
+                      open={showNotifications}
                       onClose={() => setShowNotifications(false)}
+                      userId={session.user.id}
                     />
                   )}
 
                   {/* Messages Panel */}
-                  {showMessages && (
-                    <MessagesPanelComponent 
+                  {showMessages && session?.user?.id && (
+                    <MessagesPanel
+                      open={showMessages}
                       onClose={() => setShowMessages(false)}
+                      userId={session.user.id}
                     />
                   )}
                 </>

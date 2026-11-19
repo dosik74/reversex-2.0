@@ -41,6 +41,7 @@ import {
  } from "lucide-react";
 import { Link } from "react-router-dom";
 import ProfileSidebar from "@/components/ProfileSidebar";
+import ChatWindow from "@/components/ChatWindow";
 import { useUserOnline } from "@/hooks/useUserOnline";
 import Top50Profile from "@/components/Top50Profile";
 import ProfileBookmarks from "@/components/ProfileBookmarks";
@@ -124,22 +125,6 @@ const ProfileEditor = ({ profile, open, onClose, onUpdate }: { profile: Profile;
             <button onClick={onClose} className="px-4 py-2 border border-border rounded-md hover:bg-secondary transition-colors">Отмена</button>
             <button onClick={onUpdate} className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">Сохранить</button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  </div>
-);
-
-const ChatWindow = ({ open, onClose, friendId, friendUsername, friendAvatar, currentUserId }: { open: boolean; onClose: () => void; friendId: string; friendUsername: string; friendAvatar: string | null; currentUserId: string }) => (
-  <div className={`fixed inset-0 bg-background/80 backdrop-blur-sm z-50 ${open ? 'block' : 'hidden'}`}>
-    <div className="flex items-center justify-center min-h-screen p-4">
-      <Card className="w-full max-w-md">
-        <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold">Чат с {friendUsername}</h2>
-            <button onClick={onClose} className="p-2 rounded-md hover:bg-secondary transition-colors">✕</button>
-          </div>
-          <p className="text-muted-foreground text-center py-8">Чат будет реализован позже</p>
         </CardContent>
       </Card>
     </div>
@@ -531,8 +516,8 @@ const Profile = () => {
         .from('friendships')
         .select('status')
         .or(
-          `and(requester_id.eq.${currentUserId},addressee_id.eq.${targetUid}),` +
-          `and(requester_id.eq.${targetUid},addressee_id.eq.${currentUserId})`
+          `and(user_id.eq.${currentUserId},friend_id.eq.${targetUid}),` +
+          `and(user_id.eq.${targetUid},friend_id.eq.${currentUserId})`
         )
         .maybeSingle();
 
@@ -638,7 +623,7 @@ const Profile = () => {
     try {
       const { error } = await supabase
         .from('friendships')
-        .insert({ requester_id: currentUserId, addressee_id: targetUid });
+        .insert({ user_id: currentUserId, friend_id: targetUid });
       if (error) throw error;
       toast.success("Запрос на дружбу отправлен");
       setFriendshipStatus("pending");
