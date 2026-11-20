@@ -95,6 +95,7 @@ interface Props { userId: string; onExit?: () => void; }
 
 const ProfileStudio = ({ userId }: Props) => {
   const [editing, setEditing] = useState(true);
+  const [isOwn, setIsOwn] = useState(false);
   const [data, setData] = useState<StudioData>(emptyData);
   const [mode, setMode] = useState<EditorMode>("blocks");
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
@@ -136,6 +137,11 @@ const ProfileStudio = ({ userId }: Props) => {
     let active = true;
     (async () => {
       try {
+        const { data: authData } = await supabase.auth.getUser();
+        const own = authData.user?.id === userId;
+        if (!active) return;
+        setIsOwn(own);
+        if (!own) setEditing(false);
         const [{ data: row }, profile] = await Promise.all([
           supabase.from("profiles").select("customization").eq("id", userId).single(),
           loadProfile(userId),
@@ -182,6 +188,7 @@ const ProfileStudio = ({ userId }: Props) => {
 
   // ── Сохранение ──
   const saveToServer = useCallback(async (silent = false) => {
+    if (!isOwn) return;
     try {
       const { data: row } = await supabase.from("profiles").select("customization").eq("id", userId).single();
       const customization = ((row?.customization as any) || {}) as Record<string, any>;
@@ -193,10 +200,10 @@ const ProfileStudio = ({ userId }: Props) => {
     } catch (e: any) {
       toast.error("Ошибка сохранения: " + (e?.message || "неизвестная"));
     }
-  }, [userId]);
+  }, [userId, isOwn]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !isOwn) return;
     const timer = window.setInterval(() => void saveToServer(true), 4000);
     const onHide = () => { if (document.visibilityState === "hidden") void saveToServer(true); };
     const onPageHide = () => void saveToServer(true);
@@ -247,6 +254,7 @@ const ProfileStudio = ({ userId }: Props) => {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!isOwn || !editing) return;
       const tag = (e.target as HTMLElement)?.tagName;
       const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target as HTMLElement)?.isContentEditable;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !typing) { e.preventDefault(); undo(); }
@@ -255,7 +263,7 @@ const ProfileStudio = ({ userId }: Props) => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo, saveToServer]);
+  }, [undo, saveToServer, isOwn, editing]);
 
   // ── Drag & Resize ──
   useEffect(() => {
@@ -328,17 +336,17 @@ const ProfileStudio = ({ userId }: Props) => {
   useEffect(() => {
     if (loading) return;
     canvasRef.current?.querySelectorAll<HTMLElement>("[data-text-key]").forEach((el) => {
-      el.contentEditable = editing ? "true" : "false";
+      el.contentEditable = editing && isOwn ? "true" : "false";
       el.classList.toggle("studio-text-editable", mode === "text");
       el.oninput = () => {
         const d = dataRef.current;
         commit({ ...d, texts: { ...d.texts, [el.dataset.textKey || ""]: el.innerHTML } }, false);
       };
     });
-  }, [mode, loading, editing, data.blocks, commit]);
+  }, [mode, loading, editing, isOwn, data.blocks, commit]);
 
   useEffect(() => {
-    if (!editing) return;
+    if (!editing || !isOwn) return;
     const onUp = () => {
       const sel = window.getSelection();
       const text = sel?.toString().trim();
@@ -351,7 +359,7 @@ const ProfileStudio = ({ userId }: Props) => {
     };
     document.addEventListener("mouseup", onUp);
     return () => document.removeEventListener("mouseup", onUp);
-  }, [editing]);
+  }, [editing, isOwn]);
 
   const saveInlineTexts = () => {
     const texts = { ...dataRef.current.texts };
@@ -726,7 +734,7 @@ const ProfileStudio = ({ userId }: Props) => {
                 filter: b.bg.blur ? `blur(${b.bg.blur}px)` : undefined,
               }}
               onPointerDown={(e) => {
-                if (!editing || mode !== "blocks" || b.locked) return;
+                if (!editing || !isOwn || mode !== "blocks" || b.locked) return;
                 if ((e.target as HTMLElement).closest(".studio-ui, [data-text-key], button, input, select")) return;
                 e.preventDefault();
                 setSelectedBlock(b.id);
@@ -741,7 +749,7 @@ const ProfileStudio = ({ userId }: Props) => {
                 {renderBlockContent(b)}
               </div>
 
-              {editing && isSelected && mode === "blocks" && DIRS.map((dir) => (
+              {editing && isOwn && isSelected && mode === "blocks" && DIRS.map((dir) => (
                 <div
                   key={dir}
                   className={`studio-handle h-${dir}`}
@@ -751,7 +759,7 @@ const ProfileStudio = ({ userId }: Props) => {
                   }}
                 />
               ))}
-              {editing && isSelected && (
+              {editing && isOwn && isSelected && (
                 <div className="studio-size-badge">{Math.round(b.w)}×{Math.round(b.h)} | {Math.round(b.x)},{Math.round(b.y)}</div>
               )}
             </div>
@@ -760,7 +768,7 @@ const ProfileStudio = ({ userId }: Props) => {
       </div>
 
       {/* Inline toolbar */}
-      {editing && inline && (
+      {editing && isOwn && inline && (
         <div className="studio-inline studio-ui" style={{ left: inline.x, top: inline.y }}>
           <select onChange={(e) => applyInlineFont(e.target.value)} defaultValue=""><option value="">Шрифт</option>{FONTS.map((f) => <option key={f}>{f}</option>)}</select>
           <button onClick={() => execInline("bold")}><b>B</b></button>
@@ -773,7 +781,7 @@ const ProfileStudio = ({ userId }: Props) => {
       )}
 
       {/* Toolbar */}
-      {editing && <div className="studio-toolbar studio-ui">
+      {editing && isOwn && <div className="studio-toolbar studio-ui">
         {(["blocks", "parts", "text"] as EditorMode[]).map((m) => (
           <button key={m} onClick={() => setMode(m)} className={`studio-tool ${mode === m ? "is-active" : ""}`}>
             {m === "blocks" ? <Move /> : m === "parts" ? <MousePointer2 /> : <Type />}
@@ -794,7 +802,7 @@ const ProfileStudio = ({ userId }: Props) => {
       </div>}
 
       {/* Inspector */}
-      {editing && selectedBlockData && mode !== "text" && (
+      {editing && isOwn && selectedBlockData && mode !== "text" && (
         <div className="studio-inspector studio-ui">
           <div className="studio-inspector-head">
             <div><span className="studio-kbd">{selectedPart ? "ДЕТАЛЬ" : "БЛОК"}</span><h3>{selectedPart || selectedBlockData.title}</h3></div>
@@ -865,7 +873,7 @@ const ProfileStudio = ({ userId }: Props) => {
         </div>
       )}
 
-      {!editing && (
+      {!editing && isOwn && (
         <button
           className="studio-reenter studio-ui"
           onClick={() => setEditing(true)}
