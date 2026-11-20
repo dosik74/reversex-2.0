@@ -407,8 +407,29 @@ const ProfileStudio = ({ userId }: Props) => {
   };
   const deleteBlock = (id: string) => {
     const d = dataRef.current;
-    commit({ ...d, blocks: d.blocks.filter((b) => b.id !== id), parts: { ...d.parts, [id]: {} } });
+    const removed = d.blocks.find((b) => b.id === id);
+    if (!removed) return;
+    commit({
+      ...d,
+      blocks: d.blocks.filter((b) => b.id !== id),
+      trash: [removed, ...d.trash.filter((b) => b.id !== id)],
+      parts: { ...d.parts, [id]: {} },
+    });
     setSelectedBlock(null);
+    toast.success("Блок удалён — его можно вернуть в меню «Добавить»");
+  };
+
+  const restoreBlock = (id: string) => {
+    const d = dataRef.current;
+    const block = d.trash.find((b) => b.id === id);
+    if (!block) return;
+    commit({
+      ...d,
+      trash: d.trash.filter((b) => b.id !== id),
+      blocks: [...d.blocks, block],
+    });
+    setSelectedBlock(id);
+    toast.success("Блок восстановлен");
   };
 
   const selectedBlockData = data.blocks.find((b) => b.id === selectedBlock) || null;
@@ -938,13 +959,41 @@ const ProfileStudio = ({ userId }: Props) => {
               </div>
             )}
             {modal === "add" && (
-              <div className="studio-modal-body studio-add-grid">
-                <button onClick={() => addBlock("stat")}><b>Карточка статистики</b><small>Иконка + число + подпись</small></button>
-                <button onClick={() => addBlock("text")}><b>Текстовый блок</b><small>Заголовок и заметка</small></button>
-                <button onClick={() => addBlock("image")}><b>Картинка / Стикер</b><small>Своё фото можно загрузить ниже</small></button>
-                <label className="studio-add-upload"><b><Upload className="inline h-4 w-4" /> Своё фото</b><small>Загрузить с устройства</small><input type="file" accept="image/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => addBlock("image", url))} /></label>
-                <label className="studio-add-upload"><b><Video className="inline h-4 w-4" /> Своё видео</b><small>Любой ролик в профиль</small><input type="file" accept="video/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => addBlock("video", url))} /></label>
-              </div>
+              <>
+                <div className="studio-modal-body studio-add-grid">
+                  <button onClick={() => addBlock("stat")}><b>Карточка статистики</b><small>Иконка + число + подпись</small></button>
+                  <button onClick={() => addBlock("text")}><b>Текстовый блок</b><small>Заголовок и заметка</small></button>
+                  <button onClick={() => addBlock("image")}><b>Картинка / Стикер</b><small>Своё фото можно загрузить ниже</small></button>
+                  <label className="studio-add-upload"><b><Upload className="inline h-4 w-4" /> Своё фото</b><small>Загрузить с устройства</small><input type="file" accept="image/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => addBlock("image", url))} /></label>
+                  <label className="studio-add-upload"><b><Video className="inline h-4 w-4" /> Своё видео</b><small>Любой ролик в профиль</small><input type="file" accept="video/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => addBlock("video", url))} /></label>
+                </div>
+
+                {data.trash.length > 0 && (
+                  <div className="studio-trash">
+                    <p className="studio-label">Удалённые блоки — нажми, чтобы вернуть</p>
+                    <div className="studio-trash-grid">
+                      {data.trash.map((b) => (
+                        <button key={b.id} onClick={() => restoreBlock(b.id)}>
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>{b.title || b.type}</span>
+                          <small>Вернуть</small>
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      className="studio-chip"
+                      onClick={() => {
+                        const d = dataRef.current;
+                        commit({ ...d, blocks: [...d.blocks, ...d.trash], trash: [] });
+                        setModal(null);
+                        toast.success("Все блоки восстановлены");
+                      }}
+                    >
+                      <RotateCcw /> Вернуть все
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

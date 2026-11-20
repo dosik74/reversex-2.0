@@ -64,6 +64,7 @@ export const emptyData = (): StudioData => ({
   blocks: getDefaultBlocks(),
   parts: {},
   texts: {},
+  trash: [],
   profile: null,
 });
 
@@ -79,6 +80,7 @@ export function normalizeData(input: any): StudioData {
     blocks,
     parts: input.parts || {},
     texts: input.texts || {},
+    trash: Array.isArray(input.trash) ? input.trash : [],
     profile: input.profile || null,
   };
 }

@@ -94,6 +94,8 @@ export interface StudioData {
   blocks: Block[];
   parts: Record<string, Record<string, PartCfg>>;
   texts: Record<string, string>;
+  /** удалённые блоки — доступны в меню «Добавить» для восстановления */
+  trash: Block[];
   profile: StudioProfile | null;
 }
 
