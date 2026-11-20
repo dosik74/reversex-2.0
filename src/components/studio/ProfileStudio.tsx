@@ -91,9 +91,9 @@ type DragState = null | {
   orig: any;
 };
 
-interface Props { userId: string; }
+interface Props { userId: string; onExit: () => void; }
 
-const ProfileStudio = ({ userId }: Props) => {
+const ProfileStudio = ({ userId, onExit }: Props) => {
   const [data, setData] = useState<StudioData>(emptyData);
   const [mode, setMode] = useState<EditorMode>("blocks");
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
@@ -113,6 +113,7 @@ const ProfileStudio = ({ userId }: Props) => {
   const [saving, setSaving] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const dataRef = useRef(data);
   dataRef.current = data;
   const history = useRef<StudioData[]>([]);
@@ -226,6 +227,15 @@ const ProfileStudio = ({ userId }: Props) => {
       .catch((e) => toast.error("Ошибка загрузки: " + e.message));
   };
 
+  const handleAvatarUpload = (file: File | undefined) => {
+    if (!file) return;
+    handleFile(file, (url) => {
+      const d = dataRef.current;
+      commit({ ...d, avatarSrc: url });
+      void supabase.from("profiles").update({ avatar_url: url }).eq("id", userId);
+    });
+  };
+
   // ── Undo / hotkeys ──
   const undo = useCallback(() => {
     if (historyIdx.current <= 0) return toast.info("Больше нет действий");
@@ -269,6 +279,12 @@ const ProfileStudio = ({ userId }: Props) => {
           if (dir.includes("s")) h = Math.max(40, Math.min(2000, snapV(h + dy)));
           if (dir.includes("w")) { w = Math.max(40, Math.min(2000, snapV(w - dx))); x = snapV(drag.orig.x + drag.orig.w - w); }
           if (dir.includes("n")) { h = Math.max(40, Math.min(2000, snapV(h - dy))); y = snapV(drag.orig.y + drag.orig.h - h); }
+          // Аватарки, картинки и счётчики меняют размер пропорционально
+          if (["avatar", "customImage", "stat", "customVideo"].includes(b.type) && dir.length === 2) {
+            const ratio = drag.orig.w / drag.orig.h;
+            if (w / h > ratio) w = Math.round(h * ratio);
+            else h = Math.round(w / ratio);
+          }
           Object.assign(next, { x, y, w, h });
         }
         commit({ ...d, blocks: d.blocks.map((x) => (x.id === b.id ? next : x)) }, false);
@@ -309,20 +325,18 @@ const ProfileStudio = ({ userId }: Props) => {
 
   // ── Inline text ──
   useEffect(() => {
-    if (!loading && mode === "text") {
-      canvasRef.current?.querySelectorAll<HTMLElement>("[data-text-key]").forEach((el) => {
-        el.contentEditable = "true";
-        el.classList.add("studio-text-editable");
-        el.oninput = () => {
-          const d = dataRef.current;
-          commit({ ...d, texts: { ...d.texts, [el.dataset.textKey || ""]: el.innerHTML } }, false);
-        };
-      });
-    }
-  }, [mode, loading, commit]);
+    if (loading) return;
+    canvasRef.current?.querySelectorAll<HTMLElement>("[data-text-key]").forEach((el) => {
+      el.contentEditable = "true";
+      el.classList.toggle("studio-text-editable", mode === "text");
+      el.oninput = () => {
+        const d = dataRef.current;
+        commit({ ...d, texts: { ...d.texts, [el.dataset.textKey || ""]: el.innerHTML } }, false);
+      };
+    });
+  }, [mode, loading, data.blocks, commit]);
 
   useEffect(() => {
-    if (mode !== "text") return;
     const onUp = () => {
       const sel = window.getSelection();
       const text = sel?.toString().trim();
@@ -438,7 +452,7 @@ const ProfileStudio = ({ userId }: Props) => {
     switch (b.type) {
       case "avatar":
         return (
-          <div className="flex h-full w-full items-center justify-center">
+          <div className="flex h-full w-full items-center justify-center" onDoubleClick={(e) => { e.stopPropagation(); avatarInputRef.current?.click(); }} title="Двойной клик — заменить фото">
             <div className="h-full w-full rounded-full p-1.5 avatar-ring overflow-hidden">
               <img src={data.avatarSrc} alt="" className="h-full w-full rounded-full object-cover" />
             </div>
@@ -641,6 +655,13 @@ const ProfileStudio = ({ userId }: Props) => {
 
   return (
     <div className="studio-shell" style={{ fontFamily: data.globalFont ? `'${data.globalFont}', sans-serif` : undefined }}>
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { handleAvatarUpload(e.target.files?.[0]); e.target.value = ""; }}
+      />
       {/* Фон страницы */}
       <div
         className={`studio-page-bg ${data.pageBg.layout === "banner" ? "banner" : "full"}`}
@@ -677,7 +698,7 @@ const ProfileStudio = ({ userId }: Props) => {
               }}
               onPointerDown={(e) => {
                 if (mode !== "blocks" || b.locked) return;
-                if ((e.target as HTMLElement).closest(".studio-ui")) return;
+                if ((e.target as HTMLElement).closest(".studio-ui, [data-text-key], button, input, select")) return;
                 e.preventDefault();
                 setSelectedBlock(b.id);
                 setSelectedPart(null);
@@ -710,7 +731,7 @@ const ProfileStudio = ({ userId }: Props) => {
       </div>
 
       {/* Inline toolbar */}
-      {inline && mode === "text" && (
+      {inline && (
         <div className="studio-inline studio-ui" style={{ left: inline.x, top: inline.y }}>
           <select onChange={(e) => execInline("fontName", e.target.value)} defaultValue=""><option value="">Шрифт</option>{FONTS.map((f) => <option key={f}>{f}</option>)}</select>
           <button onClick={() => execInline("bold")}><b>B</b></button>
@@ -740,6 +761,7 @@ const ProfileStudio = ({ userId }: Props) => {
         <button className="studio-tool" onClick={() => { setJsonText(JSON.stringify(data, null, 2)); setModal("json"); }}><FileJson /> JSON</button>
         <button className="studio-tool" onClick={() => setModal("reset")}><RotateCcw /> Сброс</button>
         <button className="studio-tool studio-save" onClick={() => void saveToServer()} disabled={saving}><Save /> {saving ? "..." : "Сохранить"}</button>
+        <button className="studio-tool studio-done" onClick={() => { void saveToServer(true); onExit(); }}><Check /> Готово</button>
       </div>
 
       {/* Inspector */}

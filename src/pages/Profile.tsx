@@ -212,7 +212,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(() => (rawIdentifier ? !profileCache.has(rawIdentifier) : true));
   const [showEditor, setShowEditor] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [studioMode, setStudioMode] = useState(false);
+  const [studioMode, setStudioMode] = useState(true);
   const [comments, setComments] = useState<Comment[]>(() => (rawIdentifier ? profileCommentsCache.get(rawIdentifier) || [] : []));
   const [newComment, setNewComment] = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -687,8 +687,8 @@ const Profile = () => {
   const targetId = resolvedUserId || profile?.id;
 
   // Основной вид профиля — полноценный конструктор с реальными данными
-  if (!loading && profile && targetId) {
-    return <ProfileStudio userId={targetId} />;
+  if (!loading && profile && targetId && studioMode) {
+    return <ProfileStudio userId={targetId} onExit={() => setStudioMode(false)} />;
   }
   const isOwnProfile = Boolean(currentUserId && targetId && currentUserId === targetId);
 
@@ -855,11 +855,11 @@ const Profile = () => {
                 {isOwnProfile ? (
                   <>
                     <button
-                      onClick={() => setStudioMode((v) => !v)}
-                      className={`rxp-btn ${studioMode ? 'rxp-btn-neon' : 'rxp-btn-ghost'}`}
+                      onClick={() => setStudioMode(true)}
+                      className="rxp-btn rxp-btn-ghost"
                     >
                       <Sparkles className="w-4 h-4" />
-                      {studioMode ? "Выйти из конструктора" : "Конструктор"}
+                      Конструктор
                     </button>
                     <button
                       onClick={() => setShowEditor(true)}

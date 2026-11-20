@@ -116,6 +116,8 @@
 .studio-tool:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .studio-tool.is-active { background: #22d3ee; color: #04161c; border-color: #67e8f9; box-shadow: 0 0 18px rgba(34, 211, 238, 0.5); }
 .studio-tool.studio-save { background: rgba(34, 211, 238, 0.15); border-color: rgba(34, 211, 238, 0.4); color: #67e8f9; }
+.studio-tool.studio-done { background: #fff; color: #0b0d13; font-weight: 900; }
+.studio-tool.studio-done:hover { background: #d4d4dc; color: #0b0d13; }
 .studio-divider { width: 1px; height: 24px; background: rgba(255, 255, 255, 0.14); margin: 0 3px; flex-shrink: 0; }
 
 /* Inspector */
