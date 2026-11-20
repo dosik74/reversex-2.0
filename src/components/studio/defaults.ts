@@ -70,14 +70,8 @@ export const emptyData = (): StudioData => ({
 export function normalizeData(input: any): StudioData {
   const base = emptyData();
   if (!input || !Array.isArray(input.blocks) || !input.blocks.length) return base;
-  const ids = new Set<string>(input.blocks.map((b: Block) => b.id));
+  // Сохранённые блоки — единственный источник правды: удалённые остаются удалёнными
   const blocks = [...input.blocks];
-  getDefaultBlocks().forEach((b) => {
-    if (!ids.has(b.id)) blocks.push(b);
-  });
-  blocks.sort(
-    (a, b) => getDefaultBlocks().findIndex((x) => x.id === a.id) - getDefaultBlocks().findIndex((x) => x.id === b.id)
-  );
   return {
     avatarSrc: input.avatarSrc || base.avatarSrc,
     globalFont: input.globalFont || base.globalFont,

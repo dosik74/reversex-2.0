@@ -353,13 +353,37 @@ const ProfileStudio = ({ userId }: Props) => {
     return () => document.removeEventListener("mouseup", onUp);
   }, [editing]);
 
-  const execInline = (cmd: string, value?: string) => {
-    document.execCommand(cmd, false, value);
+  const saveInlineTexts = () => {
     const texts = { ...dataRef.current.texts };
     canvasRef.current?.querySelectorAll<HTMLElement>("[data-text-key]").forEach((el) => {
       texts[el.dataset.textKey || ""] = el.innerHTML;
     });
-    commit({ ...dataRef.current, texts });
+    commit({ ...dataRef.current, texts }, false);
+  };
+
+  const execInline = (cmd: string, value?: string) => {
+    document.execCommand(cmd, false, value);
+    saveInlineTexts();
+  };
+
+  const applyInlineFont = (font: string) => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || sel.isCollapsed) {
+      toast.info("Сначала выдели текст");
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    const span = document.createElement("span");
+    span.style.fontFamily = `'${font}', sans-serif`;
+    try {
+      range.surroundContents(span);
+    } catch {
+      span.appendChild(range.extractContents());
+      range.insertNode(span);
+    }
+    sel.removeAllRanges();
+    saveInlineTexts();
+    toast.success(`Шрифт: ${font}`);
   };
 
   // ── Панель ──
@@ -427,9 +451,12 @@ const ProfileStudio = ({ userId }: Props) => {
 
   // ── Рендер блоков ──
   const tx = (key: string, fallback: string) => (
-    <span data-text-key={`${key}`} className="studio-t">
-      {data.texts[key] ?? fallback}
-    </span>
+    <span
+      data-text-key={key}
+      className="studio-t"
+      suppressContentEditableWarning
+      dangerouslySetInnerHTML={{ __html: data.texts[key] ?? fallback }}
+    />
   );
 
   const renderBlockContent = (b: Block) => {
@@ -735,7 +762,7 @@ const ProfileStudio = ({ userId }: Props) => {
       {/* Inline toolbar */}
       {editing && inline && (
         <div className="studio-inline studio-ui" style={{ left: inline.x, top: inline.y }}>
-          <select onChange={(e) => execInline("fontName", e.target.value)} defaultValue=""><option value="">Шрифт</option>{FONTS.map((f) => <option key={f}>{f}</option>)}</select>
+          <select onChange={(e) => applyInlineFont(e.target.value)} defaultValue=""><option value="">Шрифт</option>{FONTS.map((f) => <option key={f}>{f}</option>)}</select>
           <button onClick={() => execInline("bold")}><b>B</b></button>
           <button onClick={() => execInline("italic")}><i>I</i></button>
           <button onClick={() => execInline("underline")}><u>U</u></button>
