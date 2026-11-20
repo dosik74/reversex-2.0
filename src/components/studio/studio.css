@@ -97,6 +97,25 @@
   scrollbar-width: none;
 }
 .studio-toolbar::-webkit-scrollbar { display: none; }
+
+.studio-reenter {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: #22d3ee;
+  color: #04161c;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 12px 30px rgba(34, 211, 238, 0.35);
+  transition: transform 0.2s, filter 0.2s;
+}
+.studio-reenter:hover { transform: translateY(-2px); filter: brightness(1.08); }
 .studio-tool {
   display: inline-flex;
   align-items: center;

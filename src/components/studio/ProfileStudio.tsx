@@ -91,9 +91,10 @@ type DragState = null | {
   orig: any;
 };
 
-interface Props { userId: string; onExit: () => void; }
+interface Props { userId: string; onExit?: () => void; }
 
-const ProfileStudio = ({ userId, onExit }: Props) => {
+const ProfileStudio = ({ userId }: Props) => {
+  const [editing, setEditing] = useState(true);
   const [data, setData] = useState<StudioData>(emptyData);
   const [mode, setMode] = useState<EditorMode>("blocks");
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
@@ -327,16 +328,17 @@ const ProfileStudio = ({ userId, onExit }: Props) => {
   useEffect(() => {
     if (loading) return;
     canvasRef.current?.querySelectorAll<HTMLElement>("[data-text-key]").forEach((el) => {
-      el.contentEditable = "true";
+      el.contentEditable = editing ? "true" : "false";
       el.classList.toggle("studio-text-editable", mode === "text");
       el.oninput = () => {
         const d = dataRef.current;
         commit({ ...d, texts: { ...d.texts, [el.dataset.textKey || ""]: el.innerHTML } }, false);
       };
     });
-  }, [mode, loading, data.blocks, commit]);
+  }, [mode, loading, editing, data.blocks, commit]);
 
   useEffect(() => {
+    if (!editing) return;
     const onUp = () => {
       const sel = window.getSelection();
       const text = sel?.toString().trim();
@@ -349,7 +351,7 @@ const ProfileStudio = ({ userId, onExit }: Props) => {
     };
     document.addEventListener("mouseup", onUp);
     return () => document.removeEventListener("mouseup", onUp);
-  }, [mode]);
+  }, [editing]);
 
   const execInline = (cmd: string, value?: string) => {
     document.execCommand(cmd, false, value);
@@ -697,7 +699,7 @@ const ProfileStudio = ({ userId, onExit }: Props) => {
                 filter: b.bg.blur ? `blur(${b.bg.blur}px)` : undefined,
               }}
               onPointerDown={(e) => {
-                if (mode !== "blocks" || b.locked) return;
+                if (!editing || mode !== "blocks" || b.locked) return;
                 if ((e.target as HTMLElement).closest(".studio-ui, [data-text-key], button, input, select")) return;
                 e.preventDefault();
                 setSelectedBlock(b.id);
@@ -712,7 +714,7 @@ const ProfileStudio = ({ userId, onExit }: Props) => {
                 {renderBlockContent(b)}
               </div>
 
-              {isSelected && mode === "blocks" && DIRS.map((dir) => (
+              {editing && isSelected && mode === "blocks" && DIRS.map((dir) => (
                 <div
                   key={dir}
                   className={`studio-handle h-${dir}`}
@@ -722,7 +724,7 @@ const ProfileStudio = ({ userId, onExit }: Props) => {
                   }}
                 />
               ))}
-              {isSelected && (
+              {editing && isSelected && (
                 <div className="studio-size-badge">{Math.round(b.w)}×{Math.round(b.h)} | {Math.round(b.x)},{Math.round(b.y)}</div>
               )}
             </div>
@@ -731,7 +733,7 @@ const ProfileStudio = ({ userId, onExit }: Props) => {
       </div>
 
       {/* Inline toolbar */}
-      {inline && (
+      {editing && inline && (
         <div className="studio-inline studio-ui" style={{ left: inline.x, top: inline.y }}>
           <select onChange={(e) => execInline("fontName", e.target.value)} defaultValue=""><option value="">Шрифт</option>{FONTS.map((f) => <option key={f}>{f}</option>)}</select>
           <button onClick={() => execInline("bold")}><b>B</b></button>
@@ -744,7 +746,7 @@ const ProfileStudio = ({ userId, onExit }: Props) => {
       )}
 
       {/* Toolbar */}
-      <div className="studio-toolbar studio-ui">
+      {editing && <div className="studio-toolbar studio-ui">
         {(["blocks", "parts", "text"] as EditorMode[]).map((m) => (
           <button key={m} onClick={() => setMode(m)} className={`studio-tool ${mode === m ? "is-active" : ""}`}>
             {m === "blocks" ? <Move /> : m === "parts" ? <MousePointer2 /> : <Type />}
@@ -761,11 +763,11 @@ const ProfileStudio = ({ userId, onExit }: Props) => {
         <button className="studio-tool" onClick={() => { setJsonText(JSON.stringify(data, null, 2)); setModal("json"); }}><FileJson /> JSON</button>
         <button className="studio-tool" onClick={() => setModal("reset")}><RotateCcw /> Сброс</button>
         <button className="studio-tool studio-save" onClick={() => void saveToServer()} disabled={saving}><Save /> {saving ? "..." : "Сохранить"}</button>
-        <button className="studio-tool studio-done" onClick={() => { void saveToServer(true); onExit(); }}><Check /> Готово</button>
-      </div>
+        <button className="studio-tool studio-done" onClick={() => { void saveToServer(true); setEditing(false); setSelectedBlock(null); setSelectedPart(null); toast.success("Готово! Изменения сохранены"); }}><Check /> Готово</button>
+      </div>}
 
       {/* Inspector */}
-      {selectedBlockData && mode !== "text" && (
+      {editing && selectedBlockData && mode !== "text" && (
         <div className="studio-inspector studio-ui">
           <div className="studio-inspector-head">
             <div><span className="studio-kbd">{selectedPart ? "ДЕТАЛЬ" : "БЛОК"}</span><h3>{selectedPart || selectedBlockData.title}</h3></div>
@@ -834,6 +836,15 @@ const ProfileStudio = ({ userId, onExit }: Props) => {
             ))}
           </div>
         </div>
+      )}
+
+      {!editing && (
+        <button
+          className="studio-reenter studio-ui"
+          onClick={() => setEditing(true)}
+        >
+          <Sparkles className="h-4 w-4" /> Редактировать профиль
+        </button>
       )}
 
       {/* Modals */}

@@ -687,8 +687,8 @@ const Profile = () => {
   const targetId = resolvedUserId || profile?.id;
 
   // Основной вид профиля — полноценный конструктор с реальными данными
-  if (!loading && profile && targetId && studioMode) {
-    return <ProfileStudio userId={targetId} onExit={() => setStudioMode(false)} />;
+  if (!loading && profile && targetId) {
+    return <ProfileStudio userId={targetId} />;
   }
   const isOwnProfile = Boolean(currentUserId && targetId && currentUserId === targetId);
 
