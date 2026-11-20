@@ -42,7 +42,7 @@ import {
 import { Link } from "react-router-dom";
 import ProfileSidebar from "@/components/ProfileSidebar";
 import ChatWindow from "@/components/ChatWindow";
-import ProfileStudioFrame from "@/components/ProfileStudioFrame";
+import ProfileStudio from "@/components/studio/ProfileStudio";
 import { useUserOnline } from "@/hooks/useUserOnline";
 import Top50Profile from "@/components/Top50Profile";
 import ProfileBookmarks from "@/components/ProfileBookmarks";
@@ -688,14 +688,7 @@ const Profile = () => {
 
   // Основной вид профиля — полноценный конструктор с реальными данными
   if (!loading && profile && targetId) {
-    return (
-      <ProfileStudioFrame
-        userId={targetId}
-        onExit={() => {
-          window.location.href = "/";
-        }}
-      />
-    );
+    return <ProfileStudio userId={targetId} />;
   }
   const isOwnProfile = Boolean(currentUserId && targetId && currentUserId === targetId);
 
