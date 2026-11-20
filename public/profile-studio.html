@@ -751,6 +751,16 @@
           <div><div class="text-xs font-bold text-white">Картинка / Стикер</div><div class="text-[11px] text-slate-400">До 2000×2000 px</div></div>
           <span class="text-rxCyan font-bold text-lg">+</span>
         </button>
+        <button onclick="document.getElementById('addPhotoInput').click()" class="w-full p-3 rounded-xl rx-surface hover:border-emerald-400/50 flex items-center justify-between text-left transition">
+          <div><div class="text-xs font-bold text-white">📷 Своё фото</div><div class="text-[11px] text-slate-400">Загрузить с устройства на сервер</div></div>
+          <span class="text-emerald-400 font-bold text-lg">+</span>
+        </button>
+        <input id="addPhotoInput" type="file" accept="image/*" class="hidden" onchange="addMediaBlock('image', event)" />
+        <button onclick="document.getElementById('addVideoInput').click()" class="w-full p-3 rounded-xl rx-surface hover:border-purple-400/50 flex items-center justify-between text-left transition">
+          <div><div class="text-xs font-bold text-white">🎬 Своё видео</div><div class="text-[11px] text-slate-400">Любой ролик в профиль</div></div>
+          <span class="text-purple-400 font-bold text-lg">+</span>
+        </button>
+        <input id="addVideoInput" type="file" accept="video/*" class="hidden" onchange="addMediaBlock('video', event)" />
       </div>
 
       <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-2.5">
@@ -1078,6 +1088,34 @@
       state.texts = {};
     }
 
+    let rxUploadSeq = 0;
+    window.__rxUploadCbs = window.__rxUploadCbs || {};
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'RX_UPLOADED' && e.data.reqId) {
+        const cb = window.__rxUploadCbs[e.data.reqId];
+        if (cb) {
+          delete window.__rxUploadCbs[e.data.reqId];
+          cb(e.data.url);
+        }
+      }
+    });
+
+    // Загрузка файла на сервер через родительское окно (в localStorage только URL)
+    function uploadToServer(file, cb) {
+      const reqId = 'u' + (++rxUploadSeq) + '_' + Date.now();
+      const reader = new FileReader();
+      reader.onload = () => {
+        window.__rxUploadCbs[reqId] = cb;
+        window.parent.postMessage({
+          type: 'RX_UPLOAD',
+          reqId,
+          dataUrl: reader.result,
+          name: file.name
+        }, '*');
+      };
+      reader.readAsDataURL(file);
+    }
+
     function saveAll() {
       captureAllEditableTexts();
       try {
@@ -1089,9 +1127,12 @@
           parts: state.parts,
           texts: state.texts
         }));
-        showToast('Все изменения, детали, фоны и шрифты сохранены!', 'success');
+        showToast('Сохранено! Отправляем на сервер...', 'success');
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'RX_SAVE' }, '*');
+        }
       } catch (e) {
-        showToast('Ошибка сохранения (слишком большое фото)', 'error');
+        showToast('Ошибка сохранения. Попробуйте ещё раз', 'error');
       }
     }
 
@@ -1659,6 +1700,15 @@
           return `
             <div class="rx-part w-full h-full overflow-hidden rounded-2xl" data-part-id="img" data-part-name="Картинка">
               <img data-custom-img="true" src="${escAttr(src)}" alt="Media" onerror="this.src='https://placehold.co/600x400/10121a/22d3ee?text=Image'" class="w-full h-full object-cover pointer-events-none" />
+            </div>
+          `;
+        }
+
+        case 'customVideo': {
+          const src = (blk.meta && blk.meta.src) || '';
+          return `
+            <div class="rx-part w-full h-full overflow-hidden rounded-2xl bg-black" data-part-id="video" data-part-name="Видео">
+              <video src="${escAttr(src)}" controls playsinline class="w-full h-full object-contain pointer-events-auto"></video>
             </div>
           `;
         }
@@ -2386,18 +2436,16 @@
     function uploadSelectedBgImage(e) {
       const file = e.target.files?.[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
+      uploadToServer(file, (url) => {
         const bg = getSelectedBgObj();
         if (!bg) return;
         bg.mode = 'image';
-        bg.imageSrc = reader.result;
+        bg.imageSrc = url;
         applySelectedBgToDOM();
         syncInspector();
         pushHistory();
         showToast('Фон загружен только для этого элемента!', 'success');
-      };
-      reader.readAsDataURL(file);
+      });
     }
 
     function updateSelectedBg(key, val) {
@@ -2466,9 +2514,7 @@
     function uploadAvatarOrImage(e) {
       const file = e.target.files?.[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => updateImageUrl(reader.result);
-      reader.readAsDataURL(file);
+      uploadToServer(file, (url) => updateImageUrl(url));
     }
 
     function updateImageUrl(url) {
@@ -2717,15 +2763,13 @@
     function uploadPageBg(e) {
       const file = e.target.files?.[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
+      uploadToServer(file, (url) => {
         state.pageBg.mode = 'image';
-        state.pageBg.imageSrc = reader.result;
+        state.pageBg.imageSrc = url;
         applyPageBg();
         pushHistory();
         showToast('Свой фон страницы загружен!', 'success');
-      };
-      reader.readAsDataURL(file);
+      });
     }
 
     function updatePageBg(k, v) {
@@ -2810,6 +2854,35 @@
       closeAddDrawer();
       pushHistory();
       showToast('Новый блок добавлен!', 'success');
+    }
+
+    function addMediaBlock(kind, e) {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      showToast('Загружаем файл на сервер...', 'info');
+      uploadToServer(file, (url) => {
+        const id = 'blk_custom_' + Date.now();
+        const blk = {
+          id,
+          type: kind === 'video' ? 'customVideo' : 'customImage',
+          title: kind === 'video' ? 'Видео' : 'Фото',
+          x: 420, y: 240,
+          w: kind === 'video' ? 480 : 320,
+          h: kind === 'video' ? 280 : 400,
+          z: 40, radius: 18, rotation: 0, opacity: 1,
+          locked: false, pinned: false, overflowHidden: true, font: '',
+          bg: defaultBg(),
+          meta: { src: url }
+        };
+        state.blocks.push(blk);
+        mountAllBlocks();
+        selectTarget(id, null);
+        closeAddDrawer();
+        pushHistory();
+        saveAll();
+        showToast('Файл добавлен в профиль!', 'success');
+      });
     }
 
     function switchProfileTab(tab) {

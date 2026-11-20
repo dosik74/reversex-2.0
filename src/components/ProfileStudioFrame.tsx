@@ -180,7 +180,7 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
     return () => iframe.removeEventListener("load", onLoad);
   }, [userId]);
 
-  const saveToServer = async () => {
+  const saveToServer = async (silent = false) => {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
     setSaving(true);
@@ -203,11 +203,31 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
         .eq("id", userId);
       if (error) throw error;
       setLastSaved(new Date().toISOString());
-      toast.success("Профиль сохранён на сервере");
+      if (!silent) toast.success("Профиль сохранён на сервере");
     } catch (e: any) {
       toast.error("Ошибка сохранения: " + (e?.message || "неизвестная"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const uploadFromStudio = async (dataUrl: string, name: string, reqId: string) => {
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const ext = name.split(".").pop()?.toLowerCase() || (blob.type.startsWith("video/") ? "mp4" : "png");
+      const path = `${userId}/studio/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+      const { error } = await supabase.storage.from("profile-media").upload(path, blob, {
+        contentType: blob.type || "application/octet-stream",
+        upsert: false,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("profile-media").getPublicUrl(path);
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "RX_UPLOADED", reqId, url: data.publicUrl },
+        "*"
+      );
+    } catch (e: any) {
+      toast.error("Ошибка загрузки файла: " + (e?.message || "неизвестная"));
     }
   };
 
@@ -225,19 +245,31 @@ const ProfileStudioFrame = ({ userId, onExit }: Props) => {
         navigator.clipboard?.writeText(window.location.href).then(() =>
           toast.success("Ссылка на профиль скопирована")
         );
+      } else if (type === "RX_UPLOAD") {
+        void uploadFromStudio(e.data.dataUrl, e.data.name || "file", e.data.reqId);
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [saveToServer]);
+  }, [saveToServer, uploadFromStudio]);
 
-  // Автосохранение каждые 12 секунд, пока открыт конструктор
+  // Автосохранение: каждые 4 секунды + при уходе со страницы
   useEffect(() => {
     const timer = window.setInterval(() => {
-      void saveToServer();
-    }, 12000);
-    return () => window.clearInterval(timer);
-  }, [userId]);
+      void saveToServer(true);
+    }, 4000);
+    const onHide = () => {
+      if (document.visibilityState === "hidden") void saveToServer(true);
+    };
+    const onPageHide = () => void saveToServer(true);
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [saveToServer]);
 
   return (
     <div className="relative min-h-screen w-full bg-[#090a0f]">
