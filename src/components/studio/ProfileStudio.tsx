@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Move, MousePointer2, Type, Plus, Undo2, Save, FileJson, RotateCcw, Check,
   CaseSensitive, Pencil, Grid2X2, X, Settings2, Image as ImageIcon, Sparkles, ChevronUp, ChevronDown, Trash2,
@@ -102,6 +102,35 @@ type DragState = null | {
   startY: number;
   orig: any;
 };
+
+interface StudioTextProps {
+  textKey: string;
+  html: string;
+  editable: boolean;
+  highlight: boolean;
+  onEdit: (key: string, html: string) => void;
+}
+
+function StudioText({ textKey, html, editable, highlight, onEdit }: StudioTextProps) {
+  const element = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    // Replacing the text nodes after native input would reset the browser selection.
+    if (element.current && element.current.innerHTML !== html) {
+      element.current.innerHTML = html;
+    }
+  }, [html]);
+
+  return (
+    <span
+      ref={element}
+      data-text-key={textKey}
+      className={highlight ? "studio-t studio-text-editable" : "studio-t"}
+      contentEditable={editable}
+      onInput={editable ? (event) => onEdit(textKey, event.currentTarget.innerHTML) : undefined}
+    />
+  );
+}
 
 interface Props { row: ProfileRow | null; viewerId: string | null }
 
@@ -355,17 +384,10 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
   }, [drag, snap, commit]);
 
   // ── Inline text ──
-  useEffect(() => {
-    if (loading) return;
-    canvasRef.current?.querySelectorAll<HTMLElement>("[data-text-key]").forEach((el) => {
-      el.contentEditable = editing && isOwn ? "true" : "false";
-      el.classList.toggle("studio-text-editable", editing && isOwn && mode === "text");
-      el.oninput = () => {
-        const d = dataRef.current;
-        commit({ ...d, texts: { ...d.texts, [el.dataset.textKey || ""]: el.innerHTML } }, false);
-      };
-    });
-  }, [mode, loading, editing, isOwn, data.blocks, commit]);
+  const updateText = (key: string, html: string) => {
+    const current = dataRef.current;
+    commit({ ...current, texts: { ...current.texts, [key]: html } }, false);
+  };
 
   useEffect(() => {
     if (!editing || !isOwn) return;
@@ -502,11 +524,12 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
 
   // ── Рендер блоков ──
   const tx = (key: string, fallback: string) => (
-    <span
-      data-text-key={key}
-      className="studio-t"
-      suppressContentEditableWarning
-      dangerouslySetInnerHTML={{ __html: data.texts[key] ?? fallback }}
+    <StudioText
+      textKey={key}
+      html={data.texts[key] ?? fallback}
+      editable={editing && isOwn}
+      highlight={editing && isOwn && mode === "text"}
+      onEdit={updateText}
     />
   );
 
