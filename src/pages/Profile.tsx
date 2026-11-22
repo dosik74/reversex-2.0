@@ -77,6 +77,7 @@ interface Profile {
   level: number;
   xp: number;
   location: string | null;
+  customization?: { studio?: unknown } | null;
 }
 
 interface Comment {
@@ -196,6 +197,10 @@ const Profile = () => {
   const params = useParams<{ userId?: string; slug?: string; username?: string }>();
   const rawIdentifier = (params.username || params.userId || params.slug || '').trim();
 
+  return <ProfilePage key={rawIdentifier} rawIdentifier={rawIdentifier} />;
+};
+
+const ProfilePage = ({ rawIdentifier }: { rawIdentifier: string }) => {
   const isReserved = RESERVED_SLUGS.has(rawIdentifier.toLowerCase());
 
   const cachedProfile = rawIdentifier ? profileCache.get(rawIdentifier) : null;
@@ -209,7 +214,7 @@ const Profile = () => {
   const [isFriend, setIsFriend] = useState(false);
   const [friendshipStatus, setFriendshipStatus] = useState<string | null>(null);
   const [stats, setStats] = useState(() => (rawIdentifier && profileStatsCache.get(rawIdentifier)) || { movies: 0, followers: 0, following: 0, comments: 0 });
-  const [loading, setLoading] = useState(() => (rawIdentifier ? !profileCache.has(rawIdentifier) : true));
+  const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [studioMode, setStudioMode] = useState(true);
@@ -651,15 +656,8 @@ const Profile = () => {
   });
 
   // Состояния загрузки
-  if (loading) {
-    return (
-      <div className="rxp-scope min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-5">
-          <div className="rxp-spinner" />
-          <p className="font-pixel text-[10px] text-muted-foreground tracking-widest">LOADING PROFILE...</p>
-        </div>
-      </div>
-    );
+  if (loading || profile?.id) {
+    return <ProfileStudio row={loading ? null : profile} viewerId={currentUserId} />;
   }
 
   if (!profile && !loading) {
@@ -686,10 +684,6 @@ const Profile = () => {
 
   const targetId = resolvedUserId || profile?.id;
 
-  // Основной вид профиля — полноценный конструктор с реальными данными
-  if (!loading && profile && targetId) {
-    return <ProfileStudio userId={targetId} />;
-  }
   const isOwnProfile = Boolean(currentUserId && targetId && currentUserId === targetId);
 
   const accentColor = profile.accent_color || profile.profile_accent;

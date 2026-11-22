@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Move, MousePointer2, Type, Plus, Undo2, Save, FileJson, RotateCcw, Check,
-  X, Settings2, Image as ImageIcon, Sparkles, ChevronUp, ChevronDown, Trash2,
-  Eye, EyeOff, Layers, Link2, Video, Star, Trophy, Upload, Loader2, GripVertical,
+  CaseSensitive, Pencil, Grid2X2, X, Settings2, Image as ImageIcon, Sparkles, ChevronUp, ChevronDown, Trash2,
+  Bookmark, Users, UserPlus, MessageSquare, Eye, EyeOff, Layers, Link2, Video, Star, Trophy, Upload, Loader2, GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import supabase from "@/lib/supabase";
@@ -12,6 +12,7 @@ import "./studio.css";
 
 const STATUS_PILLS = ["Смотрю", "В планах", "Просмотрено", "Отложено", "Брошено", "Избранное"];
 const STAT_LABELS = ["ЗАКЛАДКИ", "ПОДПИСЧИКИ", "ПОДПИСКИ", "КОММЕНТАРИИ"];
+const modeLabels: Record<EditorMode, string> = { blocks: "Перемещение блоков", parts: "Редактирование деталей", text: "Редактирование текста" };
 const DIRS = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
 
 const hexToRgba = (hex: string, alpha: number) => {
@@ -26,9 +27,21 @@ const STATUS_RU: Record<string, string> = {
   postponed: "Отложено", dropped: "Брошено", favorite: "Избранное",
 };
 
-async function loadProfile(userId: string): Promise<StudioProfile> {
-  const [p, bm, friends, following, comments, lists] = await Promise.all([
-    supabase.from("profiles").select("username,display_name,avatar_url,about_me,bio,level,xp").eq("id", userId).single(),
+interface ProfileRow {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  about_me?: string | null;
+  bio: string | null;
+  level: number;
+  xp: number;
+  customization?: { studio?: unknown } | null;
+}
+
+async function loadProfile(row: ProfileRow): Promise<StudioProfile> {
+  const userId = row.id;
+  const [bm, friends, following, comments, lists] = await Promise.all([
     supabase.from("content_bookmarks").select("title,poster_url,status,release_year,genre,content_type").eq("user_id", userId).limit(60),
     supabase.from("friendships").select("id", { count: "exact", head: true }).eq("status", "accepted").or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", userId),
@@ -40,7 +53,6 @@ async function loadProfile(userId: string): Promise<StudioProfile> {
   const itemsRes = listIds.length
     ? await supabase.from("top_list_items").select("top_list_id,item_id,title,poster_url,metadata").in("top_list_id", listIds).order("rank", { ascending: true })
     : { data: [] as any[] };
-  const row: any = p.data || {};
   const palette = ["#14b8a6", "#0ea5e9", "#ec4899", "#f59e0b", "#ef4444", "#22c55e", "#eab308", "#8b5cf6"];
 
   return {
@@ -91,11 +103,12 @@ type DragState = null | {
   orig: any;
 };
 
-interface Props { userId: string; onExit?: () => void; }
+interface Props { row: ProfileRow | null; viewerId: string | null }
 
-const ProfileStudio = ({ userId }: Props) => {
-  const [editing, setEditing] = useState(true);
-  const [isOwn, setIsOwn] = useState(false);
+const ProfileStudio = ({ row, viewerId }: Props) => {
+  const userId = row?.id;
+  const isOwn = Boolean(userId && viewerId === userId);
+  const [editing, setEditing] = useState(false);
   const [data, setData] = useState<StudioData>(emptyData);
   const [mode, setMode] = useState<EditorMode>("blocks");
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
@@ -134,20 +147,13 @@ const ProfileStudio = ({ userId }: Props) => {
 
   // ── Загрузка с сервера ──
   useEffect(() => {
+    if (!row) return;
     let active = true;
     (async () => {
       try {
-        const { data: authData } = await supabase.auth.getUser();
-        const own = authData.user?.id === userId;
+        const profile = await loadProfile(row);
         if (!active) return;
-        setIsOwn(own);
-        if (!own) setEditing(false);
-        const [{ data: row }, profile] = await Promise.all([
-          supabase.from("profiles").select("customization").eq("id", userId).single(),
-          loadProfile(userId),
-        ]);
-        if (!active) return;
-        const studio = normalizeData((row?.customization as any)?.studio);
+        const studio = normalizeData(row.customization?.studio);
         studio.profile = profile;
         studio.avatarSrc = profile.avatar_url || studio.avatarSrc;
         // Реальные значения statistics
@@ -184,26 +190,42 @@ const ProfileStudio = ({ userId }: Props) => {
       }
     })();
     return () => { active = false; };
-  }, [userId, commit]);
+  }, [row, commit]);
 
   // ── Сохранение ──
   const saveToServer = useCallback(async (silent = false) => {
-    if (!isOwn) return;
+    if (!isOwn || !editing || !userId) return false;
     try {
-      const { data: row } = await supabase.from("profiles").select("customization").eq("id", userId).single();
+      const { data: row, error: readError } = await supabase.from("profiles").select("customization").eq("id", userId).single();
+      if (readError) throw readError;
       const customization = ((row?.customization as any) || {}) as Record<string, any>;
       const { profile, ...rest } = dataRef.current;
       customization.studio = rest;
       const { error } = await supabase.from("profiles").update({ customization }).eq("id", userId);
       if (error) throw error;
       if (!silent) toast.success("Профиль сохранён на сервере");
+      return true;
     } catch (e: any) {
       toast.error("Ошибка сохранения: " + (e?.message || "неизвестная"));
     }
-  }, [userId, isOwn]);
+  }, [userId, isOwn, editing]);
+
+  const saveEdits = async (finish = false) => {
+    setSaving(true);
+    const saved = await saveToServer();
+    setSaving(false);
+    if (saved && finish) {
+      setEditing(false);
+      setSelectedBlock(null);
+      setSelectedPart(null);
+      setDrag(null);
+      setInline(null);
+      setMode("blocks");
+    }
+  };
 
   useEffect(() => {
-    if (loading || !isOwn) return;
+    if (loading || !editing || !isOwn) return;
     const timer = window.setInterval(() => void saveToServer(true), 4000);
     const onHide = () => { if (document.visibilityState === "hidden") void saveToServer(true); };
     const onPageHide = () => void saveToServer(true);
@@ -214,7 +236,7 @@ const ProfileStudio = ({ userId }: Props) => {
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onPageHide);
     };
-  }, [loading, saveToServer]);
+  }, [loading, isOwn, editing, saveToServer]);
 
   // ── Загрузка файлов ──
   const uploadFile = async (file: File): Promise<string> => {
@@ -229,14 +251,14 @@ const ProfileStudio = ({ userId }: Props) => {
   };
 
   const handleFile = (file: File | undefined, cb: (url: string) => void) => {
-    if (!file) return;
+    if (!file || !editing || !isOwn) return;
     toast.info("Загружаем файл...");
     uploadFile(file).then((url) => { cb(url); toast.success("Файл загружен"); })
       .catch((e) => toast.error("Ошибка загрузки: " + e.message));
   };
 
   const handleAvatarUpload = (file: File | undefined) => {
-    if (!file) return;
+    if (!file || !editing || !isOwn) return;
     handleFile(file, (url) => {
       const d = dataRef.current;
       commit({ ...d, avatarSrc: url });
@@ -337,7 +359,7 @@ const ProfileStudio = ({ userId }: Props) => {
     if (loading) return;
     canvasRef.current?.querySelectorAll<HTMLElement>("[data-text-key]").forEach((el) => {
       el.contentEditable = editing && isOwn ? "true" : "false";
-      el.classList.toggle("studio-text-editable", mode === "text");
+      el.classList.toggle("studio-text-editable", editing && isOwn && mode === "text");
       el.oninput = () => {
         const d = dataRef.current;
         commit({ ...d, texts: { ...d.texts, [el.dataset.textKey || ""]: el.innerHTML } }, false);
@@ -475,7 +497,7 @@ const ProfileStudio = ({ userId }: Props) => {
   };
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-[#090a0f] text-zinc-400"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Загрузка профиля...</div>;
+    return <div className="studio-loading" role="status" aria-label="Загрузка профиля"><Loader2 aria-hidden="true" /></div>;
   }
 
   // ── Рендер блоков ──
@@ -496,7 +518,7 @@ const ProfileStudio = ({ userId }: Props) => {
         className={`rx-part ${cls}`}
         style={style}
         onPointerDown={(e) => {
-          if (mode !== "parts") return;
+          if (!isOwn || !editing || mode !== "parts") return;
           e.stopPropagation();
           setSelectedBlock(b.id);
           setSelectedPart(id);
@@ -510,7 +532,7 @@ const ProfileStudio = ({ userId }: Props) => {
     switch (b.type) {
       case "avatar":
         return (
-          <div className="flex h-full w-full items-center justify-center" onDoubleClick={(e) => { e.stopPropagation(); avatarInputRef.current?.click(); }} title="Двойной клик — заменить фото">
+          <div className="flex h-full w-full items-center justify-center" onDoubleClick={editing && isOwn ? () => avatarInputRef.current?.click() : undefined} title={editing && isOwn ? "Заменить фото двойным нажатием" : undefined}>
             <div className="h-full w-full rounded-full p-1.5 avatar-ring overflow-hidden">
               <img src={data.avatarSrc} alt="" className="h-full w-full rounded-full object-cover" />
             </div>
@@ -521,10 +543,10 @@ const ProfileStudio = ({ userId }: Props) => {
         return (
           <div className="flex h-full flex-col justify-center gap-2 px-1">
             <div className="font-display text-[38px] font-black leading-none tracking-tight text-white">{tx("blk_header_username", "DOSIKTE")}</div>
-            <div className="self-start rounded-full border border-teal-500/35 bg-teal-500/15 px-3 py-0.5 text-xs font-semibold text-cyan-300">{tx("blk_header_handle", "@user")}</div>
+            <div className="self-start rounded-full border border-amber-500/35 bg-amber-500/15 px-3 py-0.5 text-xs font-semibold text-amber-300">{tx("blk_header_handle", "@user")}</div>
             <div className="mt-0.5 flex items-center gap-2.5">
-              <div className="rounded-lg border border-sky-500/30 bg-sky-500/15 px-2.5 py-0.5 text-[11px] font-bold text-cyan-300">{tx("blk_header_lv", "✦ LV.1")}</div>
-              <div className="h-1.5 w-36 overflow-hidden rounded-full bg-slate-800"><div className="h-full w-1/6 rounded-full bg-gradient-to-r from-cyan-400 to-sky-500" /></div>
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">{tx("blk_header_lv", "✦ LV.1")}</div>
+              <div className="h-1.5 w-36 overflow-hidden rounded-full bg-slate-800"><div className="h-full w-1/6 rounded-full bg-gradient-to-r from-amber-400 to-amber-500" /></div>
               <div className="font-mono text-[11px] text-slate-400">{tx("blk_header_xp", "0/500 XP")}</div>
             </div>
           </div>
@@ -533,15 +555,17 @@ const ProfileStudio = ({ userId }: Props) => {
         return (
           <div className="flex h-full w-full items-center justify-end gap-2">
             <button className="rounded-xl border border-[#1e222e] bg-[#10121a] px-3.5 text-xs font-semibold text-slate-200">{tx("blk_actions_btnBm", "🔖 Закладки")}</button>
-            <button className="rounded-xl bg-cyan-400 px-4 text-xs font-extrabold text-[#04161c]">{tx("blk_actions_btnEdit", "✦ Редактировать")}</button>
+            {isOwn && <button onClick={() => setEditing(true)} className="rounded-xl bg-amber-400 px-4 text-xs font-extrabold text-[#04161c]">{tx("blk_actions_btnEdit", "Редактировать")}</button>}
             <button onClick={() => navigator.clipboard?.writeText(window.location.href).then(() => toast.success("Ссылка скопирована"))} className="rounded-xl border border-[#1e222e] bg-[#10121a] px-3.5 text-xs font-semibold text-slate-200">{tx("blk_actions_btnShare", "↗ Поделиться")}</button>
           </div>
         );
       case "stat": {
         const m = b.meta || {};
+        const statIcons = { bookmark: Bookmark, users: Users, userPlus: UserPlus, message: MessageSquare };
+        const Icon = statIcons[m.icon as keyof typeof statIcons] || Star;
         return (
           <div className="flex h-full w-full items-center gap-4 px-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-teal-500/25 bg-teal-500/10 text-teal-400"><Star className="h-5 w-5" /></div>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/10 text-amber-400"><Icon className="h-5 w-5" /></div>
             <div className="flex min-w-0 flex-col">
               <div className="font-display text-[28px] font-extrabold leading-none text-white">{tx(`${b.id}_val`, m.val || "0")}</div>
               <div className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{tx(`${b.id}_label`, m.label || "")}</div>
@@ -555,10 +579,10 @@ const ProfileStudio = ({ userId }: Props) => {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-slate-700 bg-slate-900 text-sm font-bold text-white">{tx("blk_level_num", "1")}</div>
             <div className="min-w-0 flex-1">
               <div className="mb-1.5 flex justify-between gap-2">
-                <div className="text-xs font-bold text-white"><span className="text-cyan-300">👑</span> Уровень</div>
-                <div className="rounded-md bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-cyan-300">{tx("blk_level_pill", "LV.1")}</div>
+                <div className="text-xs font-bold text-white"><span className="text-amber-300">👑</span> Уровень</div>
+                <div className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">{tx("blk_level_pill", "LV.1")}</div>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800"><div className="h-full w-0 rounded-full bg-cyan-400" /></div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800"><div className="h-full w-0 rounded-full bg-amber-400" /></div>
               <div className="mt-1.5 flex justify-between font-mono text-[10px] text-slate-500"><span>{tx("blk_level_xp", "0/500 XP")}</span><span>{tx("blk_level_next", "-500 NEXT")}</span></div>
             </div>
           </div>
@@ -567,8 +591,8 @@ const ProfileStudio = ({ userId }: Props) => {
         return (
           <div className="flex h-full w-full flex-col p-4">
             <div className="mb-3 flex items-center justify-between">
-              <div className="text-xs font-bold text-white"><span className="text-cyan-300">👥</span> Друзья</div>
-              <div className="font-mono text-xs text-cyan-300">{tx("blk_friends_count", "0")}</div>
+              <div className="text-xs font-bold text-white"><span className="text-amber-300">👥</span> Друзья</div>
+              <div className="font-mono text-xs text-amber-300">{tx("blk_friends_count", "0")}</div>
             </div>
             <div className="flex flex-1 items-center justify-center text-xs italic text-slate-500">Друзей пока нет...</div>
           </div>
@@ -577,7 +601,7 @@ const ProfileStudio = ({ userId }: Props) => {
         return (
           <div className="flex h-full w-full items-center justify-between gap-3 px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-teal-500/30 bg-teal-500/15 text-teal-400"><Star className="h-4 w-4" /></div>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/15 text-amber-400"><Star className="h-4 w-4" /></div>
               <div className="min-w-0"><div className="truncate text-xs font-bold text-white">Закладки пользователя</div><div className="truncate text-[11px] text-slate-400">Все фильмы, сериалы, игры</div></div>
             </div>
             <span className="text-slate-400">→</span>
@@ -586,12 +610,12 @@ const ProfileStudio = ({ userId }: Props) => {
       case "topLists":
         return (
           <div className="flex h-full w-full flex-col gap-2 p-4">
-            <div className="mb-1 flex items-center justify-between"><div className="text-xs font-bold text-white"><span className="text-cyan-300">↗</span> Топ списки</div><div className="font-mono text-xs text-slate-500">{data.profile?.topLists.length || 0}</div></div>
+            <div className="mb-1 flex items-center justify-between"><div className="text-xs font-bold text-white"><span className="text-amber-300">↗</span> Топ списки</div><div className="font-mono text-xs text-slate-500">{data.profile?.topLists.length || 0}</div></div>
             {(data.profile?.topLists || []).slice(0, 3).map((l, i) => (
               <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-800/80 bg-slate-900/70 p-2.5">
-                <span className="font-display text-xs font-bold text-cyan-300">#{i + 1}</span>
+                <span className="font-display text-xs font-bold text-amber-300">#{i + 1}</span>
                 {l.poster && <img src={l.poster} alt="" className="h-11 w-8 rounded object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />}
-                <div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{l.title}</div><div className="text-[10px] text-cyan-300">Топ-50</div></div>
+                <div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{l.title}</div><div className="text-[10px] text-amber-300">Топ-50</div></div>
               </div>
             ))}
           </div>
@@ -611,7 +635,7 @@ const ProfileStudio = ({ userId }: Props) => {
       case "bmBanner":
         return (
           <div className="flex h-full w-full items-center justify-between px-4">
-            <div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl border border-teal-500/30 bg-teal-500/15 text-teal-400"><Star className="h-4 w-4" /></div><div><div className="text-xs font-bold text-white">Закладки и списки пользователя</div><div className="text-[11px] text-slate-400">Всего в коллекции: {data.profile?.stats.bookmarks || 0} тайтлов</div></div></div>
+            <div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/15 text-amber-400"><Star className="h-4 w-4" /></div><div><div className="text-xs font-bold text-white">Закладки и списки пользователя</div><div className="text-[11px] text-slate-400">Всего в коллекции: {data.profile?.stats.bookmarks || 0} тайтлов</div></div></div>
             <button onClick={() => window.location.href = "/bookmarks"} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[11px] font-bold text-slate-200">Открыть отдельной страницей ↗</button>
           </div>
         );
@@ -619,7 +643,7 @@ const ProfileStudio = ({ userId }: Props) => {
         return (
           <div className="flex h-full w-full flex-wrap items-center gap-2">
             {STATUS_PILLS.map((s, i) => (
-              <button key={s} onClick={() => setActiveStatus(s)} className={`rounded-xl px-3.5 py-2 text-xs font-semibold ${activeStatus === s ? "bg-violet-600 text-white shadow-lg shadow-purple-600/35" : "border border-[#1e222e] bg-[#10121a] text-slate-300"}`}>
+              <button key={s} onClick={() => setActiveStatus(s)} className={`rounded-xl px-3.5 py-2 text-xs font-semibold ${activeStatus === s ? "bg-amber-600 text-white shadow-lg shadow-purple-600/35" : "border border-[#1e222e] bg-[#10121a] text-slate-300"}`}>
                 {["▶", "◷", "✓", "⏸", "✕", "☆"][i]} {s}
                 <span className="ml-2 rounded-md bg-black/25 px-1.5 py-0.5 text-[10px]">{[0, 2, data.profile?.stats.bookmarks || 0, 0, 0, 0][i]}</span>
               </button>
@@ -655,7 +679,7 @@ const ProfileStudio = ({ userId }: Props) => {
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по названию..." className="w-44 rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white outline-none focus:border-cyan-400" />
+                    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по названию..." className="w-44 rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white outline-none focus:border-amber-400" />
                     <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300 outline-none">
                       <option value="date">По дате</option><option value="title">По названию</option>
                     </select>
@@ -663,7 +687,7 @@ const ProfileStudio = ({ userId }: Props) => {
                 </div>
                 <div className="flex flex-col gap-2.5">
                   {media.map((m, i) => (
-                    <div key={i} className="group flex min-h-[140px] items-center gap-3 rounded-2xl border border-white/[0.06] bg-[#10121a]/85 p-3 transition hover:border-violet-400/50 sm:gap-5 sm:p-4">
+                    <div key={i} className="group flex min-h-[140px] items-center gap-3 rounded-2xl border border-white/[0.06] bg-[#10121a]/85 p-3 transition hover:border-amber-400/50 sm:gap-5 sm:p-4">
                       <span className="w-5 shrink-0 text-center text-sm font-black tabular-nums text-slate-500 sm:w-8">{i + 1}</span>
                       <div className="relative aspect-[2/3] w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-slate-800 shadow-xl sm:w-20">
                         <img src={m.poster || "https://placehold.co/300x450/10121a/22d3ee?text=RX"} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
@@ -671,7 +695,7 @@ const ProfileStudio = ({ userId }: Props) => {
                       <div className="min-w-0 flex-1 pr-2">
                         <div className="flex flex-wrap items-baseline gap-2"><h3 className="truncate font-display text-base font-black text-white sm:text-xl md:text-2xl">{m.title}</h3><span className="font-mono text-xs text-slate-400">{m.year}</span></div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-400"><span className="rounded bg-white/10 px-2 py-0.5 text-[11px] font-bold text-slate-200">{m.cat}</span>{m.genre && <span>· {m.genre}</span>}</div>
-                        <div className="mt-2.5"><span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-200"><span className="h-1.5 w-1.5 rounded-full bg-violet-400" />{m.status}</span></div>
+                        <div className="mt-2.5"><span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-200"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" />{m.status}</span></div>
                       </div>
                     </div>
                   ))}
@@ -733,7 +757,7 @@ const ProfileStudio = ({ userId }: Props) => {
       />
 
       {/* Холст */}
-      <div ref={canvasRef} className="studio-canvas relative mx-auto" style={{ width: canvasWidth, minHeight: canvasHeight }}>
+      <div ref={canvasRef} data-grid={editing && isOwn && snap} className="studio-canvas relative mx-auto" style={{ width: canvasWidth, minHeight: canvasHeight }}>
         {data.blocks.map((b) => {
           const isSelected = selectedBlock === b.id;
           const partMap = data.parts[b.id] || {};
@@ -741,6 +765,7 @@ const ProfileStudio = ({ userId }: Props) => {
             <div
               key={b.id}
               data-block-id={b.id}
+              data-surface={b.bg.mode}
               className={`rx-block absolute ${isSelected ? "is-selected" : ""}`}
               style={{
                 left: b.x, top: b.y, width: b.w, height: b.h, zIndex: b.z,
@@ -802,24 +827,23 @@ const ProfileStudio = ({ userId }: Props) => {
       )}
 
       {/* Toolbar */}
-      {editing && isOwn && <div className="studio-toolbar studio-ui">
+      {editing && isOwn && <div className="studio-toolbar studio-ui" role="group" aria-label="Инструменты конструктора">
         {(["blocks", "parts", "text"] as EditorMode[]).map((m) => (
-          <button key={m} onClick={() => setMode(m)} className={`studio-tool ${mode === m ? "is-active" : ""}`}>
+          <button key={m} title={modeLabels[m]} aria-label={modeLabels[m]} aria-pressed={mode === m} onClick={() => setMode(m)} className={`studio-tool ${mode === m ? "is-active" : ""}`}>
             {m === "blocks" ? <Move /> : m === "parts" ? <MousePointer2 /> : <Type />}
-            {m === "blocks" ? "Блоки" : m === "parts" ? "Детали" : "Текст"}
           </button>
         ))}
         <span className="studio-divider" />
-        <button className="studio-tool" onClick={() => setModal("add")}><Plus /> Добавить</button>
-        <button className="studio-tool" onClick={() => setModal("fonts")}><Sparkles /> Шрифты</button>
-        <button className="studio-tool" onClick={() => setModal("bg")}><ImageIcon /> Фон</button>
-        <button className={`studio-tool ${snap ? "is-active" : ""}`} onClick={() => setSnap(!snap)}><Settings2 /> Сетка</button>
+        <button className="studio-tool" title="Добавить блок" aria-label="Добавить блок" onClick={() => setModal("add")}><Plus /></button>
+        <button className="studio-tool" title="Шрифты" aria-label="Шрифты" onClick={() => setModal("fonts")}><CaseSensitive /></button>
+        <button className="studio-tool" title="Фон профиля" aria-label="Фон профиля" onClick={() => setModal("bg")}><ImageIcon /></button>
+        <button className={`studio-tool ${snap ? "is-active" : ""}`} title="Привязка к сетке" aria-label="Привязка к сетке" aria-pressed={snap} onClick={() => setSnap(!snap)}><Grid2X2 /></button>
         <span className="studio-divider" />
-        <button className="studio-tool" onClick={undo}><Undo2 /></button>
-        <button className="studio-tool" onClick={() => { setJsonText(JSON.stringify(data, null, 2)); setModal("json"); }}><FileJson /> JSON</button>
-        <button className="studio-tool" onClick={() => setModal("reset")}><RotateCcw /> Сброс</button>
-        <button className="studio-tool studio-save" onClick={() => void saveToServer()} disabled={saving}><Save /> {saving ? "..." : "Сохранить"}</button>
-        <button className="studio-tool studio-done" onClick={() => { void saveToServer(true); setEditing(false); setSelectedBlock(null); setSelectedPart(null); toast.success("Готово! Изменения сохранены"); }}><Check /> Готово</button>
+        <button className="studio-tool" title="Отменить действие" aria-label="Отменить действие" onClick={undo}><Undo2 /></button>
+        <button className="studio-tool" title="Импорт и экспорт JSON" aria-label="Импорт и экспорт JSON" onClick={() => { setJsonText(JSON.stringify(data, null, 2)); setModal("json"); }}><FileJson /></button>
+        <button className="studio-tool" title="Сбросить профиль" aria-label="Сбросить профиль" onClick={() => setModal("reset")}><RotateCcw /></button>
+        <button className="studio-tool studio-save" title="Сохранить" aria-label="Сохранить" disabled={saving} onClick={() => void saveEdits()}><Save /></button>
+        <button className="studio-tool studio-done" title="Сохранить и выйти" disabled={saving} onClick={() => void saveEdits(true)}><Check /> Готово</button>
       </div>}
 
       {/* Inspector */}
@@ -844,7 +868,7 @@ const ProfileStudio = ({ userId }: Props) => {
                 <button className="studio-chip" onClick={() => patchBlock(selectedBlockData.id, { hidden: !selectedBlockData.hidden })}>{selectedBlockData.hidden ? <Eye /> : <EyeOff />}</button>
                 <button className="studio-chip" onClick={() => patchBlock(selectedBlockData.id, { pinned: !selectedBlockData.pinned })}><Link2 /> Закрепить</button>
                 <button className="studio-chip" onClick={() => patchBlock(selectedBlockData.id, { locked: !selectedBlockData.locked })}><Settings2 /> {selectedBlockData.locked ? "Разблок." : "Блокир."}</button>
-                {selectedBlockData.pinned && <span className="text-[10px] text-cyan-300">Закреплён</span>}
+                {selectedBlockData.pinned && <span className="text-[10px] text-amber-300">Закреплён</span>}
               </div>
               <p className="studio-label">Вращение · Скругление · Прозрачность</p>
               <input type="range" min={-180} max={180} value={selectedBlockData.rotation} onChange={(e) => patchBlock(selectedBlockData.id, { rotation: +e.target.value })} />
@@ -899,7 +923,7 @@ const ProfileStudio = ({ userId }: Props) => {
           className="studio-reenter studio-ui"
           onClick={() => setEditing(true)}
         >
-          <Sparkles className="h-4 w-4" /> Редактировать профиль
+          <Pencil className="h-4 w-4" /> Редактировать
         </button>
       )}
 
@@ -908,8 +932,8 @@ const ProfileStudio = ({ userId }: Props) => {
         <div className="studio-modal-backdrop studio-ui" onClick={() => setModal(null)}>
           <div className="studio-modal" onClick={(e) => e.stopPropagation()}>
             <div className="studio-modal-head">
-              <h3>{modal === "fonts" ? "Пак шрифтов на кириллице" : modal === "bg" ? "Фон всей страницы" : modal === "json" ? "Экспорт / Импорт JSON" : modal === "reset" ? "Сбросить профиль?" : "Добавить блок"}</h3>
-              <button onClick={() => setModal(null)}><X /></button>
+              <h3>{modal === "fonts" ? "Шрифты" : modal === "bg" ? "Фон профиля" : modal === "json" ? "Экспорт / Импорт JSON" : modal === "reset" ? "Сбросить профиль?" : "Добавить блок"}</h3>
+              <button aria-label="Закрыть" onClick={() => setModal(null)}><X /></button>
             </div>
             {modal === "fonts" && (
               <>
@@ -961,16 +985,16 @@ const ProfileStudio = ({ userId }: Props) => {
             {modal === "add" && (
               <>
                 <div className="studio-modal-body studio-add-grid">
-                  <button onClick={() => addBlock("stat")}><b>Карточка статистики</b><small>Иконка + число + подпись</small></button>
-                  <button onClick={() => addBlock("text")}><b>Текстовый блок</b><small>Заголовок и заметка</small></button>
-                  <button onClick={() => addBlock("image")}><b>Картинка / Стикер</b><small>Своё фото можно загрузить ниже</small></button>
-                  <label className="studio-add-upload"><b><Upload className="inline h-4 w-4" /> Своё фото</b><small>Загрузить с устройства</small><input type="file" accept="image/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => addBlock("image", url))} /></label>
-                  <label className="studio-add-upload"><b><Video className="inline h-4 w-4" /> Своё видео</b><small>Любой ролик в профиль</small><input type="file" accept="video/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => addBlock("video", url))} /></label>
+                  <button onClick={() => addBlock("stat")}><b><Bookmark /> Статистика</b></button>
+                  <button onClick={() => addBlock("text")}><b><Type /> Текст</b></button>
+                  <button onClick={() => addBlock("image")}><b><ImageIcon /> Изображение</b></button>
+                  <label className="studio-add-upload"><b><Upload className="inline h-4 w-4" /> Загрузить фото</b><input type="file" accept="image/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => addBlock("image", url))} /></label>
+                  <label className="studio-add-upload"><b><Video className="inline h-4 w-4" /> Загрузить видео</b><input type="file" accept="video/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => addBlock("video", url))} /></label>
                 </div>
 
                 {data.trash.length > 0 && (
                   <div className="studio-trash">
-                    <p className="studio-label">Удалённые блоки — нажми, чтобы вернуть</p>
+                    <p className="studio-label">Удалённые блоки</p>
                     <div className="studio-trash-grid">
                       {data.trash.map((b) => (
                         <button key={b.id} onClick={() => restoreBlock(b.id)}>
