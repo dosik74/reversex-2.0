@@ -68,15 +68,20 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
   const current = active && lists[columns.findIndex(s => s.season_number === active.season_number)]?.data;
   const idx = current?.findIndex(e => e.id === active?.id) ?? -1;
 
-  return <section className="min-w-0 rounded-2xl border border-white/10 bg-[#151618] p-4 text-white sm:p-6">
-    <h2 className="mb-5 text-2xl font-bold">Оценки серий</h2>
-    <div className="flex items-start gap-5">
-      {poster && <img src={poster} alt={title} className="hidden w-[20%] max-w-36 rounded-lg object-cover sm:block" />}
-      <div className="min-w-0 flex-1">
-        <select aria-label="Источник оценок" value={source} onChange={e => setSource(e.target.value as Source)}
-          className="rounded-md border border-white/15 bg-neutral-800 px-3 py-2 text-sm">
-          <option value="average">Зрители сайта</option><option value="mine">Мои оценки</option><option value="imdb">IMDb</option>
-        </select>
+  return <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141419] text-white">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-gradient-to-r from-violet-500/10 to-transparent px-4 py-4 sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        {poster && <img src={poster} alt="" className="h-12 w-8 rounded object-cover" />}
+        <div className="min-w-0"><p className="truncate text-xs text-neutral-400">{title}</p>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Оценки серий</h2>
+        </div>
+      </div>
+      <select aria-label="Источник оценок" value={source} onChange={e => setSource(e.target.value as Source)}
+        className="rounded-full border border-white/15 bg-[#232329] px-3 py-2 text-sm">
+        <option value="average">Зрители сайта</option><option value="mine">Мои оценки</option><option value="imdb">IMDb</option>
+      </select>
+    </header>
+    <div className="px-4 pb-5 sm:px-6">
         <div className="my-4 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-300">
           {bands.map(b => <span key={b.min} className="flex items-center gap-1"><i className="h-2 w-2 rounded-full" style={{background:b.color}}/>{b.min === 0 ? '<4' : b.min + '+'}</span>)}
         </div>
@@ -86,19 +91,23 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
         {lists.some(q => q.isLoading) && <p role="status">Загружаем серии…</p>}
         {lists.some(q => q.isError) && <button onClick={() => lists.filter(q => q.isError).forEach(q => q.refetch())}>Повторить загрузку серий</button>}
         {scores.isError && source !== 'imdb' && <button onClick={() => scores.refetch()}>Не удалось загрузить оценки. Повторить</button>}
-        <div className="overflow-x-auto"><table className="border-separate border-spacing-1 text-center tabular-nums">
-          <thead><tr><th/>{columns.map(s => <th key={s.season_number} className="pb-1 text-xs font-medium text-neutral-400">{s.season_number ? 'S'+s.season_number : 'Спец.'}</th>)}</tr></thead>
-          <tbody>{visible.map(n => <tr key={n}><th scope="row" className="pr-1 text-xs font-medium text-neutral-400">E{n}</th>
-            {lists.map((list, i) => {
-              const ep = list.data?.find(e => e.episode_number === n);
-              return <td key={columns[i].season_number}>{ep && <ScoreCell episode={ep} seriesId={seriesId} source={source}
+        {lists.map((list, i) => {
+          const episodes = list.data?.filter(ep => visible.includes(ep.episode_number));
+          if (!episodes?.length) return null;
+          const season = columns[i].season_number;
+          return <div key={season} className="mt-5">
+            <h3 className="mb-2 flex items-center gap-3 text-sm font-semibold">
+              {season ? `Сезон ${season}` : 'Спецвыпуски'}<span aria-hidden="true" className="h-px flex-1 bg-white/10" />
+            </h3>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(4.25rem,1fr))] gap-1.5 sm:grid-cols-[repeat(auto-fill,minmax(5rem,1fr))]">
+              {episodes.map(ep => <ScoreCell key={ep.id} episode={ep} seriesId={seriesId} source={source}
                 loading={scores.isLoading} value={source === 'imdb' ? null : values.get(ep.id)?.[source]}
-                onOpen={button => { trigger.current = button; setActive(ep); }} />}</td>;
-            })}</tr>)}</tbody>
-        </table></div>
+                onOpen={button => { trigger.current = button; setActive(ep); }} />)}
+            </div>
+          </div>;
+        })}
         {(seasons.data?.length ?? 0) > 5 && <Pager page={seasonPage} size={5} total={seasons.data.length} label="Сезоны" change={page => { setSeasonPage(page); setRowPage(0); }}/>}
         {numbers.length > 25 && <Pager page={rowPage} size={25} total={numbers.length} label="Серии" change={setRowPage}/>}
-      </div>
     </div>
     <Dialog open={!!active} onOpenChange={open => { if (!open) setActive(null); }}>
       {active && <DialogContent onCloseAutoFocus={e => { e.preventDefault(); trigger.current?.focus(); }}
@@ -138,10 +147,14 @@ function ScoreCell({ episode, seriesId, source, value, loading, onOpen }: { epis
   });
   const score = source === 'imdb' ? imdb.data?.rating : value;
   const pending = source === 'imdb' ? imdb.isLoading : loading;
-  return <button ref={ref} title={episode.name} aria-label={`Сезон ${episode.season_number}, серия ${episode.episode_number}. ${episode.name}`}
-    onClick={e => onOpen(e.currentTarget)} className="h-9 w-12 rounded font-bold transition hover:brightness-125 focus-visible:outline-white"
-    style={{background:score == null ? '#393a3d' : shade(score).color, color:score == null || (score>=9 && score<9.7) ? 'white' : '#111'}}>
-    {score != null ? score.toFixed(1) : pending ? '…' : '?'}
+  const caption = score != null ? score.toFixed(1) : pending ? '…' : '—';
+  return <button ref={ref} title={episode.name} aria-label={`Сезон ${episode.season_number}, серия ${episode.episode_number}. ${episode.name}. ${score != null ? caption : pending ? 'Загрузка' : 'Нет оценки'}`}
+    onClick={e => onOpen(e.currentTarget)} className="group rounded-lg border border-white/[0.07] bg-white/[0.035] px-2.5 py-2 text-left tabular-nums transition hover:border-violet-400/60 hover:bg-white/[0.08] focus-visible:outline-violet-400">
+    <span className="block text-[10px] leading-tight text-neutral-400">Серия {episode.episode_number}</span>
+    <strong className={`block text-xl leading-snug ${score == null ? 'text-neutral-500' : 'text-white'}`}>{caption}</strong>
+    <span aria-hidden="true" className="mt-1 block h-[3px] overflow-hidden rounded-full bg-white/10">
+      {score != null && <span className="block h-full rounded-full" style={{width: `${score*10}%`, background: shade(score).color}} />}
+    </span>
   </button>;
 }
 
