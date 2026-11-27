@@ -15,4 +15,5 @@ yarn-error.log*
 *.mp4
 *.mov
 *.avi
-api/
+api/*
+!api/episode-rating.js
