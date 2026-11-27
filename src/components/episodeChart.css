@@ -1,0 +1,15 @@
+.rx-chart.rx-chart, .rx-chart.rx-chart :where(h2,h3,h4,p,span,strong,button,select,input,label,div) {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+  letter-spacing: normal;
+}
+.rx-chart .rx-tool { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; border:1px solid #ffffff25; background:#ffffff08; border-radius:9px; padding:.45rem .65rem; font-size:.85rem; }
+.rx-chart .rx-tool:hover, .rx-chart .rx-tool[aria-expanded=true] { border-color:var(--chart-accent); }
+.rx-chart .rx-tool:disabled { opacity:.45 }
+.rx-chart .rx-controls { display:flex; flex-wrap:wrap; gap:.55rem 1rem; align-items:center; padding:.85rem 0; border-bottom:1px solid #ffffff16; font-size:.9rem; }
+.rx-chart .rx-controls label { display:inline-flex; align-items:center; gap:.45rem }
+.rx-chart .rx-controls input { accent-color:var(--chart-accent); }
+.rx-chart .rx-controls select { background:#232329; border-radius:5px; padding:.25rem .4rem }
+.rx-chart[data-compact=true] .rx-cells { grid-template-columns:repeat(auto-fill,minmax(3.6rem,1fr)); gap:4px }
+.rx-chart[data-compact=true] .rx-cell { padding:.3rem .4rem }
+.rx-chart[data-tinted=true] .rx-cell[data-scored=true] { background:color-mix(in srgb,var(--score-color) 20%,transparent); border-color:color-mix(in srgb,var(--score-color) 44%,transparent); }
+.rx-chart .rx-cell:hover { border-color:var(--chart-accent) }
