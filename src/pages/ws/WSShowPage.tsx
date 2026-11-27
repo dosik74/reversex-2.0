@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Play, Star, ArrowLeft, Info } from 'lucide-react';
+import { Play, ArrowLeft, Info } from 'lucide-react';
 import { showsData } from './data/shows';
 import { useTMDB } from './hooks/useTMDB';
 import EpisodeRatings from '@/components/EpisodeRatings';
@@ -75,10 +75,7 @@ function ShowPage({ id }: { id?: string }) {
               <span className="px-4 py-1.5 bg-pink-500/10 backdrop-blur-md rounded-full border border-pink-500/20 text-pink-400 font-bold uppercase tracking-wider text-sm shadow-[0_0_15px_rgba(255,0,255,0.1)]">
                 {show.genre}
               </span>
-              <span className="flex items-center gap-1.5 text-yellow-400 font-bold text-lg bg-black/40 px-4 py-1.5 rounded-full border border-white/5 backdrop-blur-md">
-                <Star className="fill-yellow-400 w-5 h-5" />
-                {rating > 0 ? rating.toFixed(1) : '9.8'}
-              </span>
+
             </div>
 
             <h1 className="font-script text-5xl md:text-7xl font-bold text-white mb-8 drop-shadow-lg leading-tight">
@@ -143,7 +140,7 @@ function ShowPage({ id }: { id?: string }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          {tmdbId ? <EpisodeRatings key={tmdbId} seriesId={tmdbId} /> :
+          {tmdbId ? <EpisodeRatings key={tmdbId} seriesId={tmdbId} title={show.title} poster={posterUrl} /> :
             <p className="text-gray-400">{loading ? 'Загружаем серии…' : 'Список серий недоступен'}</p>}
         </motion.div>
       </div>

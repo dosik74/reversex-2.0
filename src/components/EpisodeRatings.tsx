@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { imdbScore } from './TitleScores';
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
 import supabase from '@/lib/supabase';
@@ -16,40 +18,134 @@ async function tmdb<T>(path: string): Promise<T> {
   return response.json();
 }
 
-export default function EpisodeRatings({ seriesId }: { seriesId: number }) {
-  const [selectedSeason, setSeason] = useState<number>();
-  const [selectedEpisode, setEpisode] = useState<number>();
+type Source = 'average' | 'mine' | 'imdb';
+type Entry = Episode & { season_number: number; air_date?: string; runtime?: number };
+interface GridScore { id: number; average: number | null; mine: number | null }
+
+const bands = [
+  { min: 9.7, color: '#45c8fc' }, { min: 9, color: '#167545' },
+  { min: 8, color: '#36ce83' }, { min: 7, color: '#ffd453' },
+  { min: 6, color: '#ff984a' }, { min: 4, color: '#f06a68' }, { min: 0, color: '#ad85c9' },
+];
+function shade(score: number) {
+  return bands.find(b => score >= b.min) ?? bands[bands.length - 1];
+}
+
+async function gridScores(ids: number[]): Promise<GridScore[]> {
+  const { data, error } = await supabase.rpc('episode_grid_scores', { episode_ids: ids });
+  if (error) throw error;
+  return data;
+}
+
+export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: number; title: string; poster?: string }) {
+  const [source, setSource] = useState<Source>('average');
+  const [seasonPage, setSeasonPage] = useState(0);
+  const [rowPage, setRowPage] = useState(0);
+  const [active, setActive] = useState<Entry | null>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
   const seasons = useQuery({
     queryKey: ['episode-seasons', seriesId],
-    queryFn: async () => (await tmdb<{ seasons: Season[] }>(String(seriesId))).seasons.filter(s => s.episode_count > 0),
+    queryFn: async () => (await tmdb<{ seasons: Season[] }>(String(seriesId))).seasons
+      .filter(s => s.episode_count > 0).sort((a,b) => (a.season_number || Infinity) - (b.season_number || Infinity)),
     staleTime: 3600000,
   });
-  const season = selectedSeason ?? seasons.data?.find(s => s.season_number > 0)?.season_number ?? seasons.data?.[0]?.season_number;
-  const path = `${seriesId}/season/${season}`;
-  const episodes = useQuery({
-    queryKey: ['episode-list', path],
-    queryFn: async () => (await tmdb<{ episodes: Episode[] }>(path)).episodes,
-    enabled: season !== undefined,
+  const columns = (seasons.data ?? []).slice(seasonPage * 5, seasonPage * 5 + 5);
+  const lists = useQueries({ queries: columns.map(s => ({
+    queryKey: ['episode-list', `${seriesId}/season/${s.season_number}`],
+    queryFn: async () => (await tmdb<{ episodes: Entry[] }>(`${seriesId}/season/${s.season_number}`)).episodes,
     staleTime: 3600000,
+  })) });
+  const entries = lists.flatMap(list => list.data ?? []);
+  const numbers = [...new Set(entries.map(ep => ep.episode_number))].sort((a,b) => a-b);
+  const visible = numbers.slice(rowPage * 25, rowPage * 25 + 25);
+  const ids = entries.filter(ep => visible.includes(ep.episode_number)).map(ep => ep.id);
+  const { user } = useAppContext();
+  const scores = useQuery({
+    queryKey: ['episode-grid', seriesId, user?.id ?? null, ids],
+    queryFn: () => gridScores(ids), enabled: ids.length > 0 && source !== 'imdb', staleTime: 60000,
   });
-  const episode = episodes.data?.find(e => e.id === selectedEpisode) ?? episodes.data?.[0];
-  return <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#191919] p-5 text-white sm:p-7">
+  const values = new Map(scores.data?.map(row => [row.id, row]));
+  const current = active && lists[columns.findIndex(s => s.season_number === active.season_number)]?.data;
+  const idx = current?.findIndex(e => e.id === active?.id) ?? -1;
+
+  return <section className="min-w-0 rounded-2xl border border-white/10 bg-[#151618] p-4 text-white sm:p-6">
     <h2 className="mb-5 text-2xl font-bold">Оценки серий</h2>
-    <div className="mb-5 flex flex-wrap gap-2">
-      {seasons.data?.length > 0 && <select aria-label="Сезон" className="rounded-lg bg-neutral-800 p-2" value={season}
-        onChange={e => { setSeason(Number(e.target.value)); setEpisode(undefined); }}>
-        {seasons.data.map(s => <option key={s.season_number} value={s.season_number}>{s.season_number ? `Сезон ${s.season_number}` : 'Спецвыпуски'}</option>)}
-      </select>}
-      {episode && <select aria-label="Серия" className="min-w-0 max-w-full flex-1 rounded-lg bg-neutral-800 p-2" value={episode.id} onChange={e => setEpisode(Number(e.target.value))}>
-        {episodes.data.map(e => <option key={e.id} value={e.id}>{e.episode_number}. {e.name}</option>)}
-      </select>}
+    <div className="flex items-start gap-5">
+      {poster && <img src={poster} alt={title} className="hidden w-[20%] max-w-36 rounded-lg object-cover sm:block" />}
+      <div className="min-w-0 flex-1">
+        <select aria-label="Источник оценок" value={source} onChange={e => setSource(e.target.value as Source)}
+          className="rounded-md border border-white/15 bg-neutral-800 px-3 py-2 text-sm">
+          <option value="average">Зрители сайта</option><option value="mine">Мои оценки</option><option value="imdb">IMDb</option>
+        </select>
+        <div className="my-4 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-300">
+          {bands.map(b => <span key={b.min} className="flex items-center gap-1"><i className="h-2 w-2 rounded-full" style={{background:b.color}}/>{b.min === 0 ? '<4' : b.min + '+'}</span>)}
+        </div>
+        {seasons.isLoading && <p role="status">Загружаем сезоны…</p>}
+        {seasons.isError && <button onClick={() => seasons.refetch()}>Повторить загрузку сезонов</button>}
+        {seasons.data?.length === 0 && <p>Серии пока отсутствуют</p>}
+        {lists.some(q => q.isLoading) && <p role="status">Загружаем серии…</p>}
+        {lists.some(q => q.isError) && <button onClick={() => lists.filter(q => q.isError).forEach(q => q.refetch())}>Повторить загрузку серий</button>}
+        {scores.isError && source !== 'imdb' && <button onClick={() => scores.refetch()}>Не удалось загрузить оценки. Повторить</button>}
+        <div className="overflow-x-auto"><table className="border-separate border-spacing-1 text-center tabular-nums">
+          <thead><tr><th/>{columns.map(s => <th key={s.season_number} className="pb-1 text-xs font-medium text-neutral-400">{s.season_number ? 'S'+s.season_number : 'Спец.'}</th>)}</tr></thead>
+          <tbody>{visible.map(n => <tr key={n}><th scope="row" className="pr-1 text-xs font-medium text-neutral-400">E{n}</th>
+            {lists.map((list, i) => {
+              const ep = list.data?.find(e => e.episode_number === n);
+              return <td key={columns[i].season_number}>{ep && <ScoreCell episode={ep} seriesId={seriesId} source={source}
+                loading={scores.isLoading} value={source === 'imdb' ? null : values.get(ep.id)?.[source]}
+                onOpen={button => { trigger.current = button; setActive(ep); }} />}</td>;
+            })}</tr>)}</tbody>
+        </table></div>
+        {(seasons.data?.length ?? 0) > 5 && <Pager page={seasonPage} size={5} total={seasons.data.length} label="Сезоны" change={page => { setSeasonPage(page); setRowPage(0); }}/>}
+        {numbers.length > 25 && <Pager page={rowPage} size={25} total={numbers.length} label="Серии" change={setRowPage}/>}
+      </div>
     </div>
-    {episode ? <EpisodePanel key={episode.id} episode={episode} season={season} path={path} /> :
-      <p role="status">{seasons.isError || episodes.isError ? 'Не удалось загрузить серии' : seasons.isLoading || episodes.isLoading ? 'Загружаем серии…' : 'Серии пока отсутствуют'}</p>}
+    <Dialog open={!!active} onOpenChange={open => { if (!open) setActive(null); }}>
+      {active && <DialogContent onCloseAutoFocus={e => { e.preventDefault(); trigger.current?.focus(); }}
+        className="block max-h-[90dvh] w-[min(95vw,58rem)] max-w-none overflow-y-auto rounded-2xl border-white/10 bg-[#191919] p-0 text-white">
+        <div className="flex items-center gap-4 border-b border-white/10 px-5 py-3 pr-12">
+          <button aria-label="Предыдущая серия" disabled={idx <= 0} className="disabled:opacity-25" onClick={() => setActive(current[idx-1])}><ChevronLeft/></button>
+          <div className="min-w-0 flex-1"><DialogTitle>Сезон {active.season_number} · Серия {active.episode_number}</DialogTitle><DialogDescription>{title}</DialogDescription></div>
+          <button aria-label="Следующая серия" disabled={!current || idx >= current.length-1} className="disabled:opacity-25" onClick={() => setActive(current[idx+1])}><ChevronRight/></button>
+        </div>
+        <EpisodePanel key={active.id} episode={active} season={active.season_number} path={`${seriesId}/season/${active.season_number}`} />
+      </DialogContent>}
+    </Dialog>
   </section>;
 }
 
-function EpisodePanel({ episode, season, path }: { episode: Episode; season: number; path: string }) {
+function Pager({ page, size, total, label, change }: { page:number; size:number; total:number; label:string; change:(n:number)=>void }) {
+  return <div className="mt-3 flex items-center gap-3 text-sm">
+    <button aria-label={label + ' назад'} disabled={!page} className="disabled:opacity-25" onClick={() => change(page-1)}><ChevronLeft size={18}/></button>
+    {label} {page*size+1}–{Math.min(total,(page+1)*size)}
+    <button aria-label={label + ' дальше'} disabled={(page+1)*size>=total} className="disabled:opacity-25" onClick={() => change(page+1)}><ChevronRight size={18}/></button>
+  </div>;
+}
+
+function ScoreCell({ episode, seriesId, source, value, loading, onOpen }: { episode:Entry; seriesId:number; source:Source; value?:number|null; loading:boolean; onOpen:(button:HTMLButtonElement)=>void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (source !== 'imdb' || !ref.current) return;
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting));
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [source]);
+  const imdb = useQuery({
+    queryKey: ['episode-imdb', episode.id],
+    queryFn: () => imdbScore(`tv/${seriesId}/season/${episode.season_number}/episode/${episode.episode_number}`),
+    enabled: source === 'imdb' && visible, staleTime: 3600000,
+  });
+  const score = source === 'imdb' ? imdb.data?.rating : value;
+  const pending = source === 'imdb' ? imdb.isLoading : loading;
+  return <button ref={ref} title={episode.name} aria-label={`Сезон ${episode.season_number}, серия ${episode.episode_number}. ${episode.name}`}
+    onClick={e => onOpen(e.currentTarget)} className="h-9 w-12 rounded font-bold transition hover:brightness-125 focus-visible:outline-white"
+    style={{background:score == null ? '#393a3d' : shade(score).color, color:score == null || (score>=9 && score<9.7) ? 'white' : '#111'}}>
+    {score != null ? score.toFixed(1) : pending ? '…' : '?'}
+  </button>;
+}
+
+function EpisodePanel({ episode, season, path }: { episode: Entry; season: number; path: string }) {
   const { user } = useAppContext();
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -65,14 +161,7 @@ function EpisodePanel({ episode, season, path }: { episode: Episode; season: num
   });
   const imdb = useQuery({
     queryKey: ['episode-imdb', episode.id],
-    queryFn: async () => {
-      const { imdb_id } = await tmdb<{ imdb_id: string | null }>(`${path}/episode/${episode.episode_number}/external_ids`);
-      if (!imdb_id) return null;
-      const res = await fetch(`/api/episode-rating?id=${encodeURIComponent(imdb_id)}`);
-      if (!res.ok) throw new Error('IMDb unavailable');
-      const { rating } = await res.json() as { rating: number | null };
-      return { id: imdb_id, rating };
-    },
+    queryFn: () => imdbScore(`tv/${path}/episode/${episode.episode_number}`),
     staleTime: 3600000,
   });
   const save = useMutation({
@@ -85,17 +174,23 @@ function EpisodePanel({ episode, season, path }: { episode: Episode; season: num
       if (error) throw error;
     },
     onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ['episode-votes', episode.id] });
+      await Promise.all([client.invalidateQueries({ queryKey: ['episode-votes', episode.id] }), client.invalidateQueries({ queryKey: ['episode-grid', Number(path.split('/')[0])] })]);
       setOpen(false);
     },
   });
   const stats = votes.data;
   const numeric = Number(draft.replace(',', '.'));
   const valid = /^\d{1,2}([.,]\d)?$/.test(draft) && numeric >= 1 && numeric <= 10;
-  return <>
-    {episode.still_path && <img alt="" src={`https://image.tmdb.org/t/p/w780${episode.still_path}`} className="mb-4 max-h-64 w-full rounded-xl object-cover" />}
-    <h3 className="text-xl font-bold">{episode.name}</h3>
-    <p className="mb-4 text-sm text-neutral-400">Сезон {season} · Серия {episode.episode_number}</p>
+  return <div className="grid sm:grid-cols-[1.15fr_1fr]">
+    <div>
+      {episode.still_path && <img alt={episode.name} src={`https://image.tmdb.org/t/p/w780${episode.still_path}`} className="aspect-video w-full object-cover" />}
+      <div className="p-5">
+        <h3 className="text-xl font-bold">{episode.name}</h3>
+        <p className="mt-1 text-sm text-neutral-400">{[episode.air_date, episode.runtime && `${episode.runtime} мин`].filter(Boolean).join(' · ')}</p>
+        {episode.overview && <p className="mt-4 text-sm leading-relaxed text-neutral-300">{episode.overview}</p>}
+      </div>
+    </div>
+    <div className="border-white/10 p-5 sm:border-l">
     <div className="grid grid-cols-3 gap-2 border-y border-white/10 py-4 text-center text-xs sm:text-sm">
       <div>IMDb<strong className="block text-2xl text-amber-300">{imdb.data?.rating != null ?
         <a href={`https://www.imdb.com/title/${imdb.data.id}/`} target="_blank" rel="noreferrer">{imdb.data.rating.toFixed(1)}</a> : imdb.isLoading ? '…' : '—'}</strong></div>
@@ -136,6 +231,6 @@ function EpisodePanel({ episode, season, path }: { episode: Episode; season: num
         {save.isError && <p role="alert">Не удалось сохранить изменение. Попробуйте ещё раз.</p>}
       </DialogContent>
     </Dialog> : <Link to="/auth" className="underline">Войти, чтобы оценить серию</Link>}</div>
-    {episode.overview && <p className="mt-5 text-sm leading-relaxed text-neutral-300">{episode.overview}</p>}
-  </>;
+    </div>
+  </div>;
 }

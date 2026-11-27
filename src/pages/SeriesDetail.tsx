@@ -205,12 +205,6 @@ const SeriesDetail = () => {
                   variant="detail"
                 />
 
-                <div className="flex items-center gap-2 bg-card/80 px-4 py-2 rounded-lg">
-                  <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                  <span className="text-2xl font-bold">{series.vote_average.toFixed(1)}</span>
-                  <span className="text-sm text-muted-foreground">/10</span>
-                </div>
-
                 {series.runtime ? (
                   <div className="bg-card/80 px-4 py-2 rounded-lg text-sm tabular-nums">
                     ⏱️ {formatRuntime(series.runtime)} / серия
@@ -231,7 +225,7 @@ const SeriesDetail = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            <EpisodeRatings key={series.id} seriesId={series.id} />
+            <EpisodeRatings key={series.id} seriesId={series.id} title={series.title} poster={getMoviePosterUrl(series.poster_path, 'w342')} />
             {/* Description */}
             {series.overview && (
               <Card className="animate-fade-up card-glow">

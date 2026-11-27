@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import supabase from '@/lib/supabase';
 import { ContentBookmark, ContentStatus, ContentType } from '@/types/anime';
 import { toast } from 'sonner';
@@ -62,6 +63,7 @@ function toCamel(row: any): ContentBookmark {
 }
 
 export function BookmarkProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [userId, setUserId] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<ContentBookmark[]>([]);
   const [top50, setTop50] = useState<Record<string, Map<string, Top50Item>>>({});
@@ -257,7 +259,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         }
       };
 
-      sync().catch(async (err: any) => {
+      sync().then(() => queryClient.invalidateQueries({ queryKey: ['title-average', data.contentType, String(data.contentId)] })).catch(async (err: any) => {
         console.error('Bookmark sync error:', err);
         // Revert on failure
         await loadAll(userId);
@@ -284,6 +286,8 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
             console.error('Bookmark delete error:', error);
             setBookmarks(snapshot);
             toast.error('Не удалось удалить закладку');
+          } else {
+            void queryClient.invalidateQueries({ queryKey: ['title-average', existing.contentType, existing.contentId] });
           }
         });
     },
@@ -307,6 +311,8 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
             console.error('Rating update error:', error);
             setBookmarks(snapshot);
             toast.error('Не удалось обновить оценку');
+          } else {
+            void queryClient.invalidateQueries({ queryKey: ['title-average', existing.contentType, existing.contentId] });
           }
         });
     },

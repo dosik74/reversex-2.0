@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Bookmark, BookmarkCheck, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import { ContentType, ContentStatus, CONTENT_STATUS_CONFIG } from '@/types/anime';
 import { useBookmarks } from '@/context/BookmarkContext';
+import { TitleScores } from './TitleScores';
 import { toast } from 'sonner';
 
 interface ContentActionsButtonProps {
@@ -202,7 +203,7 @@ export default function ContentActionsButton({
           {/* Разделитель */}
           <span className="gpb-divider" aria-hidden="true" />
           {/* Чип рейтинга тайтла */}
-          {externalRating != null && (
+          {(contentType === 'series' || contentType === 'movie') ? <TitleScores id={contentId} type={contentType} mine={bookmark?.userRating} /> : externalRating != null && (
             <span className="gpb-score-chip" title="Рейтинг тайтла">
               <span className="gpb-score">{Number(externalRating).toFixed(1)}</span>
             </span>
