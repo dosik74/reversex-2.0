@@ -1,16 +1,19 @@
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Play, Star, ArrowLeft, Info, ListVideo } from 'lucide-react';
+import { Play, Star, ArrowLeft, Info } from 'lucide-react';
 import { showsData } from './data/shows';
 import { useTMDB } from './hooks/useTMDB';
-import { useTMDBEpisodes } from './hooks/useTMDBEpisodes';
+import EpisodeRatings from '@/components/EpisodeRatings';
 import ContentActionsButton from '@/components/ContentActionsButton';
 
 export default function WSShowPage() {
   const { id } = useParams();
+  return <ShowPage key={id} id={id} />;
+}
+
+function ShowPage({ id }: { id?: string }) {
   const show = showsData.find(s => s.id === Number(id));
   const { posterUrl, backdropUrl, overview, rating, tmdbId, year, loading } = useTMDB(show?.title || '');
-  const { episodes, loading: episodesLoading } = useTMDBEpisodes(show?.title || '');
 
   if (!show) {
     return (
@@ -140,46 +143,8 @@ export default function WSShowPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3 ml-2">
-            <ListVideo className="w-6 h-6 text-pink-500" />
-            Список серий
-          </h2>
-          {episodesLoading ? (
-            <div className="py-12 text-center">
-              <div className="inline-block w-8 h-8 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="text-gray-400">Загрузка серий...</p>
-            </div>
-          ) : episodes.length === 0 ? (
-            <div className="py-12 text-center bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl">
-              <ListVideo className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-400">Список серий недоступен</p>
-            </div>
-          ) : (
-          <div className="space-y-4">
-            {episodes.map((ep) => (
-              <div
-                key={ep.id}
-                className="p-6 rounded-2xl bg-white/5 backdrop-blur-2xl border border-white/10 hover:bg-white/10 transition-colors shadow-[0_4px_30px_rgba(0,0,0,0.5)] flex flex-col md:flex-row md:items-center gap-6"
-              >
-                <div className="flex-shrink-0 w-24 h-24 rounded-xl bg-black/40 border border-white/5 flex flex-col items-center justify-center shadow-inner">
-                  <span className="text-pink-500 text-sm font-bold uppercase">
-                    Сезон {ep.season}
-                  </span>
-                  <span className="text-white text-3xl font-black">{ep.episode}</span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-white text-xl mb-2">{ep.title}</h4>
-                  <p className="text-gray-400 leading-relaxed">{ep.plot}</p>
-                </div>
-                <div className="flex-shrink-0">
-                  <button className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-pink-500 hover:border-pink-500 hover:text-white transition-all text-gray-400 shadow-[0_4px_30px_rgba(0,0,0,0.5)] group">
-                    <Play className="w-6 h-6 fill-current group-hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          )}
+          {tmdbId ? <EpisodeRatings key={tmdbId} seriesId={tmdbId} /> :
+            <p className="text-gray-400">{loading ? 'Загружаем серии…' : 'Список серий недоступен'}</p>}
         </motion.div>
       </div>
     </div>

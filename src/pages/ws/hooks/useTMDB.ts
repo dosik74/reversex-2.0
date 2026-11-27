@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+import { getSearchQuery } from './getSearchQuery';
+
 const API_KEY = 'a981b3ba0b345f578fb917ee74a90bf3';
 
 export function useTMDB(title: string) {
@@ -20,7 +22,7 @@ export function useTMDB(title: string) {
     const fetchTMDB = async () => {
       try {
         const res = await fetch(
-          `https://api.themoviedb.org/3/search/tv?api_key=${API_KEY}&query=${encodeURIComponent(title)}&language=ru-RU`
+          `https://api.themoviedb.org/3/search/tv?api_key=${API_KEY}&query=${encodeURIComponent(getSearchQuery(title))}&language=ru-RU`
         );
         const json = await res.json();
 

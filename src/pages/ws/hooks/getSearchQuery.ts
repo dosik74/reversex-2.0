@@ -1,0 +1,47 @@
+// Fallback: русские названия -> английские для TMDB search (если ru-RU не находит)
+const TITLE_MAP: Record<string, string> = {
+  'Во все тяжкие': 'Breaking Bad',
+  'Лучше звоните Солу': 'Better Call Saul',
+  'Декстер': 'Dexter',
+  'Добро пожаловать в Дерри': 'Welcome to Derry',
+  'Пацаны': 'The Boys',
+  'Аркейн': 'Arcane',
+  'Остаться в живых': 'Lost',
+  'Мистер Робот': 'Mr. Robot',
+  'Игра в кальмара': 'Squid Game',
+  'Алиса в Пограничье': 'Alice in Borderland',
+  'Конь БоДжек': 'BoJack Horseman',
+  'Шерлок': 'Sherlock',
+  'Острые козырьки': 'Peaky Blinders',
+  'Доктор Хаус': 'House',
+  'Офис': 'The Office',
+  'Отчаянные домохозяйки': 'Desperate Housewives',
+  'Настоящий детектив': 'True Detective',
+  'Тьма': 'Dark',
+  'Ты': 'You',
+  'Чернобыль': 'Chernobyl',
+  'Игра престолов': 'Game of Thrones',
+  'Нарко': 'Narcos',
+  'Ганнибал': 'Hannibal',
+  'Сверхъестественное': 'Supernatural',
+  'Побег': 'Prison Break',
+  'Бумажный дом': 'Money Heist',
+  'Очень странные дела': 'Stranger Things',
+  'Клан Сопрано': 'The Sopranos',
+  'Бесстыжие': 'Shameless',
+  'Тед Лассо': 'Ted Lasso',
+  'Прослушка': 'The Wire',
+  'Наследники': 'Succession',
+  'Друзья': 'Friends',
+  'Симпсоны': 'The Simpsons',
+  'Гравити Фолз': 'Gravity Falls',
+  'Теория большого взрыва': 'The Big Bang Theory',
+  'Ходячие мертвецы': 'The Walking Dead',
+  'Уэнсдэй': 'Wednesday',
+  'Рик и Морти': 'Rick and Morty',
+};
+
+export function getSearchQuery(title: string): string {
+  return TITLE_MAP[title] || title;
+}
+

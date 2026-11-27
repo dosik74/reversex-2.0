@@ -4,6 +4,7 @@ import { getSeriesDetails, getSeriesVideos, getSeriesCredits, getSimilarSeries, 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star, Play, ChevronRight } from "lucide-react";
 import ContentActionsButton from "@/components/ContentActionsButton";
+import EpisodeRatings from "@/components/EpisodeRatings";
 import BackButton from "@/components/BackButton";
 
 interface SeriesDetails {
@@ -230,6 +231,7 @@ const SeriesDetail = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
+            <EpisodeRatings key={series.id} seriesId={series.id} />
             {/* Description */}
             {series.overview && (
               <Card className="animate-fade-up card-glow">
