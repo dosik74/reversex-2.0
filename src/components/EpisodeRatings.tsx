@@ -147,7 +147,13 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-      <select aria-label="Источник оценок" value={source} onChange={e => setSource(e.target.value as Source)}
+      <select aria-label="Источник оценок" value={source} onChange={e => {
+        setSource(e.target.value as Source);
+        if (e.target.value === 'mine' && shared.has('votes')) {
+          setSeasonPage(Number(shared.get('s')) || 0);
+          setRowPage(Number(shared.get('r')) || 0);
+        }
+      }}
         className="rounded-full border border-white/15 bg-[#232329] px-3 py-2 text-sm">
         <option value="average">Зрители сайта</option><option value="mine">{snapshot || incoming === 'mine' && shared.has('votes') ? 'Оценки автора ссылки' : 'Мои оценки'}</option><option value="imdb">IMDb</option>
       </select>
@@ -189,8 +195,8 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
             </div>
           </div>;
         })}
-        {(seasons.data?.length ?? 0) > 5 && <Pager page={seasonPage} size={5} total={seasons.data.length} label="Сезоны" change={page => { setSeasonPage(page); setRowPage(0); }}/>}
-        {numbers.length > 25 && <Pager page={rowPage} size={25} total={numbers.length} label="Серии" change={setRowPage}/>}
+        {!snapshot && (seasons.data?.length ?? 0) > 5 && <Pager page={seasonPage} size={5} total={seasons.data.length} label="Сезоны" change={page => { setSeasonPage(page); setRowPage(0); }}/>}
+        {!snapshot && numbers.length > 25 && <Pager page={rowPage} size={25} total={numbers.length} label="Серии" change={setRowPage}/>}
     </div>
     <Dialog open={!!active} onOpenChange={open => { if (!open) setActive(null); }}>
       {active && <DialogContent onCloseAutoFocus={e => { e.preventDefault(); trigger.current?.focus(); }}
