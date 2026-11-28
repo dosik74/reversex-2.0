@@ -61,8 +61,15 @@ export default function EpisodePhotoImport({seriesId,title,seasons,userId,loadSe
       if(result.showId && result.showId!==seriesId) { setOther(result.showId); return; }
       const drafts=result.votes.map(row=>({...row,include:true}));
       const first=regular[0];
-      setAbsolute(regular.length>1 && drafts.every(r=>r.season===null || r.season===1) &&
-        drafts.some(r=>Number(r.episode)>first.episode_count));
+      const hasMultiPhotoSeasons=drafts.some(r=>r.season!==null && r.season>1);
+      if (regular.length===1 && hasMultiPhotoSeasons && drafts.length<=first.episode_count) {
+        setAbsolute(true);
+        let seq=0;
+        for (const d of drafts) { d.episode=String(++seq); d.season=first.season_number; }
+      } else {
+        setAbsolute(regular.length>1 && drafts.every(r=>r.season===null || r.season===1) &&
+          drafts.some(r=>Number(r.episode)>first.episode_count));
+      }
       if(regular.length===1) setFallback(String(first.season_number));
       setRows(drafts);
     } catch(err) { setError(err instanceof Error && err.message.startsWith('Не найдены') ? err.message : 'Не удалось прочитать изображение. Попробуйте PNG или JPEG с чёткими подписями.'); }
@@ -91,7 +98,7 @@ export default function EpisodePhotoImport({seriesId,title,seasons,userId,loadSe
     <DialogTrigger className="rx-tool"><ImagePlus size={16}/>Из фото</DialogTrigger>
     <DialogContent className="rx-photo max-h-[90dvh] overflow-y-auto bg-neutral-900 text-white sm:max-w-xl">
       <DialogTitle>Импорт из SeriesGraph</DialogTitle>
-      <DialogDescription>Личные оценки для «{title}». Выберите скриншот в режиме Wrapped, где на карточках видны номера серий и баллы.</DialogDescription>
+      <DialogDescription>Личные оценки для «{title}». Загрузите скриншот из SeriesGraph (таблица по сезонам или режим Wrapped) — сезоны, серии и баллы определятся автоматически.</DialogDescription>
       {!userId ? <Link className="underline" to="/auth">Войти для импорта</Link> : <>
         <input aria-label="Скриншот SeriesGraph" type="file" accept="image/png,image/jpeg,image/webp" disabled={!!busy || !seasons.length}
           onChange={e=>{const file=e.target.files?.[0]; e.target.value=''; if(file) void read(file);}}/>
