@@ -1,4 +1,5 @@
 import './episodeChart.css';
+import EpisodePhotoImport from './EpisodePhotoImport';
 import { appearance, defaultAppearance, downloadChart, themes, type Appearance } from './episodeChartExport';
 import type { CSSProperties } from 'react';
 import { ChevronLeft, ChevronRight, SlidersHorizontal, Link2, Download } from 'lucide-react';
@@ -8,21 +9,13 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { Link } from 'react-router-dom';
 import { useAppContext } from '@/context/AppContext';
 import supabase from '@/lib/supabase';
-import { TMDB_API_KEY, TMDB_BASE_URL } from '@/utils/tmdbApi';
+import { loadSeasons, seasonQuery, imdbEpisodePath, type Entry } from './episodeSeasons';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
-interface Season { season_number: number; episode_count: number }
-interface Episode { id: number; episode_number: number; name: string; overview: string; still_path: string | null }
 interface Summary { average: number | null; mine: number | null; count: number; bins: number[] }
 
-async function tmdb<T>(path: string): Promise<T> {
-  const response = await fetch(`${TMDB_BASE_URL}/tv/${path}?api_key=${TMDB_API_KEY}&language=ru-RU`);
-  if (!response.ok) throw new Error('TMDB unavailable');
-  return response.json();
-}
 
 type Source = 'average' | 'mine' | 'imdb';
-type Entry = Episode & { season_number: number; air_date?: string; runtime?: number };
 interface GridScore { id: number; average: number | null; mine: number | null }
 
 const bands = [
@@ -72,18 +65,14 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
   useEffect(() => { if (fromLink) root.current?.scrollIntoView({block:'start'}); }, [fromLink]);
   const [active, setActive] = useState<Entry | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
+  const grouped = !fromLink || shared.get('layout') === 'seasons';
   const seasons = useQuery({
-    queryKey: ['episode-seasons', seriesId],
-    queryFn: async () => (await tmdb<{ seasons: Season[] }>(String(seriesId))).seasons
-      .filter(s => s.episode_count > 0).sort((a,b) => (a.season_number || Infinity) - (b.season_number || Infinity)),
+    queryKey: ['episode-seasons', seriesId, grouped],
+    queryFn: () => loadSeasons(seriesId, grouped),
     staleTime: 3600000,
   });
   const columns = (seasons.data ?? []).slice(seasonPage * 5, seasonPage * 5 + 5);
-  const lists = useQueries({ queries: columns.map(s => ({
-    queryKey: ['episode-list', `${seriesId}/season/${s.season_number}`],
-    queryFn: async () => (await tmdb<{ episodes: Entry[] }>(`${seriesId}/season/${s.season_number}`)).episodes,
-    staleTime: 3600000,
-  })) });
+  const lists = useQueries({ queries: columns.map(s => seasonQuery(seriesId,s)) });
   const entries = lists.flatMap(list => list.data ?? []);
   const numbers = [...new Set(entries.map(ep => ep.episode_number))].sort((a,b) => a-b);
   const visible = numbers.slice(rowPage * 25, rowPage * 25 + 25);
@@ -106,6 +95,7 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
       if (action === 'link') {
         const url = new URL(`/series/${seriesId}`,window.location.origin);
         const params = new URLSearchParams({src:source,s:String(seasonPage),r:String(rowPage),theme:settings.theme,dense:settings.compact?'1':'0',tint:settings.tinted?'1':'0'});
+        if (grouped) params.set('layout','seasons');
         if (source === 'mine') params.set('votes',entries.filter(ep => ids.includes(ep.id) && chosenScore(ep)!=null)
           .map(ep => ep.id+'.'+Math.round(chosenScore(ep)*10)).join(','));
         url.hash = 'episode-ratings?'+params.toString();
@@ -121,7 +111,7 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
             cells.push(...await Promise.all(episodes.slice(i,i+4).map(async ep => {
               const result = source === 'imdb' ? await client.fetchQuery({
                 queryKey:['episode-imdb',ep.id], staleTime:3600000,
-                queryFn:()=>imdbScore(`tv/${seriesId}/season/${ep.season_number}/episode/${ep.episode_number}`),
+                queryFn:()=>imdbScore(imdbEpisodePath(seriesId,ep)),
               }) : null;
               const score = source === 'imdb' ? result?.rating : chosenScore(ep);
               return {number:ep.episode_number,score:score ?? null,color:score == null ? '#888' : shade(score).color};
@@ -159,6 +149,8 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
       <button className="rx-tool" aria-expanded={customizing} onClick={()=>setCustomizing(!customizing)}><SlidersHorizontal size={16}/>Вид</button>
       <button className="rx-tool" disabled={busy || !pageReady} onClick={()=>share('link')} title="Скопировать ссылку на этот вид"><Link2 size={16}/>Ссылка</button>
       <button className="rx-tool" disabled={busy || !pageReady} onClick={()=>share('png')} title="Скачать отображаемые серии в PNG"><Download size={16}/>{busy ? '…' : 'PNG'}</button>
+      {!snapshot && <EpisodePhotoImport seriesId={seriesId} title={title} userId={user?.id} seasons={seasons.data ?? []}
+        loadSeason={number=>client.fetchQuery(seasonQuery(seriesId,seasons.data!.find(s=>s.season_number===number)!))} onSaved={count=>{setSource('mine'); setFeedback('Сохранено оценок: '+count);}}/>}
       </div>
 
         {customizing && <div className="rx-controls">
@@ -206,7 +198,7 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
           <div className="min-w-0 flex-1"><DialogTitle>Сезон {active.season_number} · Серия {active.episode_number}</DialogTitle><DialogDescription>{title}</DialogDescription></div>
           <button aria-label="Следующая серия" disabled={!current || idx >= current.length-1} className="disabled:opacity-25" onClick={() => setActive(current[idx+1])}><ChevronRight/></button>
         </div>
-        <EpisodePanel key={active.id} episode={active} season={active.season_number} path={`${seriesId}/season/${active.season_number}`} />
+        <EpisodePanel key={active.id} episode={active} season={active.season_number} path={imdbEpisodePath(seriesId,active)} />
       </DialogContent>}
     </Dialog>
   </section>;
@@ -231,7 +223,7 @@ function ScoreCell({ episode, seriesId, source, value, loading, onOpen }: { epis
   }, [source]);
   const imdb = useQuery({
     queryKey: ['episode-imdb', episode.id],
-    queryFn: () => imdbScore(`tv/${seriesId}/season/${episode.season_number}/episode/${episode.episode_number}`),
+    queryFn: () => imdbScore(imdbEpisodePath(seriesId,episode)),
     enabled: source === 'imdb' && visible, staleTime: 3600000,
   });
   const score = source === 'imdb' ? imdb.data?.rating : value;
@@ -260,7 +252,7 @@ function EpisodePanel({ episode, season, path }: { episode: Entry; season: numbe
   });
   const imdb = useQuery({
     queryKey: ['episode-imdb', episode.id],
-    queryFn: () => imdbScore(`tv/${path}/episode/${episode.episode_number}`),
+    queryFn: () => imdbScore(path),
     staleTime: 3600000,
   });
   const save = useMutation({
@@ -273,7 +265,7 @@ function EpisodePanel({ episode, season, path }: { episode: Entry; season: numbe
       if (error) throw error;
     },
     onSuccess: async () => {
-      await Promise.all([client.invalidateQueries({ queryKey: ['episode-votes', episode.id] }), client.invalidateQueries({ queryKey: ['episode-grid', Number(path.split('/')[0])] })]);
+      await Promise.all([client.invalidateQueries({ queryKey: ['episode-votes', episode.id] }), client.invalidateQueries({ queryKey: ['episode-grid', Number(path.split('/')[1])] })]);
       setOpen(false);
     },
   });
