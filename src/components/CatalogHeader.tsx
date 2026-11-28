@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { X } from 'lucide-react';
-import CatalogSearch from './CatalogSearch';
+import CatalogSearch, { type SearchPreview } from './CatalogSearch';
 
 interface CatalogHeaderProps {
   scriptLabel: string;
@@ -8,6 +8,8 @@ interface CatalogHeaderProps {
   subtitle?: string;
   searchPlaceholder?: string;
   searchValue?: string;
+  preview?: SearchPreview;
+  resultPath: string;
   onSearchChange?: (v: string) => void;
   /** tailwind gradient classes for the glow blob, e.g. "from-amber-200 to-orange-500" */
   glow?: string;
@@ -20,7 +22,7 @@ export default function CatalogHeader({
   title,
   subtitle,
   searchPlaceholder = 'Поиск...',
-  searchValue,
+  searchValue, preview, resultPath,
   onSearchChange,
   glow = 'from-amber-200 to-orange-500',
   accent = 'text-amber-700 dark:text-amber-200/90',
@@ -63,8 +65,8 @@ export default function CatalogHeader({
         )}
 
         {onSearchChange !== undefined && (
-          <div className="w-full max-w-3xl mt-6 cat-in" style={{ animationDelay: '190ms' }}>
-            <CatalogSearch value={searchValue} onChange={onSearchChange} placeholder={searchPlaceholder}>
+          <div className="w-full max-w-5xl mt-6 cat-in" style={{ animationDelay: '190ms' }}>
+            <CatalogSearch preview={preview} resultPath={resultPath} value={searchValue} onChange={onSearchChange} placeholder={searchPlaceholder}>
               {searchValue ? (
                 <button
                   onClick={() => onSearchChange('')}

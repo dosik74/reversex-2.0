@@ -56,6 +56,7 @@ const Games = () => {
   
   const [allGames, setAllGamesState] = useState<Game[]>(() => gamesMemoryCache || []);
   const [displayGames, setDisplayGames] = useState<Game[]>([]);
+  const [preview, setPreview] = useState<{query:string; items:Game[]; error?:boolean} | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [loading, setLoading] = useState(() => !gamesMemoryCache || gamesMemoryCache.length === 0);
@@ -141,8 +142,11 @@ const Games = () => {
 
   useEffect(() => {
     if (searchQuery.trim()) {
-      performSearch();
+      let current = true;
+      const timer = window.setTimeout(() => performSearch(() => current), 180);
+      return () => { current = false; window.clearTimeout(timer); setLoading(false); };
     } else {
+      setPreview(null);
       // Apply filtered and sorted games when not searching
       setDisplayGames(filteredAndSortedGames.slice(0, GAMES_PER_PAGE));
       setPage(1);
@@ -192,7 +196,7 @@ const Games = () => {
     }
   };
 
-  const performSearch = async () => {
+  const performSearch = async (isCurrent: () => boolean) => {
     try {
       setLoading(true);
       let url = `https://api.rawg.io/api/games?key=${RAWG_API_KEY}&page_size=40`;
@@ -237,14 +241,18 @@ const Games = () => {
           genres: g.genres?.map((genre: any) => genre.name) || []
         })));
 
+      if (!isCurrent()) return;
+      setPreview({query:searchQuery, items:transformedGames.slice(0,5)});
       setAllGames(transformedGames);
       setDisplayGames(transformedGames.slice(0, GAMES_PER_PAGE));
       setPage(1);
       setHasMore(transformedGames.length > GAMES_PER_PAGE);
     } catch (error) {
+      if (!isCurrent()) return;
+      setPreview({query:searchQuery, items:[], error:true});
       console.error('Error searching games:', error);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
@@ -304,6 +312,8 @@ const Games = () => {
           searchPlaceholder="Поиск игр..."
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
+          preview={preview?.query === searchQuery ? preview : undefined}
+          resultPath="/game/"
           glow="from-amber-200 to-orange-500"
           accent="text-amber-700 dark:text-amber-200/90"
         >
@@ -337,7 +347,7 @@ const Games = () => {
         </>
       ) : displayGames.length > 0 ? (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
+          <div id="catalog-search-results" tabIndex={-1} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
             {displayGames.map((game) => (
               <GameCard key={game.id} game={game} />
             ))}

@@ -42,6 +42,7 @@ const SeriesPage = () => {
   const [trendingSeries, setTrendingSeriesState] = useState<Series[]>(() => seriesTrendingMemoryCache || []);
   const [allSeries, setAllSeriesState] = useState<Series[]>(() => seriesMemoryCache || []);
   const [displaySeries, setDisplaySeries] = useState<Series[]>([]);
+  const [preview, setPreview] = useState<{query:string; items:Series[]; error?:boolean} | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(() => !seriesMemoryCache || seriesMemoryCache.length === 0);
 
@@ -167,8 +168,11 @@ const SeriesPage = () => {
 
   useEffect(() => {
     if (searchQuery.trim()) {
-      handleSearch(searchQuery);
+      let current = true;
+      const timer = window.setTimeout(() => handleSearch(searchQuery, () => current), 180);
+      return () => { current = false; window.clearTimeout(timer); setLoading(false); };
     } else {
+      setPreview(null);
       // Apply filtered and sorted series
       setDisplaySeries(filteredAndSortedSeries.slice(0, SERIES_PER_PAGE));
       setPage(1);
@@ -177,7 +181,7 @@ const SeriesPage = () => {
     }
   }, [searchQuery, selectedCategory, sortBy, genreFilter]);
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = async (query: string, isCurrent: () => boolean) => {
     if (!query.trim()) {
       setIsSearching(false);
       return;
@@ -198,18 +202,21 @@ const SeriesPage = () => {
         totalSeasons: series.number_of_seasons || 0
       })));
 
+      if (!isCurrent()) return;
+      setPreview({query:searchQuery, items:transformed.slice(0,5)});
       setAllSeries(transformed);
       setDisplaySeries(transformed.slice(0, SERIES_PER_PAGE));
       setSearchResultsTotal(results.total_results);
       setPage(1);
       setHasMore(transformed.length > SERIES_PER_PAGE);
     } catch (error) {
+      if (!isCurrent()) return;
+      setPreview({query:searchQuery, items:[], error:true});
       console.error('Error searching series:', error);
       setAllSeries([]);
       setDisplaySeries([]);
     } finally {
-      setLoading(false);
-      setIsSearching(false);
+      if (isCurrent()) { setLoading(false); setIsSearching(false); }
     }
   };
 
@@ -356,6 +363,8 @@ const SeriesPage = () => {
           searchPlaceholder="Поиск сериалов..."
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
+          preview={preview?.query === searchQuery ? preview : undefined}
+          resultPath="/series/"
           glow="from-amber-200 to-orange-500"
           accent="text-amber-700 dark:text-amber-200/90"
         >
@@ -481,7 +490,7 @@ const SeriesPage = () => {
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
+          <div id="catalog-search-results" tabIndex={-1} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
             {displaySeries.map((series) => (
               <SeriesCard key={series.id} series={series} totalSeasons={series.totalSeasons} />
             ))}

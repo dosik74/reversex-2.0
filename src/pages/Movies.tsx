@@ -62,6 +62,7 @@ const Movies = () => {
   const [trendingMovies, setTrendingMoviesState] = useState<Movie[]>(() => moviesTrendingMemoryCache || []);
   const [allMovies, setAllMoviesState] = useState<Movie[]>(() => moviesMemoryCache?.allMovies || []);
   const [displayMovies, setDisplayMovies] = useState<Movie[]>([]);
+  const [preview, setPreview] = useState<{query:string; items:Movie[]; error?:boolean} | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(() => !moviesMemoryCache || moviesMemoryCache.allMovies.length === 0);
 
@@ -191,8 +192,11 @@ const Movies = () => {
 
   useEffect(() => {
     if (searchQuery.trim()) {
-      handleSearch(searchQuery);
+      let current = true;
+      const timer = window.setTimeout(() => handleSearch(searchQuery, () => current), 180);
+      return () => { current = false; window.clearTimeout(timer); setLoading(false); };
     } else {
+      setPreview(null);
       // Apply filtered and sorted movies
       setDisplayMovies(filteredAndSortedMovies.slice(0, MOVIES_PER_PAGE));
       setPage(1);
@@ -346,7 +350,7 @@ const Movies = () => {
     }
   };
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = async (query: string, isCurrent: () => boolean) => {
     if (!query.trim()) {
       setIsSearching(false);
       return;
@@ -371,14 +375,18 @@ const Movies = () => {
           genre_ids: m.genre_ids || []
         })));
 
+      if (!isCurrent()) return;
+      setPreview({query:searchQuery, items:transformedMovies.slice(0,5)});
       setAllMovies(transformedMovies);
       setDisplayMovies(transformedMovies.slice(0, MOVIES_PER_PAGE));
       setPage(1);
       setHasMore(transformedMovies.length > MOVIES_PER_PAGE);
     } catch (error) {
+      if (!isCurrent()) return;
+      setPreview({query:searchQuery, items:[], error:true});
       console.error('Error searching movies:', error);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
@@ -650,6 +658,8 @@ const Movies = () => {
               <CatalogSearch
                 value={searchQuery}
                 onChange={setSearchQuery}
+          preview={preview?.query === searchQuery ? preview : undefined}
+          resultPath="/movie/"
                 placeholder={tab === 'trending' ? 'Поиск фильмов...' : 'Поиск в топ 1000...'}
               />
             </div>
@@ -795,7 +805,7 @@ const Movies = () => {
           </>
         ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
+          <div id="catalog-search-results" tabIndex={-1} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
             {displayMovies.map((movie) => (
               <div key={movie.id} className="relative group">
                 {/* Rank ticket */}
