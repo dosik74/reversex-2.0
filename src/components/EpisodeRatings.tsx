@@ -28,9 +28,14 @@ function shade(score: number) {
 }
 
 async function gridScores(ids: number[]): Promise<GridScore[]> {
-  const { data, error } = await supabase.rpc('episode_grid_scores', { episode_ids: ids });
-  if (error) throw error;
-  return data;
+  const rows: GridScore[] = [];
+  // The RPC reads at most 250 episode IDs per call.
+  for (let start = 0; start < ids.length; start += 250) {
+    const { data, error } = await supabase.rpc('episode_grid_scores', { episode_ids: ids.slice(start, start + 250) });
+    if (error) throw error;
+    rows.push(...data);
+  }
+  return rows;
 }
 
 export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: number; title: string; poster?: string }) {
@@ -38,8 +43,6 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
   const fromLink = shared.has('src');
   const incoming = shared.get('src');
   const [source, setSource] = useState<Source>(incoming === 'mine' || incoming === 'imdb' ? incoming : 'average');
-  const [seasonPage, setSeasonPage] = useState(Math.max(0,parseInt(shared.get('s') || '0',10) || 0));
-  const [rowPage, setRowPage] = useState(Math.max(0,parseInt(shared.get('r') || '0',10) || 0));
   const [settings,setSettings] = useState<Appearance>(() => {
     if (fromLink) return appearance({theme:shared.get('theme') as Appearance['theme'],compact:shared.get('dense')==='1',tinted:shared.get('tint')!=='0'});
     try { return appearance(JSON.parse(localStorage.getItem('rx-episode-chart') || 'null')); }
@@ -53,7 +56,7 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
   const client = useQueryClient();
   const snapshot = source === 'mine' && incoming === 'mine' && shared.has('votes');
   const sharedVotes = new Map<number,number>();
-  if (snapshot) for (const item of (shared.get('votes') || '').split(',').slice(0,125)) {
+  if (snapshot) for (const item of (shared.get('votes') || '').split(',')) {
     const [id,tenths] = item.split('.').map(Number);
     if (Number.isSafeInteger(id) && Number.isInteger(tenths) && tenths>=10 && tenths<=100) sharedVotes.set(id,tenths/10);
   }
@@ -71,12 +74,12 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
     queryFn: () => loadSeasons(seriesId, grouped),
     staleTime: 3600000,
   });
-  const columns = (seasons.data ?? []).slice(seasonPage * 5, seasonPage * 5 + 5);
+  const columns = seasons.data ?? [];
   const lists = useQueries({ queries: columns.map(s => seasonQuery(seriesId,s)) });
   const entries = lists.flatMap(list => list.data ?? []);
   const numbers = [...new Set(entries.map(ep => ep.episode_number))].sort((a,b) => a-b);
-  const visible = numbers.slice(rowPage * 25, rowPage * 25 + 25);
-  const ids = entries.filter(ep => visible.includes(ep.episode_number)).map(ep => ep.id);
+  const byNumber = lists.map(list => new Map(list.data?.map(ep => [ep.episode_number, ep] as const)));
+  const ids = entries.map(ep => ep.id);
   const { user } = useAppContext();
   const scores = useQuery({
     queryKey: ['episode-grid', seriesId, user?.id ?? null, ids],
@@ -94,9 +97,9 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
     try {
       if (action === 'link') {
         const url = new URL(`/series/${seriesId}`,window.location.origin);
-        const params = new URLSearchParams({src:source,s:String(seasonPage),r:String(rowPage),theme:settings.theme,dense:settings.compact?'1':'0',tint:settings.tinted?'1':'0'});
+        const params = new URLSearchParams({src:source,theme:settings.theme,dense:settings.compact?'1':'0',tint:settings.tinted?'1':'0'});
         if (grouped) params.set('layout','seasons');
-        if (source === 'mine') params.set('votes',entries.filter(ep => ids.includes(ep.id) && chosenScore(ep)!=null)
+        if (source === 'mine') params.set('votes',entries.filter(ep => chosenScore(ep)!=null)
           .map(ep => ep.id+'.'+Math.round(chosenScore(ep)*10)).join(','));
         url.hash = 'episode-ratings?'+params.toString();
         try { await navigator.clipboard.writeText(url.href); setFeedback('Ссылка скопирована'); }
@@ -104,7 +107,7 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
       } else {
         const image = [];
         for (const list of lists) {
-          const episodes = list.data.filter(ep => visible.includes(ep.episode_number));
+          const episodes = list.data;
           if (!episodes.length) continue;
           const cells = [];
           for (let i=0;i<episodes.length;i+=4) {
@@ -136,13 +139,7 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
       </header>
       <div className="rx-content">
       <div className="flex flex-wrap items-center gap-2">
-      <select aria-label="Источник оценок" value={source} onChange={e => {
-        setSource(e.target.value as Source);
-        if (e.target.value === 'mine' && shared.has('votes')) {
-          setSeasonPage(Number(shared.get('s')) || 0);
-          setRowPage(Number(shared.get('r')) || 0);
-        }
-      }}
+      <select aria-label="Источник оценок" value={source} onChange={e => setSource(e.target.value as Source)}
         className="rounded-full border border-white/15 bg-[#232329] px-3 py-2 text-sm">
         <option value="average">Зрители сайта</option><option value="mine">{snapshot || incoming === 'mine' && shared.has('votes') ? 'Оценки автора ссылки' : 'Мои оценки'}</option><option value="imdb">IMDb</option>
       </select>
@@ -170,15 +167,15 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
         {lists.some(q => q.isLoading) && <p role="status">Загружаем серии…</p>}
         {lists.some(q => q.isError) && <button onClick={() => lists.filter(q => q.isError).forEach(q => q.refetch())}>Повторить загрузку серий</button>}
         {scores.isError && source !== 'imdb' && <button onClick={() => scores.refetch()}>Не удалось загрузить оценки. Повторить</button>}
-        {visible.length > 0 && <div className="rx-scroll">
+        {numbers.length > 0 && <div className="rx-scroll">
           <table className="rx-matrix" aria-label={title + ' — оценки серий'}>
             <thead><tr><th scope="col">Серия</th>{columns.map(season =>
               <th scope="col" key={season.season_number}>{season.season_number ? 'Сезон ' + season.season_number : 'Спец.'}</th>
             )}</tr></thead>
-            <tbody>{visible.map(number => <tr key={number}>
+            <tbody>{numbers.map(number => <tr key={number}>
               <th scope="row">{number}</th>
               {columns.map((season, i) => {
-                const ep = lists[i].data?.find(item => item.episode_number === number);
+                const ep = byNumber[i].get(number);
                 return <td key={season.season_number}>{ep && <ScoreCell episode={ep} seriesId={seriesId} source={source}
                   loading={!snapshot && scores.isLoading} value={chosenScore(ep)}
                   onOpen={button => { trigger.current = button; setActive(ep); }} />}</td>;
@@ -186,8 +183,6 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
             </tr>)}</tbody>
           </table>
         </div>}
-        {!snapshot && (seasons.data?.length ?? 0) > 5 && <Pager page={seasonPage} size={5} total={seasons.data.length} label="Сезоны" change={page => { setSeasonPage(page); setRowPage(0); }}/>}
-        {!snapshot && numbers.length > 25 && <Pager page={rowPage} size={25} total={numbers.length} label="Серии" change={setRowPage}/>}
     </div>
     </div>
     <Dialog open={!!active} onOpenChange={open => { if (!open) setActive(null); }}>
@@ -202,14 +197,6 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
       </DialogContent>}
     </Dialog>
   </section>;
-}
-
-function Pager({ page, size, total, label, change }: { page:number; size:number; total:number; label:string; change:(n:number)=>void }) {
-  return <div className="mt-3 flex items-center gap-3 text-sm">
-    <button aria-label={label + ' назад'} disabled={!page} className="disabled:opacity-25" onClick={() => change(page-1)}><ChevronLeft size={18}/></button>
-    {label} {page*size+1}–{Math.min(total,(page+1)*size)}
-    <button aria-label={label + ' дальше'} disabled={(page+1)*size>=total} className="disabled:opacity-25" onClick={() => change(page+1)}><ChevronRight size={18}/></button>
-  </div>;
 }
 
 function ScoreCell({ episode, seriesId, source, value, loading, onOpen }: { episode:Entry; seriesId:number; source:Source; value?:number|null; loading:boolean; onOpen:(button:HTMLButtonElement)=>void }) {
