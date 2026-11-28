@@ -1,9 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
-import { Search, Film, TrendingUp, Gamepad2, ArrowRight, Bookmark, Sparkles, Users } from "lucide-react";
+import { Search, Film, TrendingUp, Gamepad2, ArrowRight, Bookmark, Sparkles, Users, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import GlobalSearchResults from "@/components/GlobalSearchResults";
+import {
+  searchEverything,
+  EMPTY_GLOBAL_RESULTS,
+  GlobalSearchResultsData,
+} from "@/services/globalSearchService";
+import { useBookmarks } from "@/context/BookmarkContext";
+import { useBeta } from "@/context/BetaContext";
+import { useAppContext } from "@/context/AppContext";
 import "@/styles/profile-fonts.css";
 
 const fadeUp = {
@@ -16,7 +25,104 @@ const fadeUp = {
 };
 
 const Index = () => {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [activeQuery, setActiveQuery] = useState(initialQuery);
+  const [searchResults, setSearchResults] = useState<GlobalSearchResultsData>(EMPTY_GLOBAL_RESULTS);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  const { bookmarks } = useBookmarks();
+  const { isBetaEnabled } = useBeta();
+  const { profile } = useAppContext();
+
+  const requestSeqRef = useRef(0);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  const runSearch = useCallback(
+    async (raw: string, syncUrl = true) => {
+      const trimmed = raw.trim();
+      const seq = ++requestSeqRef.current;
+
+      if (!trimmed) {
+        setActiveQuery("");
+        setSearchResults(EMPTY_GLOBAL_RESULTS);
+        setSearchLoading(false);
+        if (syncUrl && searchParams.has("q")) {
+          const next = new URLSearchParams(searchParams);
+          next.delete("q");
+          setSearchParams(next, { replace: true });
+        }
+        return;
+      }
+
+      setActiveQuery(trimmed);
+      setSearchLoading(true);
+
+      if (syncUrl && searchParams.get("q") !== trimmed) {
+        const next = new URLSearchParams(searchParams);
+        next.set("q", trimmed);
+        setSearchParams(next, { replace: true });
+      }
+
+      try {
+        const data = await searchEverything(trimmed, {
+          bookmarks,
+          isBetaEnabled,
+          currentProfile: profile,
+        });
+        if (requestSeqRef.current === seq) {
+          setSearchResults(data);
+        }
+      } finally {
+        if (requestSeqRef.current === seq) {
+          setSearchLoading(false);
+        }
+      }
+    },
+    [bookmarks, isBetaEnabled, profile, searchParams, setSearchParams]
+  );
+
+  // Живой поиск с debounce при вводе (>= 2 символов) и очистка при пустом поле
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      if (activeQuery) {
+        runSearch("", true);
+      }
+      return;
+    }
+    if (trimmed.length < 2 || trimmed === activeQuery) return;
+
+    const timer = setTimeout(() => {
+      runSearch(trimmed, true);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeQuery, runSearch]);
+
+  // Поиск при первом рендере, если в URL уже есть ?q=...
+  useEffect(() => {
+    if (initialQuery.trim()) {
+      runSearch(initialQuery, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    runSearch(searchQuery, true);
+    setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    runSearch("", true);
+  };
 
   const features = [
     { icon: Bookmark, label: "Трекинг просмотренного" },
@@ -101,7 +207,8 @@ const Index = () => {
             </motion.p>
 
             {/* Поиск */}
-            <motion.div
+            <motion.form
+              onSubmit={handleSearchSubmit}
               custom={2}
               variants={fadeUp}
               initial="hidden"
@@ -116,22 +223,38 @@ const Index = () => {
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               />
               <div className="relative flex items-center">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground w-6 h-6 z-20" />
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground w-6 h-6 z-20 pointer-events-none" />
                 <Input
                   type="text"
-                  placeholder="Поиск фильмов, сериалов и игр..."
+                  placeholder="Поиск по всему сайту: фильмы, сериалы, игры, люди, студии..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-14 pr-32 h-16 text-lg md:text-xl bg-card/90 backdrop-blur-md border-white/10 focus-visible:border-transparent focus-visible:ring-0 relative z-10 rounded-2xl"
+                  className="pl-14 pr-40 h-16 text-base md:text-lg bg-card/90 backdrop-blur-md border-white/10 focus-visible:border-transparent focus-visible:ring-0 relative z-10 rounded-2xl"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    aria-label="Очистить поиск"
+                    className="absolute right-[104px] z-20 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
                 <Button
+                  type="submit"
                   size="sm"
+                  disabled={!searchQuery.trim() || searchLoading}
                   className="absolute right-2.5 z-20 h-11 px-5 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground"
                 >
-                  Искать
+                  {searchLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Искать"
+                  )}
                 </Button>
               </div>
-            </motion.div>
+            </motion.form>
 
             {/* Фичи */}
             <div className="flex flex-wrap gap-x-7 gap-y-2">
@@ -182,6 +305,18 @@ const Index = () => {
             />
           </motion.div>
         </div>
+      </div>
+
+      {/* ===== РЕЗУЛЬТАТЫ ГЛОБАЛЬНОГО ПОИСКА ===== */}
+      <div ref={resultsRef} className="scroll-mt-20">
+        {activeQuery && (
+          <GlobalSearchResults
+            query={activeQuery}
+            loading={searchLoading}
+            results={searchResults}
+            onClear={handleClearSearch}
+          />
+        )}
       </div>
 
       {/* ===== НАВИГАЦИЯ: bento-сетка ===== */}

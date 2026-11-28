@@ -40,6 +40,64 @@ export const getStudioGames = async (
   return { games: data.results || [], hasMore: !!data.next };
 };
 
+export interface RawgGameSearchItem {
+  id: number;
+  name: string;
+  slug: string;
+  released: string | null;
+  rating: number;
+  ratings_count: number;
+  background_image: string | null;
+  genres?: Array<{ id: number; name: string }>;
+}
+
+export interface RawgStudioSearchItem {
+  id: number;
+  name: string;
+  slug: string;
+  games_count: number;
+  image_background: string | null;
+  studioType: StudioType;
+}
+
+export const searchGames = async (
+  query: string,
+  pageSize: number = 20
+): Promise<RawgGameSearchItem[]> => {
+  try {
+    const data = await fetchRawg(
+      `${RAWG_BASE}/games?key=${RAWG_API_KEY}&search=${encodeURIComponent(query)}&page_size=${pageSize}`
+    );
+    return data.results || [];
+  } catch (error) {
+    console.error('Error searching games:', error);
+    return [];
+  }
+};
+
+export const searchStudios = async (
+  type: StudioType,
+  query: string,
+  pageSize: number = 10
+): Promise<RawgStudioSearchItem[]> => {
+  try {
+    const data = await fetchRawg(
+      `${RAWG_BASE}/${endpoint(type)}?key=${RAWG_API_KEY}&search=${encodeURIComponent(query)}&page_size=${pageSize}`
+    );
+    return (data.results || []).map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      games_count: item.games_count || 0,
+      image_background: item.image_background || null,
+      studioType: type,
+    }));
+  } catch (error) {
+    console.error(`Error searching ${type}s:`, error);
+    return [];
+  }
+};
+
 /** RAWG любит отдавать 429 — ретраим с паузой, прежде чем сдаться */
 export const fetchRawg = async (url: string, retries: number = 2): Promise<any> => {
   let lastErr: unknown = null;

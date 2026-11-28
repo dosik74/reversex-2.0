@@ -768,3 +768,69 @@ export const getCompanyMovies = async (
   const data: TMDBMovieResponse = await response.json();
   return { movies: data.results, totalPages: data.total_pages };
 };
+
+// ── Поиск персон и кинокомпаний для глобального поиска ────────────────────
+
+export interface TMDBPersonSearchResult {
+  id: number;
+  name: string;
+  original_name?: string;
+  profile_path: string | null;
+  known_for_department: string;
+  popularity: number;
+  known_for?: Array<{
+    id: number;
+    title?: string;
+    name?: string;
+    media_type?: string;
+  }>;
+}
+
+export interface TMDBCompanySearchResult {
+  id: number;
+  name: string;
+  logo_path: string | null;
+  origin_country: string;
+}
+
+export const searchPeople = async (
+  query: string,
+  page: number = 1
+): Promise<{ results: TMDBPersonSearchResult[]; totalPages: number }> => {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/search/person?query=${encodeURIComponent(query)}&page=${page}&language=ru-RU`,
+      { headers }
+    );
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+    const data = await response.json();
+    return {
+      results: data.results || [],
+      totalPages: data.total_pages || 0,
+    };
+  } catch (error) {
+    console.error('Error searching people:', error);
+    return { results: [], totalPages: 0 };
+  }
+};
+
+export const searchCompanies = async (
+  query: string,
+  page: number = 1
+): Promise<{ results: TMDBCompanySearchResult[]; totalPages: number }> => {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/search/company?query=${encodeURIComponent(query)}&page=${page}`,
+      { headers }
+    );
+    if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+    const data = await response.json();
+    return {
+      results: data.results || [],
+      totalPages: data.total_pages || 0,
+    };
+  } catch (error) {
+    console.error('Error searching companies:', error);
+    return { results: [], totalPages: 0 };
+  }
+};
