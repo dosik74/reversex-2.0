@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone, FlaskConical, Users } from "lucide-react";
+import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone, FlaskConical, Users, History } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import supabase, { ensureSession } from "@/utils/supabase";
+import { VisitTracker, historyPath } from '@/pages/VisitHistory';
 import NotificationsPanel from "./NotificationsPanel";
 import MessagesPanel from "./MessagesPanel";
 import { useTheme } from "@/context/ThemeContext";
@@ -65,6 +66,7 @@ const Layout = () => {
     { icon: Tv, label: 'Series', path: '/series' },
     { icon: Gamepad, label: 'Games', path: '/games' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
+    { icon: History, label: 'История', path: historyPath },
     { icon: Users, label: 'Друзья', path: '/friends' },
     { icon: Music, label: 'Music', path: '/music' },
     { icon: Book, label: 'Books', path: '/books' },
@@ -199,6 +201,9 @@ const Layout = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              <Button asChild variant="ghost" size="icon">
+                <Link to={historyPath} aria-label="История посещений" title="История посещений"><History className="w-5 h-5" /></Link>
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -324,6 +329,7 @@ const Layout = () => {
       </nav>
 
       <main className="flex-1 pb-24 md:pb-0">
+        <VisitTracker />
         <Outlet />
       </main>
 

@@ -1,3 +1,4 @@
+import VisitHistory, { historyPath } from './pages/VisitHistory';
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -193,6 +194,7 @@ const App = () => {
                   <Route path="/de" element={<ProfileCard />} />
 
                   <Route element={<Layout />}>
+                    <Route path={historyPath} element={<VisitHistory />} />
                     <Route path="/" element={<Index />} />
                     <Route path="/admin" element={<AdminDashboard />} />
                     <Route path="/movies" element={<Movies />} />
