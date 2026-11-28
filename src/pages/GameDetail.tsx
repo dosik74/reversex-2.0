@@ -122,16 +122,16 @@ const GameDetail = () => {
 
       {/* Hero Section */}
       <div className="mb-8">
-        <div className="relative h-[400px] rounded-lg mb-8">
+        <div className="relative min-h-[300px] sm:h-[400px] rounded-lg mb-8 overflow-hidden">
           <img
             src={game.background_image}
             alt={game.name}
-            className="w-full h-full object-cover rounded-lg"
+            className="w-full h-full min-h-[300px] object-cover rounded-lg"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-6">
-            <h1 className="text-4xl sm:text-5xl md:text-7xl font-script font-bold text-white mb-4 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] leading-[1.15] break-words">{game.name}</h1>
-            <div className="flex items-center gap-4">
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-script font-bold text-white mb-4 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] leading-[1.15] break-words">{game.name}</h1>
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <ContentActionsButton
                 contentId={game.id.toString()}
                 contentType="game"
@@ -154,10 +154,10 @@ const GameDetail = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 min-w-0 space-y-8">
           {/* Description */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
               <CardTitle>Описание</CardTitle>
               {trStatus !== 'failed' && (
                 <Button

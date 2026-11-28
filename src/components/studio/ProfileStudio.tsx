@@ -8,8 +8,8 @@ import {
 import { toast } from "sonner";
 import supabase from "@/lib/supabase";
 import { loadUserRatedItems } from "@/services/ratedService";
-import { FONTS, defaultBg, defaultPageBg, defaultPart, emptyData, getDefaultBlocks, normalizeData } from "./defaults";
-import type { Block, EditorMode, PartCfg, StudioData, StudioProfile, StudioWallComment } from "./types";
+import { FONTS, MOBILE_CANVAS_WIDTH, defaultBg, defaultPageBg, defaultPart, emptyData, emptyMobileConfig, getDefaultBlocks, getDefaultMobileBlocks, normalizeData, normalizeVariant } from "./defaults";
+import type { Block, EditorMode, PartCfg, StudioData, StudioProfile, StudioVariantConfig, StudioWallComment } from "./types";
 import "./studio.css";
 
 const STATUS_PILLS = ["Смотрю", "В планах", "Просмотрено", "Отложено", "Брошено", "Избранное"];
@@ -234,6 +234,66 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
   const [wallComments, setWallComments] = useState<StudioWallComment[]>([]);
   const [wallInput, setWallInput] = useState("");
   const [postingWall, setPostingWall] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 900px)").matches : false
+  );
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : MOBILE_CANVAS_WIDTH
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 900px)");
+    const onChange = () => {
+      setIsMobile(mq.matches);
+      setViewportWidth(window.innerWidth);
+    };
+    onChange();
+    mq.addEventListener("change", onChange);
+    window.addEventListener("resize", onChange);
+    return () => {
+      mq.removeEventListener("change", onChange);
+      window.removeEventListener("resize", onChange);
+    };
+  }, []);
+
+  const getVariant = useCallback(
+    (d: StudioData, mobile = isMobile): StudioVariantConfig =>
+      mobile
+        ? d.mobile || emptyMobileConfig()
+        : {
+            globalFont: d.globalFont,
+            pageBg: d.pageBg,
+            blocks: d.blocks,
+            parts: d.parts,
+            texts: d.texts,
+            trash: d.trash,
+          },
+    [isMobile]
+  );
+
+  const withVariant = useCallback(
+    (d: StudioData, patch: Partial<StudioVariantConfig>, mobile = isMobile): StudioData =>
+      mobile
+        ? { ...d, mobile: { ...(d.mobile || emptyMobileConfig()), ...patch } }
+        : { ...d, ...patch },
+    [isMobile]
+  );
+
+  const getBlocksFor = useCallback(
+    (d: StudioData, mobile = isMobile): Block[] => getVariant(d, mobile).blocks,
+    [getVariant, isMobile]
+  );
+
+  const withBlocksFor = useCallback(
+    (d: StudioData, nextBlocks: Block[], mobile = isMobile): StudioData =>
+      withVariant(d, { blocks: nextBlocks }, mobile),
+    [withVariant, isMobile]
+  );
+
+  const activeScale = isMobile
+    ? Math.min(1.15, Math.max(0.75, viewportWidth / MOBILE_CANVAS_WIDTH))
+    : 1;
   const [modal, setModal] = useState<"fonts" | "bg" | "json" | "reset" | "add" | null>(null);
   const [jsonText, setJsonText] = useState("");
   const [fontSample, setFontSample] = useState("DOSIKTE — Закладки 37");
@@ -271,30 +331,45 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
         const studio = normalizeData(row.customization?.studio);
         studio.profile = profile;
         studio.avatarSrc = profile.avatar_url || studio.avatarSrc;
-        // Реальные значения statistics
-        studio.blocks = studio.blocks.map((b) => {
-          if (b.type !== "stat" || !b.meta) return b;
-          const idx = STAT_LABELS.indexOf(b.meta.label);
-          const values = [profile.stats.bookmarks, profile.stats.followers, profile.stats.following, profile.stats.comments];
-          if (idx >= 0) {
-            b.meta = { ...b.meta, val: String(values[idx]) };
-            studio.texts[`${b.id}_val`] = String(values[idx]);
-          }
-          return b;
+        // Синхронизируем живые данные аккаунта в оба независимых макета (десктоп и мобайл)
+        const hydrateVariant = (variant: StudioVariantConfig): StudioVariantConfig => {
+          const texts = { ...variant.texts };
+          const blocks = variant.blocks.map((b) => {
+            if (b.type !== "stat" || !b.meta) return b;
+            const idx = STAT_LABELS.indexOf(b.meta.label);
+            const values = [profile.stats.bookmarks, profile.stats.followers, profile.stats.following, profile.stats.comments];
+            if (idx >= 0) {
+              const nextMeta = { ...b.meta, val: String(values[idx]) };
+              texts[`${b.id}_val`] = String(values[idx]);
+              return { ...b, meta: nextMeta };
+            }
+            return b;
+          });
+          texts["blk_header_username"] = (profile.display_name || profile.username).toUpperCase();
+          texts["blk_header_handle"] = "@" + profile.username;
+          texts["blk_header_lv"] = `✦ LV.${profile.level}`;
+          texts["blk_header_xp"] = `${profile.xp}/500 XP`;
+          texts["blk_level_num"] = String(profile.level);
+          texts["blk_level_pill"] = `LV.${profile.level}`;
+          texts["blk_level_xp"] = `${profile.xp}/500 XP`;
+          texts["blk_level_next"] = `-${Math.max(0, 500 - profile.xp)} NEXT`;
+          texts["blk_friends_count"] = String(profile.friendsCount);
+          texts["blk_bio_bio"] = profile.bio || "...";
+          profile.topLists.slice(0, 3).forEach((l, i) => {
+            texts[`blk_toplists_i${i + 1}`] = l.title;
+          });
+          return { ...variant, blocks, texts };
+        };
+        const hydratedDesktop = hydrateVariant({
+          globalFont: studio.globalFont,
+          pageBg: studio.pageBg,
+          blocks: studio.blocks,
+          parts: studio.parts,
+          texts: studio.texts,
+          trash: studio.trash,
         });
-        studio.texts["blk_header_username"] = (profile.display_name || profile.username).toUpperCase();
-        studio.texts["blk_header_handle"] = "@" + profile.username;
-        studio.texts["blk_header_lv"] = `✦ LV.${profile.level}`;
-        studio.texts["blk_header_xp"] = `${profile.xp}/500 XP`;
-        studio.texts["blk_level_num"] = String(profile.level);
-        studio.texts["blk_level_pill"] = `LV.${profile.level}`;
-        studio.texts["blk_level_xp"] = `${profile.xp}/500 XP`;
-        studio.texts["blk_level_next"] = `-${Math.max(0, 500 - profile.xp)} NEXT`;
-        studio.texts["blk_friends_count"] = String(profile.friendsCount);
-        studio.texts["blk_bio_bio"] = profile.bio || "...";
-        profile.topLists.slice(0, 3).forEach((l, i) => {
-          studio.texts[`blk_toplists_i${i + 1}`] = l.title;
-        });
+        Object.assign(studio, hydratedDesktop);
+        studio.mobile = hydrateVariant(studio.mobile);
         setWallComments(profile.wallComments);
         if ((profile.statusCounts["Просмотрено"] || 0) === 0) {
           const firstNonEmpty = STATUS_PILLS.find((s) => (profile.statusCounts[s] || 0) > 0);
@@ -312,15 +387,28 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
     return () => { active = false; };
   }, [row, commit]);
 
-  // ── Сохранение ──
+  // ── Сохранение (изолированно для десктопа и мобайла) ──
   const saveToServer = useCallback(async (silent = false) => {
     if (!isOwn || !editing || !userId) return false;
     try {
       const { data: row, error: readError } = await supabase.from("profiles").select("customization").eq("id", userId).single();
       if (readError) throw readError;
       const customization = ((row?.customization as any) || {}) as Record<string, any>;
-      const { profile, ...rest } = dataRef.current;
-      customization.studio = rest;
+      const existingStudio = normalizeData(customization.studio);
+      const { profile, mobileBlocks: _legacy, ...current } = dataRef.current;
+      if (isMobile) {
+        customization.studio = {
+          ...existingStudio,
+          profile: undefined,
+          avatarSrc: current.avatarSrc,
+          mobile: current.mobile,
+        };
+      } else {
+        customization.studio = {
+          ...current,
+          mobile: existingStudio.mobile || current.mobile,
+        };
+      }
       const { error } = await supabase.from("profiles").update({ customization }).eq("id", userId);
       if (error) throw error;
       if (!silent) toast.success("Профиль сохранён на сервере");
@@ -328,7 +416,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
     } catch (e: any) {
       toast.error("Ошибка сохранения: " + (e?.message || "неизвестная"));
     }
-  }, [userId, isOwn, editing]);
+  }, [userId, isOwn, editing, isMobile]);
 
   const saveEdits = async (finish = false) => {
     setSaving(true);
@@ -412,12 +500,13 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
     if (!drag) return;
     const snapV = (v: number) => (snap ? Math.round(v / 8) * 8 : Math.round(v));
     const onMove = (e: PointerEvent) => {
-      const dx = e.clientX - drag.startX;
-      const dy = e.clientY - drag.startY;
+      const dx = (e.clientX - drag.startX) / activeScale;
+      const dy = (e.clientY - drag.startY) / activeScale;
       const d = dataRef.current;
 
       if (drag.kind === "block" || drag.kind === "resize-block") {
-        const b = d.blocks.find((x) => x.id === drag.id);
+        const list = getBlocksFor(d);
+        const b = list.find((x) => x.id === drag.id);
         if (!b) return;
         const next = { ...b };
         if (drag.kind === "block") {
@@ -438,9 +527,10 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
           }
           Object.assign(next, { x, y, w, h });
         }
-        commit({ ...d, blocks: d.blocks.map((x) => (x.id === b.id ? next : x)) }, false);
+        commit(withBlocksFor(d, list.map((x) => (x.id === b.id ? next : x))), false);
       } else if (drag.kind === "part" || drag.kind === "resize-part") {
-        const map = { ...d.parts, [drag.id]: { ...(d.parts[drag.id] || {}) } };
+        const variant = getVariant(d);
+        const map = { ...variant.parts, [drag.id]: { ...(variant.parts[drag.id] || {}) } };
         const key = drag.partId || "";
         const p: PartCfg = { ...defaultPart(), ...(map[drag.id][key] || {}) };
         p.detached = true;
@@ -457,7 +547,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
           p.w = w; p.h = h;
         }
         map[drag.id][key] = p;
-        commit({ ...d, parts: map }, false);
+        commit(withVariant(d, { parts: map }), false);
       }
     };
     const onUp = () => {
@@ -472,12 +562,13 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, snap, commit]);
+  }, [drag, snap, commit, activeScale, getVariant, withVariant, getBlocksFor, withBlocksFor]);
 
   // ── Inline text ──
   const updateText = (key: string, html: string) => {
     const current = dataRef.current;
-    commit({ ...current, texts: { ...current.texts, [key]: html } }, false);
+    const v = getVariant(current);
+    commit(withVariant(current, { texts: { ...v.texts, [key]: html } }), false);
   };
 
   useEffect(() => {
@@ -497,11 +588,12 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
   }, [editing, isOwn]);
 
   const saveInlineTexts = () => {
-    const texts = { ...dataRef.current.texts };
+    const d = dataRef.current;
+    const texts = { ...getVariant(d).texts };
     canvasRef.current?.querySelectorAll<HTMLElement>("[data-text-key]").forEach((el) => {
       texts[el.dataset.textKey || ""] = el.innerHTML;
     });
-    commit({ ...dataRef.current, texts }, false);
+    commit(withVariant(d, { texts }), false);
   };
 
   const execInline = (cmd: string, value?: string) => {
@@ -532,43 +624,57 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
   // ── Панель ──
   const patchBlock = (id: string, patch: Partial<Block>) => {
     const d = dataRef.current;
-    commit({ ...d, blocks: d.blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)) });
+    commit(withBlocksFor(d, getBlocksFor(d).map((b) => (b.id === id ? { ...b, ...patch } : b))));
   };
   const patchPart = (blockId: string, partId: string, patch: Partial<PartCfg>) => {
     const d = dataRef.current;
-    const map = { ...d.parts, [blockId]: { ...(d.parts[blockId] || {}) } };
+    const v = getVariant(d);
+    const map = { ...v.parts, [blockId]: { ...(v.parts[blockId] || {}) } };
     map[blockId][partId] = { ...defaultPart(), ...(map[blockId][partId] || {}), ...patch };
-    commit({ ...d, parts: map });
+    commit(withVariant(d, { parts: map }));
   };
   const deleteBlock = (id: string) => {
     const d = dataRef.current;
-    const removed = d.blocks.find((b) => b.id === id);
+    const v = getVariant(d);
+    const removed = v.blocks.find((b) => b.id === id);
     if (!removed) return;
-    commit({
-      ...d,
-      blocks: d.blocks.filter((b) => b.id !== id),
-      trash: [removed, ...d.trash.filter((b) => b.id !== id)],
-      parts: { ...d.parts, [id]: {} },
-    });
+    commit(
+      withVariant(d, {
+        blocks: v.blocks.filter((b) => b.id !== id),
+        trash: [removed, ...v.trash.filter((b) => b.id !== id)],
+        parts: { ...v.parts, [id]: {} },
+      })
+    );
     setSelectedBlock(null);
     toast.success("Блок удалён — его можно вернуть в меню «Добавить»");
   };
 
   const restoreBlock = (id: string) => {
     const d = dataRef.current;
-    const block = d.trash.find((b) => b.id === id);
+    const v = getVariant(d);
+    const block = v.trash.find((b) => b.id === id);
     if (!block) return;
-    commit({
-      ...d,
-      trash: d.trash.filter((b) => b.id !== id),
-      blocks: [...d.blocks, block],
-    });
+    const restored = isMobile
+      ? {
+          ...block,
+          w: Math.min(block.w, MOBILE_CANVAS_WIDTH - 24),
+          x: Math.max(12, Math.min(MOBILE_CANVAS_WIDTH - Math.min(block.w, MOBILE_CANVAS_WIDTH - 24) - 12, block.x)),
+        }
+      : block;
+    commit(
+      withVariant(d, {
+        blocks: [...v.blocks, restored],
+        trash: v.trash.filter((b) => b.id !== id),
+      })
+    );
     setSelectedBlock(id);
     toast.success("Блок восстановлен");
   };
 
-  const selectedBlockData = data.blocks.find((b) => b.id === selectedBlock) || null;
-  const partCfg = selectedBlock && selectedPart ? data.parts[selectedBlock]?.[selectedPart] : null;
+  const activeVariant = getVariant(data);
+  const activeBlocks = activeVariant.blocks;
+  const selectedBlockData = activeBlocks.find((b) => b.id === selectedBlock) || null;
+  const partCfg = selectedBlock && selectedPart ? activeVariant.parts[selectedBlock]?.[selectedPart] : null;
 
   const media = useMemo(() => {
     let items = data.profile?.media || [];
@@ -584,29 +690,80 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
   const addBlock = (kind: string, url?: string) => {
     const id = `blk_custom_${Date.now()}`;
     const base: Block = {
-      id, type: kind, title: kind, x: 420, y: 240, w: 300, h: 180, z: 40,
-      rotation: 0, radius: 18, opacity: 1, hidden: false, locked: false, pinned: false,
-      overflowHidden: true, font: "", bg: defaultBg(),
+      id,
+      type: kind,
+      title: kind,
+      x: isMobile ? 12 : 420,
+      y: isMobile ? 140 : 240,
+      w: isMobile ? 352 : 300,
+      h: isMobile ? 140 : 180,
+      z: 40,
+      rotation: 0,
+      radius: 18,
+      opacity: 1,
+      hidden: false,
+      locked: false,
+      pinned: false,
+      overflowHidden: true,
+      font: "",
+      bg: defaultBg(),
     };
-    if (kind === "stat") Object.assign(base, { type: "stat", w: 290, h: 86, meta: { icon: "bookmark", val: "99", label: "ЛЮБИМЫЕ" } });
-    if (kind === "text") Object.assign(base, { type: "customText", title: "Текстовый блок", w: 340, h: 120 });
-    if (kind === "image") Object.assign(base, { type: "customImage", title: "Картинка", w: 320, h: 400, meta: { src: url || "" } });
-    if (kind === "video") Object.assign(base, { type: "customVideo", title: "Видео", w: 480, h: 280, meta: { src: url || "" } });
+    if (kind === "stat") Object.assign(base, { type: "stat", w: isMobile ? 171 : 290, h: isMobile ? 78 : 86, meta: { icon: "bookmark", val: "99", label: "ЛЮБИМЫЕ" } });
+    if (kind === "text") Object.assign(base, { type: "customText", title: "Текстовый блок", w: isMobile ? 352 : 340, h: 120 });
+    if (kind === "image") Object.assign(base, { type: "customImage", title: "Картинка", w: isMobile ? 352 : 320, h: isMobile ? 260 : 400, meta: { src: url || "" } });
+    if (kind === "video") Object.assign(base, { type: "customVideo", title: "Видео", w: isMobile ? 352 : 480, h: isMobile ? 210 : 280, meta: { src: url || "" } });
     const d = dataRef.current;
-    commit({ ...d, blocks: [...d.blocks, base] });
+    commit(withBlocksFor(d, [...getBlocksFor(d), base]));
     setSelectedBlock(id);
     setModal(null);
     toast.success("Блок добавлен");
   };
 
   const resetAll = () => {
-    commit(emptyData(), false);
+    const d = dataRef.current;
+    const freshVariant: StudioVariantConfig = isMobile
+      ? emptyMobileConfig()
+      : {
+          globalFont: "Inter",
+          pageBg: defaultPageBg(),
+          blocks: getDefaultBlocks(),
+          parts: {},
+          texts: {},
+          trash: [],
+        };
+    const p = d.profile;
+    if (p) {
+      freshVariant.texts["blk_header_username"] = (p.display_name || p.username).toUpperCase();
+      freshVariant.texts["blk_header_handle"] = "@" + p.username;
+      freshVariant.texts["blk_header_lv"] = `✦ LV.${p.level}`;
+      freshVariant.texts["blk_header_xp"] = `${p.xp}/500 XP`;
+      freshVariant.texts["blk_level_num"] = String(p.level);
+      freshVariant.texts["blk_level_pill"] = `LV.${p.level}`;
+      freshVariant.texts["blk_level_xp"] = `${p.xp}/500 XP`;
+      freshVariant.texts["blk_level_next"] = `-${Math.max(0, 500 - p.xp)} NEXT`;
+      freshVariant.texts["blk_friends_count"] = String(p.friendsCount);
+      freshVariant.texts["blk_bio_bio"] = p.bio || "...";
+      p.topLists.slice(0, 3).forEach((l, i) => {
+        freshVariant.texts[`blk_toplists_i${i + 1}`] = l.title;
+      });
+      freshVariant.blocks = freshVariant.blocks.map((b) => {
+        if (b.type !== "stat" || !b.meta) return b;
+        const idx = STAT_LABELS.indexOf(b.meta.label);
+        const values = [p.stats.bookmarks, p.stats.followers, p.stats.following, p.stats.comments];
+        if (idx >= 0) {
+          freshVariant.texts[`${b.id}_val`] = String(values[idx]);
+          return { ...b, meta: { ...b.meta, val: String(values[idx]) } };
+        }
+        return b;
+      });
+    }
+    commit(withVariant(d, freshVariant), false);
     history.current = [];
     historyIdx.current = -1;
     setModal(null);
     setSelectedBlock(null);
     void saveToServer(true);
-    toast.success("Профиль сброшен");
+    toast.success(isMobile ? "Мобильный профиль сброшен" : "Десктопный профиль сброшен");
   };
 
   if (loading) {
@@ -665,7 +822,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
   const tx = (key: string, fallback: string) => (
     <StudioText
       textKey={key}
-      html={data.texts[key] ?? fallback}
+      html={activeVariant.texts[key] ?? fallback}
       editable={editing && isOwn}
       highlight={editing && isOwn && mode === "text"}
       onEdit={updateText}
@@ -684,8 +841,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
           e.stopPropagation();
           setSelectedBlock(b.id);
           setSelectedPart(id);
-          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          const cfg = data.parts[b.id]?.[id] || defaultPart();
+          const cfg = activeVariant.parts[b.id]?.[id] || defaultPart();
           setDrag({ kind: "part", id: b.id, partId: id, startX: e.clientX, startY: e.clientY, orig: { x: cfg.x, y: cfg.y } });
         }}
       >{children}</span>
@@ -701,21 +857,24 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
             <div className="absolute bottom-2 right-2 h-5 w-5 rounded-full bg-emerald-400 border-[3px] border-[#090a0f]" />
           </div>
         );
-      case "header":
+      case "header": {
+        const centered = b.meta?.align === "center";
         return (
-          <div className="flex h-full flex-col justify-center gap-2 px-1">
-            <div className="font-display text-[38px] font-black leading-none tracking-tight text-white">{tx("blk_header_username", "DOSIKTE")}</div>
-            <div className="self-start rounded-full border border-amber-500/35 bg-amber-500/15 px-3 py-0.5 text-xs font-semibold text-amber-300">{tx("blk_header_handle", "@user")}</div>
-            <div className="mt-0.5 flex items-center gap-2.5">
+          <div className={`flex h-full min-w-0 flex-col justify-center gap-1.5 sm:gap-2 px-3 ${centered ? "items-center text-center" : ""}`}>
+            <div className="font-display text-2xl sm:text-[38px] font-black leading-tight tracking-tight text-white break-words">{tx("blk_header_username", "DOSIKTE")}</div>
+            <div className={`${centered ? "self-center" : "self-start"} rounded-full border border-amber-500/35 bg-amber-500/15 px-3 py-0.5 text-xs font-semibold text-amber-300`}>{tx("blk_header_handle", "@user")}</div>
+            <div className={`mt-0.5 flex flex-wrap items-center gap-2 sm:gap-2.5 ${centered ? "justify-center" : ""}`}>
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">{tx("blk_header_lv", "✦ LV.1")}</div>
-              <div className="h-1.5 w-36 overflow-hidden rounded-full bg-slate-800"><div className="h-full w-1/6 rounded-full bg-gradient-to-r from-amber-400 to-amber-500" /></div>
+              <div className="h-1.5 w-24 sm:w-36 overflow-hidden rounded-full bg-slate-800"><div className="h-full w-1/6 rounded-full bg-gradient-to-r from-amber-400 to-amber-500" /></div>
               <div className="font-mono text-[11px] text-slate-400">{tx("blk_header_xp", "0/500 XP")}</div>
             </div>
           </div>
         );
-      case "actions":
+      }
+      case "actions": {
+        const centered = b.meta?.align === "center";
         return (
-          <div className="flex h-full w-full flex-wrap items-center justify-end gap-2">
+          <div className={`flex h-full w-full flex-wrap items-center gap-2 ${centered ? "justify-center" : "justify-start sm:justify-end"}`}>
             <button
               type="button"
               onClick={() => navigate(profileHandle ? `/bookmarks/${profileHandle}` : "/bookmarks")}
@@ -734,6 +893,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
             <button type="button" onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/${profileHandle}`).then(() => toast.success("Ссылка на профиль скопирована"))} className="rounded-xl border border-[#1e222e] bg-[#10121a] px-3.5 py-2 text-xs font-semibold text-slate-200 hover:border-white/30 transition-colors">{tx("blk_actions_btnShare", "↗ Поделиться")}</button>
           </div>
         );
+      }
       case "stat": {
         const m = b.meta || {};
         const statIcons = { bookmark: Bookmark, users: Users, userPlus: UserPlus, message: MessageSquare };
@@ -747,12 +907,12 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
         return (
           <div
             onClick={onStatClick}
-            className={`flex h-full w-full items-center gap-4 px-5 ${onStatClick ? "cursor-pointer hover:bg-white/[0.03] transition-colors" : ""}`}
+            className={`flex h-full w-full items-center gap-2.5 sm:gap-4 px-3 sm:px-5 py-2.5 ${onStatClick ? "cursor-pointer hover:bg-white/[0.03] transition-colors" : ""}`}
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/10 text-amber-400"><Icon className="h-5 w-5" /></div>
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/10 text-amber-400"><Icon className="h-4 w-4 sm:h-5 sm:w-5" /></div>
             <div className="flex min-w-0 flex-col">
-              <div className="font-display text-[28px] font-extrabold leading-none text-white">{tx(`${b.id}_val`, m.val || "0")}</div>
-              <div className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{tx(`${b.id}_label`, m.label || "")}</div>
+              <div className="font-display text-xl sm:text-[28px] font-extrabold leading-none text-white">{tx(`${b.id}_val`, m.val || "0")}</div>
+              <div className="mt-1 sm:mt-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">{tx(`${b.id}_label`, m.label || "")}</div>
             </div>
           </div>
         );
@@ -811,14 +971,14 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
         return <div className="flex h-full w-full items-center px-4 text-sm text-slate-200">{tx("blk_bio_bio", "...")}</div>;
       case "tabs":
         return (
-          <div className="flex h-full w-full items-center gap-1.5 rounded-full bg-[#10121a] p-1.5">
+          <div className="grid grid-cols-2 sm:flex h-full w-full items-center gap-1.5 rounded-2xl sm:rounded-full bg-[#10121a] p-1.5">
             {[
               { id: "ЗАКЛАДКИ", label: `🔖 ЗАКЛАДКИ (${data.profile?.stats.bookmarks || 0})` },
               { id: "ОЦЕНКИ", label: `★ ОЦЕНКИ (${data.profile?.stats.rated || 0})` },
-              { id: "КОММЕНТАРИИ", label: `💬 КОММЕНТАРИИ (${(data.profile?.titleComments.length || 0) + wallComments.length})` },
+              { id: "КОММЕНТАРИИ", label: `💬 КОММЕНТЫ (${(data.profile?.titleComments.length || 0) + wallComments.length})` },
               { id: "TOP50", label: "🏆 TOP50" },
             ].map((t) => (
-              <button key={t.id} type="button" onClick={() => setActiveTab(t.id)} className={`studio-tab flex-1 rounded-full py-2 px-2 text-[11px] font-bold tracking-wider truncate ${activeTab === t.id ? "rx-btn-cyan" : "text-slate-400 hover:text-white"}`}>
+              <button key={t.id} type="button" onClick={() => setActiveTab(t.id)} className={`studio-tab sm:flex-1 rounded-xl sm:rounded-full py-2 px-2 text-[11px] font-bold tracking-wider truncate ${activeTab === t.id ? "rx-btn-cyan" : "text-slate-400 hover:text-white"}`}>
                 {t.label}
               </button>
             ))}
@@ -826,7 +986,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
         );
       case "bmBanner":
         return (
-          <div className="flex h-full w-full items-center justify-between gap-2 px-4">
+          <div className="flex h-full w-full flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:px-4">
             <div className="flex items-center gap-3 min-w-0"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/15 text-amber-400"><Star className="h-4 w-4" /></div><div className="min-w-0"><div className="text-xs font-bold text-white truncate">Закладки и оценки пользователя</div><div className="text-[11px] text-slate-400 truncate">В закладках: {data.profile?.stats.bookmarks || 0} · Оценок: {data.profile?.stats.rated || 0}</div></div></div>
             <div className="flex items-center gap-2 shrink-0">
               <button type="button" onClick={() => navigate(profileHandle ? `/rated/${profileHandle}` : "/rated")} className="rounded-full border border-amber-500/35 bg-amber-500/15 px-3.5 py-2 text-[11px] font-bold text-amber-300 hover:bg-amber-500/25 transition-colors">Оценки ↗</button>
@@ -1012,9 +1172,9 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
                       <button key={c} type="button" onClick={() => setActiveCat(c)} className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${activeCat === c ? "bg-white/10 text-white" : "text-slate-400"}`}>{c}</button>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по названию..." className="w-44 rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white outline-none focus:border-amber-400" />
-                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300 outline-none">
+                  <div className="flex w-full sm:w-auto items-center gap-2">
+                    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по названию..." className="flex-1 min-w-0 sm:w-44 rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white outline-none focus:border-amber-400" />
+                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="shrink-0 rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300 outline-none">
                       <option value="date">По дате</option><option value="title">По названию</option>
                     </select>
                   </div>
@@ -1081,11 +1241,16 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
     }
   };
 
-  const canvasWidth = Math.max(1360, ...data.blocks.map((b) => b.x + b.w + 80));
-  const canvasHeight = Math.max(1180, ...data.blocks.map((b) => b.y + b.h + 180));
+  const canvasWidth = isMobile
+    ? MOBILE_CANVAS_WIDTH
+    : Math.max(1360, ...activeBlocks.map((b) => b.x + b.w + 80));
+  const canvasHeight = Math.max(
+    isMobile ? 1600 : 1180,
+    ...activeBlocks.filter((b) => !b.hidden).map((b) => b.y + b.h + (editing ? 180 : 120))
+  );
 
   return (
-    <div className="studio-shell" style={{ fontFamily: data.globalFont ? `'${data.globalFont}', sans-serif` : undefined }}>
+    <div className="studio-shell" style={{ fontFamily: activeVariant.globalFont ? `'${activeVariant.globalFont}', sans-serif` : undefined }}>
       <input
         ref={avatarInputRef}
         type="file"
@@ -1093,23 +1258,41 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
         className="hidden"
         onChange={(e) => { handleAvatarUpload(e.target.files?.[0]); e.target.value = ""; }}
       />
-      {/* Фон страницы */}
+      {/* Фон страницы (независимый для мобайла и десктопа) */}
       <div
-        className={`studio-page-bg ${data.pageBg.layout === "banner" ? "banner" : "full"}`}
+        className={`studio-page-bg ${activeVariant.pageBg.layout === "banner" ? "banner" : "full"}`}
         style={{
-          backgroundImage: data.pageBg.mode === "avatar" ? `url(${data.avatarSrc})` : data.pageBg.imageSrc ? `url(${data.pageBg.imageSrc})` : undefined,
-          filter: `blur(${data.pageBg.blur}px)`,
-          transform: `scale(${data.pageBg.zoom / 100})`,
-          opacity: 1 - data.pageBg.dim / 100,
-          display: data.pageBg.mode === "default" ? "none" : "block",
+          backgroundImage: activeVariant.pageBg.mode === "avatar" ? `url(${data.avatarSrc})` : activeVariant.pageBg.imageSrc ? `url(${activeVariant.pageBg.imageSrc})` : undefined,
+          filter: `blur(${activeVariant.pageBg.blur}px)`,
+          transform: `scale(${activeVariant.pageBg.zoom / 100})`,
+          opacity: 1 - activeVariant.pageBg.dim / 100,
+          display: activeVariant.pageBg.mode === "default" ? "none" : "block",
         }}
       />
 
-      {/* Холст */}
-      <div ref={canvasRef} data-grid={editing && isOwn && snap} className="studio-canvas relative mx-auto" style={{ width: canvasWidth, minHeight: canvasHeight }}>
-        {data.blocks.map((b) => {
+      {/* Холст (единый редактируемый холст: на мобиле масштабируется в ширину экрана 376px → 100%) */}
+      <div
+        style={{
+          width: isMobile ? "100%" : undefined,
+          height: isMobile ? Math.ceil(canvasHeight * activeScale) : undefined,
+          overflow: isMobile ? "hidden" : undefined,
+        }}
+      >
+      <div
+        ref={canvasRef}
+        data-grid={editing && isOwn && snap}
+        className="studio-canvas relative mx-auto"
+        style={{
+          width: canvasWidth,
+          minHeight: canvasHeight,
+          transform: isMobile && activeScale !== 1 ? `scale(${activeScale})` : undefined,
+          transformOrigin: "top left",
+          margin: isMobile ? 0 : undefined,
+        }}
+      >
+        {activeBlocks.map((b) => {
           const isSelected = selectedBlock === b.id;
-          const partMap = data.parts[b.id] || {};
+          const partMap = activeVariant.parts[b.id] || {};
           return (
             <div
               key={b.id}
@@ -1118,6 +1301,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
               className={`rx-block absolute ${isSelected ? "is-selected" : ""}`}
               style={{
                 left: b.x, top: b.y, width: b.w, height: b.h, zIndex: b.z,
+                fontFamily: b.font ? `'${b.font}', sans-serif` : undefined,
                 transform: b.rotation ? `rotate(${b.rotation}deg)` : undefined,
                 borderRadius: b.radius, opacity: b.opacity, display: b.hidden ? "none" : undefined,
                 overflow: b.overflowHidden ? "hidden" : "visible",
@@ -1161,6 +1345,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
           );
         })}
       </div>
+      </div>
 
       {/* Inline toolbar */}
       {editing && isOwn && inline && (
@@ -1189,8 +1374,8 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
         <button className={`studio-tool ${snap ? "is-active" : ""}`} title="Привязка к сетке" aria-label="Привязка к сетке" aria-pressed={snap} onClick={() => setSnap(!snap)}><Grid2X2 /></button>
         <span className="studio-divider" />
         <button className="studio-tool" title="Отменить действие" aria-label="Отменить действие" onClick={undo}><Undo2 /></button>
-        <button className="studio-tool" title="Импорт и экспорт JSON" aria-label="Импорт и экспорт JSON" onClick={() => { setJsonText(JSON.stringify(data, null, 2)); setModal("json"); }}><FileJson /></button>
-        <button className="studio-tool" title="Сбросить профиль" aria-label="Сбросить профиль" onClick={() => setModal("reset")}><RotateCcw /></button>
+        <button className="studio-tool" title="Импорт и экспорт JSON" aria-label="Импорт и экспорт JSON" onClick={() => { setJsonText(JSON.stringify(activeVariant, null, 2)); setModal("json"); }}><FileJson /></button>
+        <button className="studio-tool" title={isMobile ? "Сбросить мобильный профиль" : "Сбросить профиль"} aria-label={isMobile ? "Сбросить мобильный профиль" : "Сбросить профиль"} onClick={() => setModal("reset")}><RotateCcw /></button>
         <button className="studio-tool studio-save" title="Сохранить" aria-label="Сохранить" disabled={saving} onClick={() => void saveEdits()}><Save /></button>
         <button className="studio-tool studio-done" title="Сохранить и выйти" disabled={saving} onClick={() => void saveEdits(true)}><Check /> Готово</button>
       </div>}
@@ -1281,7 +1466,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
         <div className="studio-modal-backdrop studio-ui" onClick={() => setModal(null)}>
           <div className="studio-modal" onClick={(e) => e.stopPropagation()}>
             <div className="studio-modal-head">
-              <h3>{modal === "fonts" ? "Шрифты" : modal === "bg" ? "Фон профиля" : modal === "json" ? "Экспорт / Импорт JSON" : modal === "reset" ? "Сбросить профиль?" : "Добавить блок"}</h3>
+              <h3>{modal === "fonts" ? "Шрифты" : modal === "bg" ? "Фон профиля" : modal === "json" ? "Экспорт / Импорт JSON" : modal === "reset" ? (isMobile ? "Сбросить мобильный профиль?" : "Сбросить десктопный профиль?") : "Добавить блок"}</h3>
               <button aria-label="Закрыть" onClick={() => setModal(null)}><X /></button>
             </div>
             {modal === "fonts" && (
@@ -1293,7 +1478,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
                       <span style={{ fontFamily: `'${f}',sans-serif`, fontSize: f === "Press Start 2P" ? 11 : 18 }}>{fontSample || f}</span>
                       <small>{f}</small>
                       <div>
-                        <button onClick={() => commit({ ...dataRef.current, globalFont: f })}>На профиль</button>
+                        <button onClick={() => commit(withVariant(dataRef.current, { globalFont: f }))}>На профиль</button>
                         {selectedBlockData && <button onClick={() => patchBlock(selectedBlockData.id, { font: f })}>На блок</button>}
                         {selectedPart && <button onClick={() => patchPart(selectedBlockData.id, selectedPart, { font: f })}>На деталь</button>}
                       </div>
@@ -1305,15 +1490,15 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
             {modal === "bg" && (
               <div className="studio-modal-body">
                 <div className="studio-row">
-                  <button className="studio-chip" onClick={() => commit({ ...dataRef.current, pageBg: { ...data.pageBg, mode: data.pageBg.mode === "avatar" ? "default" : "avatar" } })}>🖼 Аватарка</button>
-                  <button className="studio-chip" onClick={() => commit({ ...dataRef.current, pageBg: { ...data.pageBg, layout: "full" } })}>Весь экран</button>
-                  <button className="studio-chip" onClick={() => commit({ ...dataRef.current, pageBg: { ...data.pageBg, layout: "banner" } })}>Только шапка</button>
+                  <button className="studio-chip" onClick={() => { const v = getVariant(dataRef.current); commit(withVariant(dataRef.current, { pageBg: { ...v.pageBg, mode: v.pageBg.mode === "avatar" ? "default" : "avatar" } })); }}>🖼 Аватарка</button>
+                  <button className="studio-chip" onClick={() => { const v = getVariant(dataRef.current); commit(withVariant(dataRef.current, { pageBg: { ...v.pageBg, layout: "full" } })); }}>Весь экран</button>
+                  <button className="studio-chip" onClick={() => { const v = getVariant(dataRef.current); commit(withVariant(dataRef.current, { pageBg: { ...v.pageBg, layout: "banner" } })); }}>Только шапка</button>
                 </div>
-                <label className="studio-file">📁 Загрузить фон<input type="file" accept="image/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => commit({ ...dataRef.current, pageBg: { ...data.pageBg, mode: "image", imageSrc: url } }))} /></label>
+                <label className="studio-file">📁 Загрузить фон<input type="file" accept="image/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => { const v = getVariant(dataRef.current); commit(withVariant(dataRef.current, { pageBg: { ...v.pageBg, mode: "image", imageSrc: url } })); })} /></label>
                 {(["blur", "dim", "zoom"] as const).map((k) => (
-                  <label key={k} className="studio-range-label">{k}<input type="range" min={k === "zoom" ? 100 : 0} max={k === "zoom" ? 220 : k === "blur" ? 30 : 92} value={data.pageBg[k]} onChange={(e) => commit({ ...dataRef.current, pageBg: { ...data.pageBg, [k]: +e.target.value } })} /></label>
+                  <label key={k} className="studio-range-label">{k}<input type="range" min={k === "zoom" ? 100 : 0} max={k === "zoom" ? 220 : k === "blur" ? 30 : 92} value={activeVariant.pageBg[k]} onChange={(e) => { const v = getVariant(dataRef.current); commit(withVariant(dataRef.current, { pageBg: { ...v.pageBg, [k]: +e.target.value } })); }} /></label>
                 ))}
-                <button className="studio-chip" onClick={() => commit({ ...dataRef.current, pageBg: defaultPageBg() })}>Сбросить фон</button>
+                <button className="studio-chip" onClick={() => commit(withVariant(dataRef.current, { pageBg: defaultPageBg() }))}>Сбросить фон</button>
               </div>
             )}
             {modal === "json" && (
@@ -1321,13 +1506,26 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
                 <textarea className="studio-json" value={jsonText} onChange={(e) => setJsonText(e.target.value)} />
                 <div className="studio-row">
                   <button className="studio-chip" onClick={() => { navigator.clipboard?.writeText(jsonText); toast.success("Скопировано"); }}>Скопировать</button>
-                  <button className="studio-chip" onClick={() => { try { commit(normalizeData(JSON.parse(jsonText))); toast.success("JSON применён"); } catch { toast.error("Неверный JSON"); } }}>Применить</button>
+                  <button className="studio-chip" onClick={() => {
+                    try {
+                      const parsed = JSON.parse(jsonText);
+                      if (parsed && parsed.mobile && !isMobile) {
+                        commit(normalizeData(parsed));
+                      } else {
+                        const fallback = isMobile ? emptyMobileConfig() : getVariant(emptyData(), false);
+                        commit(withVariant(dataRef.current, normalizeVariant(parsed, fallback)));
+                      }
+                      toast.success("JSON применён");
+                    } catch {
+                      toast.error("Неверный JSON");
+                    }
+                  }}>Применить</button>
                 </div>
               </div>
             )}
             {modal === "reset" && (
               <div className="studio-modal-body">
-                <p>Все блоки, шрифты и фоны будут удалены.</p>
+                <p>{isMobile ? "Сбросится только мобильный вид профиля. Десктопная версия останется нетронутой." : "Сбросится только десктопный вид профиля. Мобильная версия останется нетронутой."}</p>
                 <div className="studio-row"><button className="studio-chip" onClick={() => setModal(null)}>Отмена</button><button className="studio-chip studio-danger" onClick={resetAll}>Сбросить всё</button></div>
               </div>
             )}
@@ -1341,11 +1539,11 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
                   <label className="studio-add-upload"><b><Video className="inline h-4 w-4" /> Загрузить видео</b><input type="file" accept="video/*" onChange={(e) => handleFile(e.target.files?.[0], (url) => addBlock("video", url))} /></label>
                 </div>
 
-                {data.trash.length > 0 && (
+                {activeVariant.trash.length > 0 && (
                   <div className="studio-trash">
                     <p className="studio-label">Удалённые блоки</p>
                     <div className="studio-trash-grid">
-                      {data.trash.map((b) => (
+                      {activeVariant.trash.map((b) => (
                         <button key={b.id} onClick={() => restoreBlock(b.id)}>
                           <RotateCcw className="h-3.5 w-3.5" />
                           <span>{b.title || b.type}</span>
@@ -1357,7 +1555,8 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
                       className="studio-chip"
                       onClick={() => {
                         const d = dataRef.current;
-                        commit({ ...d, blocks: [...d.blocks, ...d.trash], trash: [] });
+                        const v = getVariant(d);
+                        commit(withVariant(d, { blocks: [...v.blocks, ...v.trash], trash: [] }));
                         setModal(null);
                         toast.success("Все блоки восстановлены");
                       }}

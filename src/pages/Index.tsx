@@ -168,13 +168,13 @@ const Index = () => {
           <span className="absolute -top-1 left-1/2 w-2 h-2 rounded-full bg-primary shadow-[0_0_14px_hsl(256_45%_55%)]" />
         </motion.div>
 
-        <div className="relative z-10 grid md:grid-cols-[1.25fr_1fr] items-center gap-8 px-6 md:px-14 py-14 md:py-20">
+        <div className="relative z-10 grid md:grid-cols-[1.25fr_1fr] items-center gap-8 px-4 sm:px-6 md:px-14 py-8 sm:py-14 md:py-20">
           {/* Левая часть */}
-          <div>
+          <div className="min-w-0">
             <motion.img
               src="/logo.png"
               alt="ReverseX"
-              className="h-16 md:h-20 w-auto object-contain mb-6"
+              className="h-12 sm:h-16 md:h-20 w-auto object-contain mb-4 sm:mb-6"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6 }}
@@ -185,12 +185,12 @@ const Index = () => {
               variants={fadeUp}
               initial="hidden"
               animate="show"
-              className="mb-5"
+              className="mb-4 sm:mb-5"
             >
-              <span className="block font-grotesk font-bold tracking-tight leading-none text-4xl sm:text-5xl md:text-6xl">
+              <span className="block font-grotesk font-bold tracking-tight leading-none text-3xl sm:text-5xl md:text-6xl">
                 Персональный трекер
               </span>
-              <span className="block font-script leading-none mt-1 text-6xl sm:text-7xl md:text-8xl gradient-text drop-shadow-sm select-none">
+              <span className="block font-script leading-none mt-1 text-5xl sm:text-7xl md:text-8xl gradient-text drop-shadow-sm select-none">
                 и рекомендации
               </span>
             </motion.h1>
@@ -200,7 +200,7 @@ const Index = () => {
               variants={fadeUp}
               initial="hidden"
               animate="show"
-              className="text-muted-foreground text-lg mb-9 max-w-lg"
+              className="text-muted-foreground text-sm sm:text-lg mb-6 sm:mb-9 max-w-lg"
             >
               Фильмы, сериалы и игры — в одном месте. Отмечайте просмотренное,
               собирайте личные топы и делитесь ими с друзьями.
@@ -213,7 +213,7 @@ const Index = () => {
               variants={fadeUp}
               initial="hidden"
               animate="show"
-              className="relative max-w-2xl mb-8 group"
+              className="relative max-w-2xl mb-6 sm:mb-8 group"
             >
               {/* анимированное градиентное свечение вокруг поиска */}
               <motion.div
@@ -223,20 +223,20 @@ const Index = () => {
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               />
               <div className="relative flex items-center">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground w-6 h-6 z-20 pointer-events-none" />
+                <Search className="absolute left-3.5 sm:left-5 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5 sm:w-6 sm:h-6 z-20 pointer-events-none" />
                 <Input
                   type="text"
-                  placeholder="Поиск по всему сайту: фильмы, сериалы, игры, люди, студии..."
+                  placeholder="Поиск по всему сайту..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-14 pr-40 h-16 text-base md:text-lg bg-card/90 backdrop-blur-md border-white/10 focus-visible:border-transparent focus-visible:ring-0 relative z-10 rounded-2xl"
+                  className="pl-11 pr-24 sm:pl-14 sm:pr-40 h-14 sm:h-16 text-sm sm:text-base md:text-lg bg-card/90 backdrop-blur-md border-white/10 focus-visible:border-transparent focus-visible:ring-0 relative z-10 rounded-2xl"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={handleClearSearch}
                     aria-label="Очистить поиск"
-                    className="absolute right-[104px] z-20 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                    className="absolute right-[84px] sm:right-[104px] z-20 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -245,7 +245,7 @@ const Index = () => {
                   type="submit"
                   size="sm"
                   disabled={!searchQuery.trim() || searchLoading}
-                  className="absolute right-2.5 z-20 h-11 px-5 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground"
+                  className="absolute right-2 sm:right-2.5 z-20 h-10 sm:h-11 px-3.5 sm:px-5 text-xs sm:text-sm rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground"
                 >
                   {searchLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

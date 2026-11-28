@@ -147,7 +147,127 @@ const Layout = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    <div className="flex flex-col min-h-screen w-full max-w-full overflow-x-clip bg-background text-foreground">
+      {/* Mobile Top Bar — удобный доступ к лого, истории, уведомлениям, сообщениям, теме и профилю */}
+      <header className="md:hidden sticky top-0 z-40 px-3 pt-2 pb-2 bg-background/85 backdrop-blur-xl border-b border-border/60">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <Link to="/" className="flex items-center gap-2 min-w-0 shrink-0">
+            <img src="/logo.png" alt="ReverseX" className="h-7 w-auto object-contain" />
+            <span className="font-grotesk font-bold text-base tracking-tight truncate">ReverseX</span>
+          </Link>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              title="История посещений"
+            >
+              <Link to={historyPath}>
+                <History className="w-4 h-4" />
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="h-9 w-9 rounded-full"
+              title={isDark ? "Светлая тема" : "Тёмная тема"}
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+
+            {session?.user ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="h-9 w-9 rounded-full"
+                  title="Уведомления"
+                >
+                  <Bell className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowMessages(!showMessages)}
+                  className="h-9 w-9 rounded-full"
+                  title="Сообщения"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 ml-0.5">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={profile?.avatar_url} />
+                        <AvatarFallback>{profile?.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium truncate">{profile?.display_name || profile?.username || 'User'}</p>
+                        <p className="text-xs text-muted-foreground">Level {profile?.level || 1}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to={profile?.username ? `/${profile.username}` : `/profile/${session.user.id}`} className="flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/bookmarks" className="flex items-center gap-2">
+                        <Bookmark className="w-4 h-4 text-emerald-400" />
+                        Мои закладки
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/rated" className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-400" />
+                        Оценённые
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/friends" className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-cyan-400" />
+                        Друзья
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/qr-scan" className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4" />
+                        Привязать устройство
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/settings" className="flex items-center gap-2">
+                        <Settings className="w-4 h-4" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2">
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <Button asChild size="sm" className="h-8 px-3 text-xs rounded-full">
+                <Link to="/auth">Войти</Link>
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
       {/* Desktop Header — floating frosted pill */}
       <nav className="hidden md:flex sticky top-0 z-50 px-4 md:px-8 pt-3 pb-1 bg-gradient-to-b from-background via-background/80 to-transparent pointer-events-none">
         <div className="w-full mx-auto">
@@ -317,24 +437,6 @@ const Layout = () => {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-
-                  {/* Notifications Panel */}
-                  {showNotifications && session?.user?.id && (
-                    <NotificationsPanel
-                      open={showNotifications}
-                      onClose={() => setShowNotifications(false)}
-                      userId={session.user.id}
-                    />
-                  )}
-
-                  {/* Messages Panel */}
-                  {showMessages && session?.user?.id && (
-                    <MessagesPanel
-                      open={showMessages}
-                      onClose={() => setShowMessages(false)}
-                      userId={session.user.id}
-                    />
-                  )}
                 </>
               ) : (
                 <Button asChild size="sm">
@@ -346,21 +448,41 @@ const Layout = () => {
         </div>
       </nav>
 
-      <main className="flex-1 pb-24 md:pb-0">
+      <main className="flex-1 min-w-0 w-full max-w-full overflow-x-clip pb-24 md:pb-0">
         <VisitTracker />
         <Outlet />
       </main>
 
+      {/* Notifications Panel (works on both desktop and mobile) */}
+      {showNotifications && session?.user?.id && (
+        <NotificationsPanel
+          open={showNotifications}
+          onClose={() => setShowNotifications(false)}
+          userId={session.user.id}
+        />
+      )}
+
+      {/* Messages Panel (works on both desktop and mobile) */}
+      {showMessages && session?.user?.id && (
+        <MessagesPanel
+          open={showMessages}
+          onClose={() => setShowMessages(false)}
+          userId={session.user.id}
+        />
+      )}
+
       {/* Mobile Bottom Navigation */}
       {!hideMobileNav && (
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t border-border z-50">
-        <div className="flex items-center h-20">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border z-50 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-center h-16">
           {/* Scroll Left Button */}
           <button
+            type="button"
             onClick={() => scroll('left')}
-            className="flex-shrink-0 p-2 hover:bg-muted transition-colors"
+            aria-label="Прокрутить влево"
+            className="flex-shrink-0 px-1.5 py-2 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
 
           {/* Scrollable Navigation */}
@@ -369,7 +491,7 @@ const Layout = () => {
             className="flex-1 overflow-x-auto scrollbar-hide"
             style={{ scrollBehavior: 'smooth' }}
           >
-            <div className="flex gap-1 px-2">
+            <div className="flex items-center gap-1 px-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path || 
@@ -379,14 +501,14 @@ const Layout = () => {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-max ${
+                    className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors min-w-[60px] shrink-0 ${
                       isActive
-                        ? 'bg-cyan-500/20 text-cyan-500'
+                        ? 'bg-cyan-500/20 text-cyan-400'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{item.label}</span>
+                    <Icon className="w-4 h-4" />
+                    <span className="text-[11px] font-medium leading-tight">{item.label}</span>
                   </Link>
                 );
               })}
@@ -395,89 +517,13 @@ const Layout = () => {
 
           {/* Scroll Right Button */}
           <button
+            type="button"
             onClick={() => scroll('right')}
-            className="flex-shrink-0 p-2 hover:bg-muted transition-colors"
+            aria-label="Прокрутить вправо"
+            className="flex-shrink-0 px-1.5 py-2 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4" />
           </button>
-
-          {/* Profile/Actions */}
-          <div className="flex-shrink-0 flex items-center gap-2 px-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="h-10 w-10 rounded-full"
-            >
-              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </Button>
-            {session ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={profile?.avatar_url} />
-                      <AvatarFallback>{profile?.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{profile?.display_name || profile?.username || 'User'}</p>
-                      <p className="text-xs text-muted-foreground">Level {profile?.level || 1}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to={profile?.username ? `/${profile.username}` : `/profile/${session.user.id}`} className="flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/bookmarks" className="flex items-center gap-2">
-                      <Bookmark className="w-4 h-4 text-emerald-400" />
-                      Мои закладки
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/rated" className="flex items-center gap-2">
-                      <Star className="w-4 h-4 text-amber-400" />
-                      Оценённые
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/friends" className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-cyan-400" />
-                      Друзья
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/qr-scan" className="flex items-center gap-2">
-                      <Smartphone className="w-4 h-4" />
-                      Привязать устройство
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/settings" className="flex items-center gap-2">
-                      <Settings className="w-4 h-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2">
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button asChild size="sm" className="text-xs">
-                <Link to="/auth">Sign In</Link>
-              </Button>
-            )}
-          </div>
         </div>
       </div>
       )}

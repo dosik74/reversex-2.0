@@ -260,7 +260,32 @@
 .rx-btn-cyan { background: #ffb800; color: #171204;  }
 
 @media (max-width: 900px) {
-  .studio-inspector { width: calc(100vw - 24px); top: 70px; bottom: auto; max-height: 45vh; }
+  .studio-shell {
+    overflow-x: clip;
+  }
+  .studio-inspector {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    top: auto;
+    bottom: 112px;
+    max-height: 36dvh;
+  }
+  .studio-reenter {
+    right: 14px;
+    bottom: 84px;
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+  .rx-block.is-selected,
+  .studio-handle {
+    touch-action: none;
+  }
+  .studio-handle {
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+  }
 }
 
 .studio-loading {

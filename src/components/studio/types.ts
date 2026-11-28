@@ -123,11 +123,25 @@ export interface StudioProfile {
   topLists: Array<{ title: string; mediaType?: string; poster: string; items: Array<{ id: string; title: string; poster: string }> }>;
 }
 
+export interface StudioVariantConfig {
+  globalFont: string;
+  pageBg: PageBg;
+  blocks: Block[];
+  parts: Record<string, Record<string, PartCfg>>;
+  texts: Record<string, string>;
+  /** удалённые блоки — доступны в меню «Добавить» для восстановления */
+  trash: Block[];
+}
+
 export interface StudioData {
   avatarSrc: string;
   globalFont: string;
   pageBg: PageBg;
   blocks: Block[];
+  /** Полностью независимая мобильная конфигурация (блоки, тексты, детали, фон, шрифт, корзина) */
+  mobile: StudioVariantConfig;
+  /** Legacy-поле, сохраняется только для миграции старых профилей */
+  mobileBlocks?: Block[];
   parts: Record<string, Record<string, PartCfg>>;
   texts: Record<string, string>;
   /** удалённые блоки — доступны в меню «Добавить» для восстановления */

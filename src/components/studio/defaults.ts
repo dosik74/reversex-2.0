@@ -1,4 +1,4 @@
-import type { Block, BlockBg, PageBg, PartCfg, StudioData } from "./types";
+import type { Block, BlockBg, PageBg, PartCfg, StudioData, StudioVariantConfig } from "./types";
 
 export const FONTS = [
   "Inter", "Unbounded", "Russo One", "Dela Gothic One", "Rubik Glitch",
@@ -57,27 +57,121 @@ export function getDefaultBlocks(): Block[] {
   ];
 }
 
+export const MOBILE_CANVAS_WIDTH = 376;
+
+export function getDefaultMobileBlocks(): Block[] {
+  return [
+    blk("blk_avatar", "avatar", "Аватарка", 136, 18, 104, 104, { z: 25, radius: 500, overflowHidden: false, bg: { ...defaultBg(), mode: "color", alpha: 0 } }),
+    blk("blk_header", "header", "Шапка профиля", 12, 128, 352, 108, {
+      z: 20, radius: 24, overflowHidden: false, font: "Unbounded",
+      bg: { ...defaultBg(), mode: "color", color: "#12101c", alpha: 78 },
+      meta: { align: "center" },
+    }),
+    blk("blk_actions", "actions", "Кнопки действий", 12, 244, 352, 86, {
+      z: 22, radius: 20, overflowHidden: false,
+      bg: { ...defaultBg(), mode: "color", alpha: 0 },
+      meta: { align: "center" },
+    }),
+
+    blk("blk_bio", "bio", "Статус / Био", 12, 338, 352, 68, {
+      radius: 22,
+      bg: { ...defaultBg(), mode: "color", color: "#19140e", alpha: 88 },
+    }),
+
+    blk("blk_stat_1", "stat", "Закладки", 12, 416, 171, 80, {
+      z: 12, radius: 22, font: "JetBrains Mono",
+      bg: { ...defaultBg(), mode: "color", color: "#0b1c1a", alpha: 94 },
+      meta: { icon: "bookmark", val: "0", label: "ЗАКЛАДКИ" },
+    }),
+    blk("blk_stat_2", "stat", "Подписчики", 193, 416, 171, 80, {
+      z: 12, radius: 22, font: "JetBrains Mono",
+      bg: { ...defaultBg(), mode: "color", color: "#161124", alpha: 94 },
+      meta: { icon: "users", val: "0", label: "ПОДПИСЧИКИ" },
+    }),
+    blk("blk_stat_3", "stat", "Подписки", 12, 504, 171, 80, {
+      z: 12, radius: 22, font: "JetBrains Mono",
+      bg: { ...defaultBg(), mode: "color", color: "#0f1726", alpha: 94 },
+      meta: { icon: "userPlus", val: "0", label: "ПОДПИСКИ" },
+    }),
+    blk("blk_stat_4", "stat", "Комментарии", 193, 504, 171, 80, {
+      z: 12, radius: 22, font: "JetBrains Mono",
+      bg: { ...defaultBg(), mode: "color", color: "#1c160c", alpha: 94 },
+      meta: { icon: "message", val: "0", label: "КОММЕНТАРИИ" },
+    }),
+
+    blk("blk_tabs", "tabs", "Вкладки профиля", 12, 594, 352, 88, { z: 11, radius: 22 }),
+    blk("blk_filters", "filters", "Фильтры статусов", 12, 692, 352, 100, { overflowHidden: false, bg: { ...defaultBg(), mode: "color", alpha: 0 } }),
+    blk("blk_collection", "collection", "Коллекция", 12, 802, 352, 420, {
+      radius: 24,
+      bg: { ...defaultBg(), mode: "color", color: "#0e1018", alpha: 92 },
+    }),
+
+    blk("blk_bm_banner", "bmBanner", "Баннер закладок", 12, 1232, 352, 102, {
+      radius: 22,
+      bg: { ...defaultBg(), mode: "color", color: "#131622", alpha: 94 },
+    }),
+    blk("blk_level", "level", "Уровень", 12, 1344, 352, 84, { radius: 22 }),
+    blk("blk_friends", "friends", "Друзья", 12, 1438, 352, 110, { radius: 22 }),
+    blk("blk_bm_card", "bmCard", "Закладки пользователя", 12, 1558, 352, 72, { radius: 22, bg: { ...defaultBg(), mode: "color", color: "#0a1917", alpha: 95 } }),
+    blk("blk_toplists", "topLists", "Топ списки", 12, 1640, 352, 210, { radius: 22 }),
+    blk("blk_top50", "top50", "Мой Топ 50", 12, 1860, 352, 290, {
+      radius: 24,
+      bg: { ...defaultBg(), mode: "color", color: "#14101c", alpha: 94 },
+    }),
+  ];
+}
+
+export const emptyMobileConfig = (): StudioVariantConfig => ({
+  globalFont: "Montserrat",
+  pageBg: { mode: "avatar", imageSrc: "", layout: "banner", blur: 16, dim: 72, zoom: 130 },
+  blocks: getDefaultMobileBlocks(),
+  parts: {},
+  texts: {},
+  trash: [],
+});
+
 export const emptyData = (): StudioData => ({
   avatarSrc: DEFAULT_AVATAR,
   globalFont: "Inter",
   pageBg: defaultPageBg(),
   blocks: getDefaultBlocks(),
+  mobile: emptyMobileConfig(),
   parts: {},
   texts: {},
   trash: [],
   profile: null,
 });
 
+export function normalizeVariant(input: any, fallback: StudioVariantConfig): StudioVariantConfig {
+  if (!input || !Array.isArray(input.blocks) || !input.blocks.length) return fallback;
+  return {
+    globalFont: input.globalFont || fallback.globalFont,
+    pageBg: { ...fallback.pageBg, ...(input.pageBg || {}) },
+    blocks: [...input.blocks],
+    parts: input.parts || {},
+    texts: input.texts || {},
+    trash: Array.isArray(input.trash) ? input.trash : [],
+  };
+}
+
 export function normalizeData(input: any): StudioData {
   const base = emptyData();
   if (!input || !Array.isArray(input.blocks) || !input.blocks.length) return base;
   // Сохранённые блоки — единственный источник правды: удалённые остаются удалёнными
   const blocks = [...input.blocks];
+  const mobileBase = emptyMobileConfig();
+  const mobile = input.mobile
+    ? normalizeVariant(input.mobile, mobileBase)
+    : Array.isArray(input.mobileBlocks) && input.mobileBlocks.length
+    ? { ...mobileBase, blocks: [...input.mobileBlocks] }
+    : mobileBase;
+
   return {
     avatarSrc: input.avatarSrc || base.avatarSrc,
     globalFont: input.globalFont || base.globalFont,
     pageBg: { ...base.pageBg, ...(input.pageBg || {}) },
     blocks,
+    mobile,
     parts: input.parts || {},
     texts: input.texts || {},
     trash: Array.isArray(input.trash) ? input.trash : [],

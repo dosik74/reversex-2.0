@@ -115,6 +115,9 @@ All colors MUST be HSL.
   html {
     font-size: clamp(13px, 0.8333vw, 21px);
     -webkit-text-size-adjust: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
   }
 
   /* Phones: fixed readable base, responsive grids handle layout */
@@ -122,12 +125,16 @@ All colors MUST be HSL.
     html {
       font-size: 15px;
     }
+    .dark body {
+      background-attachment: scroll;
+    }
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    max-width: 100vw;
+    max-width: 100%;
     overflow-x: clip;
+    overscroll-behavior-x: none;
   }
 
   /* ── Aurora-фон в стиле Forma AI: свечение над «горизонтом» ── */

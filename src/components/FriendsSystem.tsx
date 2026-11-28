@@ -417,18 +417,21 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
       {currentUserId === userId && (
         <Card className="card-glow">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h3 className="text-lg font-semibold">🔗 Ваша ссылка профиля</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   Поделитесь ссылкой, чтобы другие могли вас найти
                 </p>
               </div>
-              <Button onClick={() => {
-                const link = `${window.location.origin}/profile/${userId}`;
-                navigator.clipboard.writeText(link);
-                toast.success("Ссылка скопирована!");
-              }}>
+              <Button
+                className="w-full sm:w-auto shrink-0"
+                onClick={() => {
+                  const link = `${window.location.origin}/profile/${userId}`;
+                  navigator.clipboard.writeText(link);
+                  toast.success("Ссылка скопирована!");
+                }}
+              >
                 <Share2 className="w-4 h-4 mr-2" />
                 Скопировать ссылку
               </Button>
@@ -500,12 +503,12 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
       )}
 
       <Tabs defaultValue="friends" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="friends">Друзья ({friends.length})</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+          <TabsTrigger value="friends" className="text-xs sm:text-sm py-2 px-1.5 truncate">Друзья ({friends.length})</TabsTrigger>
           {showRequests && (
             <>
-              <TabsTrigger value="incoming">Входящие ({incoming.length})</TabsTrigger>
-              <TabsTrigger value="outgoing">Исходящие ({outgoing.length})</TabsTrigger>
+              <TabsTrigger value="incoming" className="text-xs sm:text-sm py-2 px-1.5 truncate">Входящие ({incoming.length})</TabsTrigger>
+              <TabsTrigger value="outgoing" className="text-xs sm:text-sm py-2 px-1.5 truncate">Исходящие ({outgoing.length})</TabsTrigger>
             </>
           )}
         </TabsList>

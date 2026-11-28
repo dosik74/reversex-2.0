@@ -240,7 +240,7 @@ const MovieDetail = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 min-w-0 space-y-8">
             {/* Description */}
             {movie.overview && (
               <Card className="animate-fade-up card-glow">
@@ -248,7 +248,7 @@ const MovieDetail = () => {
                   <CardTitle>Описание</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground leading-relaxed text-lg">{movie.overview}</p>
+                  <p className="text-muted-foreground leading-relaxed text-base sm:text-lg">{movie.overview}</p>
                 </CardContent>
               </Card>
             )}
@@ -260,7 +260,7 @@ const MovieDetail = () => {
                   <CardTitle>Финансы</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     {movie.budget ? (
                       <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-5 py-4">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Бюджет</p>
