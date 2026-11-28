@@ -13,6 +13,7 @@ import {
   User,
   Bookmark,
   Share2,
+  Trophy,
 } from 'lucide-react';
 import { useBookmarks } from '@/context/BookmarkContext';
 import { useAppContext } from '@/context/AppContext';
@@ -382,6 +383,12 @@ export default function Rated() {
                 <Link to={bookmarksPath}>
                   <Bookmark className="w-3.5 h-3.5 text-emerald-400" />
                   {isOtherUser ? 'Закладки пользователя' : 'Мои закладки'}
+                </Link>
+              </Button>
+              <Button asChild variant="secondary" size="sm" className="rounded-full gap-1.5">
+                <Link to={handle ? `/top50/${handle}` : '/top50'}>
+                  <Trophy className="w-3.5 h-3.5 text-purple-400" />
+                  Топ 50
                 </Link>
               </Button>
               {shareUrl && (

@@ -60,8 +60,8 @@ const STATUS_THEME: Record<
     text: 'text-emerald-400',
     bgSoft: 'bg-emerald-500/10',
     border: 'border-emerald-500/30',
-    activeTab: 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.5)] border-emerald-400 font-bold',
-    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-emerald-500/40 hover:text-emerald-300 hover:bg-emerald-500/5',
+    activeTab: 'bg-emerald-500 text-black shadow-[0_0_24px_rgba(16,185,129,0.65)] border-emerald-300 ring-2 ring-emerald-300/60 font-bold',
+    idleTab: 'bg-emerald-500/15 border-emerald-400/50 text-emerald-300 hover:bg-emerald-500/25 hover:border-emerald-400/80',
     badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
     dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.9)]',
     bar: 'bg-emerald-500',
@@ -73,8 +73,8 @@ const STATUS_THEME: Record<
     text: 'text-sky-400',
     bgSoft: 'bg-sky-500/10',
     border: 'border-sky-500/30',
-    activeTab: 'bg-sky-500 text-black shadow-[0_0_20px_rgba(14,165,233,0.5)] border-sky-400 font-bold',
-    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-sky-500/40 hover:text-sky-300 hover:bg-sky-500/5',
+    activeTab: 'bg-sky-500 text-black shadow-[0_0_24px_rgba(14,165,233,0.65)] border-sky-300 ring-2 ring-sky-300/60 font-bold',
+    idleTab: 'bg-sky-500/15 border-sky-400/50 text-sky-300 hover:bg-sky-500/25 hover:border-sky-400/80',
     badge: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
     dot: 'bg-sky-400 shadow-[0_0_8px_rgba(14,165,233,0.9)]',
     bar: 'bg-sky-500',
@@ -86,8 +86,8 @@ const STATUS_THEME: Record<
     text: 'text-purple-400',
     bgSoft: 'bg-purple-500/10',
     border: 'border-purple-500/30',
-    activeTab: 'bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.6)] border-purple-400 font-bold',
-    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-purple-500/40 hover:text-purple-300 hover:bg-purple-500/5',
+    activeTab: 'bg-purple-500 text-white shadow-[0_0_24px_rgba(168,85,247,0.7)] border-purple-300 ring-2 ring-purple-300/60 font-bold',
+    idleTab: 'bg-purple-500/15 border-purple-400/50 text-purple-300 hover:bg-purple-500/25 hover:border-purple-400/80',
     badge: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
     dot: 'bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.9)]',
     bar: 'bg-purple-500',
@@ -99,8 +99,8 @@ const STATUS_THEME: Record<
     text: 'text-orange-400',
     bgSoft: 'bg-orange-500/10',
     border: 'border-orange-500/30',
-    activeTab: 'bg-orange-500 text-black shadow-[0_0_20px_rgba(249,115,22,0.5)] border-orange-400 font-bold',
-    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-orange-500/40 hover:text-orange-300 hover:bg-orange-500/5',
+    activeTab: 'bg-orange-500 text-black shadow-[0_0_24px_rgba(249,115,22,0.65)] border-orange-300 ring-2 ring-orange-300/60 font-bold',
+    idleTab: 'bg-orange-500/15 border-orange-400/50 text-orange-300 hover:bg-orange-500/25 hover:border-orange-400/80',
     badge: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
     dot: 'bg-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.9)]',
     bar: 'bg-orange-500',
@@ -112,8 +112,8 @@ const STATUS_THEME: Record<
     text: 'text-rose-400',
     bgSoft: 'bg-rose-500/10',
     border: 'border-rose-500/30',
-    activeTab: 'bg-rose-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.6)] border-rose-400 font-bold',
-    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-rose-500/40 hover:text-rose-300 hover:bg-rose-500/5',
+    activeTab: 'bg-rose-500 text-white shadow-[0_0_24px_rgba(239,68,68,0.7)] border-rose-300 ring-2 ring-rose-300/60 font-bold',
+    idleTab: 'bg-rose-500/15 border-rose-400/50 text-rose-300 hover:bg-rose-500/25 hover:border-rose-400/80',
     badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
     dot: 'bg-rose-400 shadow-[0_0_8px_rgba(239,68,68,0.9)]',
     bar: 'bg-rose-500',
@@ -125,8 +125,8 @@ const STATUS_THEME: Record<
     text: 'text-amber-400',
     bgSoft: 'bg-amber-500/10',
     border: 'border-amber-500/30',
-    activeTab: 'bg-amber-400 text-black shadow-[0_0_20px_rgba(245,158,11,0.5)] border-amber-300 font-bold',
-    idleTab: 'bg-zinc-900/70 border-white/10 text-zinc-300 hover:border-amber-500/40 hover:text-amber-300 hover:bg-amber-500/5',
+    activeTab: 'bg-amber-400 text-black shadow-[0_0_24px_rgba(245,158,11,0.65)] border-amber-200 ring-2 ring-amber-200/70 font-bold',
+    idleTab: 'bg-amber-400/15 border-amber-400/50 text-amber-300 hover:bg-amber-400/25 hover:border-amber-400/80',
     badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
     dot: 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)]',
     bar: 'bg-amber-400',
@@ -851,7 +851,7 @@ export default function BookmarksNew() {
                 <span>{t.name}</span>
                 <span
                   className={`bk-epic text-xs font-black px-2 py-0.5 rounded-full tabular-nums ${
-                    active ? 'bg-black/25 text-inherit' : 'bg-white/10 text-zinc-300'
+                    active ? 'bg-black/25 text-inherit' : 'bg-black/30 text-inherit border border-current/25'
                   }`}
                 >
                   {count}

@@ -194,3 +194,81 @@
     transform: translateY(-3px);
   }
 }
+
+/* ===== 3D Interactive Poster Card (Hover & Spotlight Sheen) ===== */
+.top50-card-wrap {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  perspective: 950px;
+}
+
+.top50-tilt-aura {
+  position: absolute;
+  inset: 6px;
+  border-radius: 20px;
+  opacity: 0;
+  filter: blur(22px);
+  transform: scale(0.92);
+  transition: opacity 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.top50-card-wrap:hover .top50-tilt-aura {
+  opacity: 0.72;
+  transform: scale(1.06) translateY(4px);
+}
+
+.top50-tilt-card {
+  position: relative;
+  z-index: 1;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx)) rotateY(var(--ry)) translateZ(0) scale(1);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.3s ease,
+    box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.top50-card-wrap.is-hovered .top50-tilt-card {
+  transition: transform 0.08s linear, border-color 0.25s ease, box-shadow 0.3s ease;
+  transform: rotateX(var(--rx)) rotateY(var(--ry)) translateY(-10px) scale(1.045);
+}
+
+@media (hover: hover) {
+  .top50-card-wrap:hover .top50-tilt-card {
+    box-shadow:
+      0 24px 54px rgba(0, 0, 0, 0.75),
+      0 0 28px rgba(251, 191, 36, 0.2);
+  }
+}
+
+.top50-card-wrap:hover .top50-poster-zoom img {
+  transform: scale(1.1);
+  filter: contrast(1.06) saturate(1.12);
+}
+
+.top50-poster-zoom img {
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.45s ease,
+    opacity 0.3s ease;
+}
+
+.top50-card-wrap:hover .top50-rank-pop {
+  transform: scale(1.1) translateY(-2px);
+}
+
+.top50-rank-pop {
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.top50-card-wrap:hover .top50-meta-lift {
+  transform: translateY(-3px);
+}
+
+.top50-meta-lift {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}

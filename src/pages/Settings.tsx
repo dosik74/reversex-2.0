@@ -10,13 +10,14 @@ import BetaSettingsCard from "@/components/BetaSettingsCard";
 import { useTheme } from "@/context/ThemeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Settings as SettingsIcon, MonitorSmartphone, Cloud, Moon, Sun, Languages } from "lucide-react";
+import { Users, Settings as SettingsIcon, MonitorSmartphone, Cloud, Moon, Sun, Languages, Smartphone, UserCog, ArrowRight } from "lucide-react";
 
 const Settings = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,7 +27,12 @@ const Settings = () => {
   const getCurrentUser = async () => {
     try {
       const { data } = await supabase.auth.getUser();
-      setCurrentUserId(data.user?.id || null);
+      const uid = data.user?.id || null;
+      setCurrentUserId(uid);
+      if (uid) {
+        const { data: prof } = await supabase.from("profiles").select("username").eq("id", uid).maybeSingle();
+        setUsername(prof?.username || null);
+      }
     } catch (e) {
       console.error("Error getting user:", e);
     } finally {
@@ -112,6 +118,46 @@ const Settings = () => {
 
           {currentUserId ? (
             <>
+              <Card className="w-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <UserCog className="w-5 h-5 text-primary" />
+                    Профиль и устройства
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate(username ? `/${username}/edit` : `/profile/${currentUserId}/edit`)}
+                    className="flex items-center justify-between p-3.5 rounded-xl border border-border bg-card hover:bg-secondary/40 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <UserCog className="w-4 h-4 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm">Edit Profile</div>
+                        <div className="text-xs text-muted-foreground truncate">Аватар, имя, описание профиля</div>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/qr-scan")}
+                    className="flex items-center justify-between p-3.5 rounded-xl border border-border bg-card hover:bg-secondary/40 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Smartphone className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm">Привязать устройство</div>
+                        <div className="text-xs text-muted-foreground truncate">Вход по QR-коду с другого экрана</div>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </button>
+                </CardContent>
+              </Card>
+
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Cloud className="w-4 h-4" />
                 {t("settings.cloudDesc")}

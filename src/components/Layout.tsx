@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone, FlaskConical, Users, History, Star } from "lucide-react";
+import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Users, History } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -216,44 +216,37 @@ const Layout = () => {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link to={profile?.username ? `/${profile.username}` : `/profile/${session.user.id}`} className="flex items-center gap-2">
-                        <User className="w-4 h-4" />
+                      <Link to={profile?.username ? `/${profile.username}` : `/profile/${session.user.id}`}>
                         Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/bookmarks" className="flex items-center gap-2">
-                        <Bookmark className="w-4 h-4 text-emerald-400" />
+                      <Link to="/bookmarks">
                         Мои закладки
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/rated" className="flex items-center gap-2">
-                        <Star className="w-4 h-4 text-amber-400" />
+                      <Link to="/rated">
                         Оценённые
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/friends" className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-cyan-400" />
+                      <Link to="/top50">
+                        Мой Топ 50
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/friends">
                         Друзья
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/qr-scan" className="flex items-center gap-2">
-                        <Smartphone className="w-4 h-4" />
-                        Привязать устройство
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/settings" className="flex items-center gap-2">
-                        <Settings className="w-4 h-4" />
+                      <Link to="/settings">
                         Settings
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2">
-                      <LogOut className="w-4 h-4" />
+                    <DropdownMenuItem onClick={handleSignOut}>
                       Sign Out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -369,39 +362,33 @@ const Layout = () => {
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
-                        <Link to={profile?.username ? `/${profile.username}` : `/profile/${session.user.id}`} className="flex items-center gap-2">
-                          <User className="w-4 h-4" />
+                        <Link to={profile?.username ? `/${profile.username}` : `/profile/${session.user.id}`}>
                           Profile
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to="/bookmarks" className="flex items-center gap-2">
-                          <Bookmark className="w-4 h-4 text-emerald-400" />
+                        <Link to="/bookmarks">
                           Мои закладки
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to="/rated" className="flex items-center gap-2">
-                          <Star className="w-4 h-4 text-amber-400" />
+                        <Link to="/rated">
                           Оценённые
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to="/friends" className="flex items-center gap-2">
-                          <Users className="w-4 h-4 text-cyan-400" />
-                          Друзья
+                        <Link to="/top50">
+                          Мой Топ 50
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to="/qr-scan" className="flex items-center gap-2">
-                          <Smartphone className="w-4 h-4" />
-                          Привязать устройство
+                        <Link to="/friends">
+                          Друзья
                         </Link>
                       </DropdownMenuItem>
                       {isBetaEnabled && (
                         <DropdownMenuItem asChild>
-                          <Link to="/tier-lists" className="flex items-center gap-2 text-pink-400">
-                            <Crown className="w-4 h-4" />
+                          <Link to="/tier-lists" className="flex items-center justify-between text-pink-400">
                             <span>Tier Lists</span>
                             <span className="ml-auto text-[9px] font-bold px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300">
                               BETA
@@ -410,29 +397,12 @@ const Layout = () => {
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem asChild>
-                        <Link to={profile?.username ? `/${profile.username}/edit` : `/profile/${session.user.id}/edit`} className="flex items-center gap-2">
-                          <Settings className="w-4 h-4" />
-                          Edit Profile
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/settings" className="flex items-center gap-2">
-                          <FlaskConical className="w-4 h-4 text-pink-400" />
-                          <span>ReverseX Labs</span>
-                          {isBetaEnabled && (
-                            <span className="ml-auto w-2 h-2 rounded-full bg-pink-500 animate-pulse" />
-                          )}
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/settings" className="flex items-center gap-2">
-                          <Settings className="w-4 h-4" />
+                        <Link to="/settings">
                           Settings
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2">
-                        <LogOut className="w-4 h-4" />
+                      <DropdownMenuItem onClick={handleSignOut}>
                         Sign Out
                       </DropdownMenuItem>
                     </DropdownMenuContent>

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Check, X, MessageSquare, Search, UserPlus, Share2, Bookmark, Star } from "lucide-react";
+import { Check, X, MessageSquare, Search, UserPlus, Share2, Bookmark, Star, Trophy } from "lucide-react";
 
 interface ProfileMini {
   id: string;
@@ -312,6 +312,12 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
             <Link to={`/rated/${handle}`}>
               <Star className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Оценки</span>
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline" className="gap-1.5 text-purple-400 border-purple-500/30 hover:bg-purple-500/10">
+            <Link to={`/top50/${handle}`}>
+              <Trophy className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Топ 50</span>
             </Link>
           </Button>
           {currentUserId && (

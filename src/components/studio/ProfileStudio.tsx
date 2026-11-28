@@ -988,23 +988,49 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
         return (
           <div className="flex h-full w-full flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:px-4">
             <div className="flex items-center gap-3 min-w-0"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/15 text-amber-400"><Star className="h-4 w-4" /></div><div className="min-w-0"><div className="text-xs font-bold text-white truncate">Закладки и оценки пользователя</div><div className="text-[11px] text-slate-400 truncate">В закладках: {data.profile?.stats.bookmarks || 0} · Оценок: {data.profile?.stats.rated || 0}</div></div></div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button type="button" onClick={() => navigate(profileHandle ? `/top50/${profileHandle}` : "/top50")} className="rounded-full border border-purple-500/35 bg-purple-500/15 px-3.5 py-2 text-[11px] font-bold text-purple-300 hover:bg-purple-500/25 transition-colors">Топ 50 ↗</button>
               <button type="button" onClick={() => navigate(profileHandle ? `/rated/${profileHandle}` : "/rated")} className="rounded-full border border-amber-500/35 bg-amber-500/15 px-3.5 py-2 text-[11px] font-bold text-amber-300 hover:bg-amber-500/25 transition-colors">Оценки ↗</button>
               <button type="button" onClick={() => navigate(profileHandle ? `/bookmarks/${profileHandle}` : "/bookmarks")} className="rounded-full border border-white/10 bg-white/5 px-3.5 py-2 text-[11px] font-bold text-slate-200 hover:bg-white/10 transition-colors">Закладки ↗</button>
             </div>
           </div>
         );
-      case "filters":
+      case "filters": {
+        const pillIdle = [
+          "border border-emerald-400/50 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25",
+          "border border-sky-400/50 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25",
+          "border border-purple-400/50 bg-purple-500/15 text-purple-300 hover:bg-purple-500/25",
+          "border border-orange-400/50 bg-orange-500/15 text-orange-300 hover:bg-orange-500/25",
+          "border border-rose-400/50 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25",
+          "border border-amber-400/50 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25",
+        ];
+        const pillActive = [
+          "bg-emerald-500 text-black border border-emerald-300 shadow-[0_0_18px_rgba(16,185,129,0.55)] font-bold",
+          "bg-sky-500 text-black border border-sky-300 shadow-[0_0_18px_rgba(14,165,233,0.55)] font-bold",
+          "bg-purple-500 text-white border border-purple-300 shadow-[0_0_18px_rgba(168,85,247,0.6)] font-bold",
+          "bg-orange-500 text-black border border-orange-300 shadow-[0_0_18px_rgba(249,115,22,0.55)] font-bold",
+          "bg-rose-500 text-white border border-rose-300 shadow-[0_0_18px_rgba(239,68,68,0.6)] font-bold",
+          "bg-amber-400 text-black border border-amber-200 shadow-[0_0_18px_rgba(245,158,11,0.55)] font-bold",
+        ];
         return (
           <div className="flex h-full w-full flex-wrap items-center gap-2">
-            {STATUS_PILLS.map((s, i) => (
-              <button key={s} type="button" onClick={() => { setActiveTab("ЗАКЛАДКИ"); setActiveStatus(s); }} className={`rounded-xl px-3.5 py-2 text-xs font-semibold ${activeStatus === s && activeTab === "ЗАКЛАДКИ" ? "bg-amber-600 text-white shadow-lg shadow-purple-600/35" : "border border-[#1e222e] bg-[#10121a] text-slate-300"}`}>
-                {["▶", "◷", "✓", "⏸", "✕", "☆"][i]} {s}
-                <span className="ml-2 rounded-md bg-black/25 px-1.5 py-0.5 text-[10px]">{data.profile?.statusCounts?.[s] ?? 0}</span>
-              </button>
-            ))}
+            {STATUS_PILLS.map((s, i) => {
+              const isAct = activeStatus === s && activeTab === "ЗАКЛАДКИ";
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => { setActiveTab("ЗАКЛАДКИ"); setActiveStatus(s); }}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${isAct ? pillActive[i] : pillIdle[i]}`}
+                >
+                  {["▶", "◷", "✓", "⏸", "✕", "☆"][i]} {s}
+                  <span className="ml-2 rounded-md bg-black/25 px-1.5 py-0.5 text-[10px]">{data.profile?.statusCounts?.[s] ?? 0}</span>
+                </button>
+              );
+            })}
           </div>
         );
+      }
       case "collection": {
         const filteredRated = (data.profile?.rated || []).filter(
           (r) => (ratedCat === "Все" || r.cat === ratedCat) && (!search || r.title.toLowerCase().includes(search.toLowerCase()))
@@ -1014,9 +1040,12 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
           <div className="flex h-full w-full flex-col gap-3 overflow-y-auto p-4">
             {activeTab === "TOP50" ? (
               <>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-baseline gap-3"><h2 className="font-display text-2xl font-black text-white">ТОП 50</h2><span className="text-xs text-slate-400">{(data.profile?.topLists[0]?.items || []).length} / 50</span></div>
-                  {isOwn && <button type="button" onClick={() => navigate("/tier-lists")} className="rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-black">+ Добавить</button>}
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => navigate(profileHandle ? `/top50/${profileHandle}` : "/top50")} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3.5 py-2 text-xs font-bold text-amber-300 hover:bg-amber-400/20">Открыть Топ 50 ↗</button>
+                    {isOwn && <button type="button" onClick={() => navigate(profileHandle ? `/top50/${profileHandle}` : "/top50")} className="rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-black">+ Добавить</button>}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   {(data.profile?.topLists[0]?.items || []).map((it, i) => {
@@ -1214,7 +1243,7 @@ const ProfileStudio = ({ row, viewerId }: Props) => {
       case "top50":
         return (
           <div className="flex h-full w-full flex-col p-4">
-            <div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-2 text-sm font-black text-white"><span className="text-amber-300">🏆</span> ТОП 50</div><button type="button" onClick={() => setActiveTab("TOP50")} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-bold text-amber-300">Открыть →</button></div>
+            <div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-2 text-sm font-black text-white"><span className="text-amber-300">🏆</span> ТОП 50</div><button type="button" onClick={() => navigate(profileHandle ? `/top50/${profileHandle}` : "/top50")} className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-400/20 transition-colors">Открыть →</button></div>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {(data.profile?.topLists[0]?.items || []).map((it, i) => {
                 const mt = data.profile?.topLists[0]?.mediaType;

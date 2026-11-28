@@ -37,6 +37,7 @@ import Settings from "./pages/Settings";
 import TierLists from "./pages/TierLists";
 import BookmarksNew from "./pages/BookmarksNew";
 import Rated from "./pages/Rated";
+import Top50 from "./pages/Top50";
 import FriendsPage from "./pages/Friends";
 import ScrollRestoration from "./components/ScrollRestoration";
 import Recommendations from "./pages/Recommendations";
@@ -219,6 +220,8 @@ const App = () => {
                     <Route path="/bookmarks" element={<BookmarksNew />} />
                     <Route path="/rated" element={<Rated />} />
                     <Route path="/rated/:targetUserId" element={<Rated />} />
+                    <Route path="/top50" element={<Top50 />} />
+                    <Route path="/top50/:targetUserId" element={<Top50 />} />
                     <Route path="/friends" element={<FriendsPage />} />
                     <Route path="/bookmarks/:targetUserId" element={<BookmarksNew />} />
                     <Route path="/qr-scan" element={<QrScanPage />} />
