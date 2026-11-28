@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
+import CatalogSearch from "@/components/CatalogSearch";
 import MovieCard from "@/components/MovieCard";
 import PosterImage from "@/components/PosterImage";
 import ContentActionsButton from "@/components/ContentActionsButton";
@@ -646,12 +647,10 @@ const Movies = () => {
         <div className="mt-5 rounded-2xl border border-border/70 bg-card/70 backdrop-blur px-3.5 py-3 dark:bg-white/[0.02]">
           <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
             <div className="relative flex-1 min-w-[220px]">
-              <input
-                type="text"
+              <CatalogSearch
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={setSearchQuery}
                 placeholder={tab === 'trending' ? 'Поиск фильмов...' : 'Поиск в топ 1000...'}
-                className="w-full px-5 h-11 bg-background border border-border rounded-full text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 transition-all dark:bg-black/40 dark:border-white/10 dark:focus:border-amber-200/40"
               />
             </div>
             <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/70 border border-border dark:bg-white/[0.04] dark:border-white/[0.08] self-start">

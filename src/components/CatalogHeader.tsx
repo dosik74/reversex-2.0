@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
-import { Search, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import CatalogSearch from './CatalogSearch';
 
 interface CatalogHeaderProps {
   scriptLabel: string;
@@ -62,17 +63,8 @@ export default function CatalogHeader({
         )}
 
         {onSearchChange !== undefined && (
-          <div className="relative max-w-xl mt-6 cat-in group" style={{ animationDelay: '190ms' }}>
-            <div className="absolute -inset-px rounded-full bg-gradient-to-r from-amber-200/0 via-amber-200/25 to-amber-200/0 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none" />
-            <div className="relative flex items-center">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-amber-600 dark:group-focus-within:text-amber-200 transition-colors" />
-              <input
-                type="text"
-                value={searchValue}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder={searchPlaceholder}
-                className="w-full pl-12 pr-12 h-12 bg-background backdrop-blur-md border border-border rounded-full text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 transition-all dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-600 dark:border-white/10 dark:focus:border-amber-200/40 dark:focus:ring-amber-200/10"
-              />
+          <div className="w-full max-w-3xl mt-6 cat-in" style={{ animationDelay: '190ms' }}>
+            <CatalogSearch value={searchValue} onChange={onSearchChange} placeholder={searchPlaceholder}>
               {searchValue ? (
                 <button
                   onClick={() => onSearchChange('')}
@@ -82,11 +74,11 @@ export default function CatalogHeader({
                   <X className="w-3.5 h-3.5 text-muted-foreground dark:text-zinc-400" />
                 </button>
               ) : (
-                <kbd className="absolute right-5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground border border-border rounded-md px-1.5 py-0.5 pointer-events-none dark:text-zinc-600 dark:border-white/10">
+                <kbd className="absolute right-5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground border border-border rounded-md px-1.5 py-0.5 pointer-events-none dark:text-zinc-300 dark:border-white/25">
                   /
                 </kbd>
               )}
-            </div>
+            </CatalogSearch>
           </div>
         )}
 
