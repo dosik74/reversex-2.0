@@ -255,9 +255,21 @@ const Layout = () => {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
+                        <Link to="/bookmarks" className="flex items-center gap-2">
+                          <Bookmark className="w-4 h-4 text-emerald-400" />
+                          Мои закладки
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link to="/rated" className="flex items-center gap-2">
                           <Star className="w-4 h-4 text-amber-400" />
                           Оценённые
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/friends" className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-cyan-400" />
+                          Друзья
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -424,9 +436,21 @@ const Layout = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/bookmarks" className="flex items-center gap-2">
+                      <Bookmark className="w-4 h-4 text-emerald-400" />
+                      Мои закладки
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/rated" className="flex items-center gap-2">
                       <Star className="w-4 h-4 text-amber-400" />
                       Оценённые
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/friends" className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-cyan-400" />
+                      Друзья
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

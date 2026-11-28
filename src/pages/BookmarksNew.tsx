@@ -5,7 +5,7 @@ import {
   Film, Tv, Gamepad2, Clapperboard, Sparkles,
   MoreVertical, ExternalLink, Check, ChevronDown, Play, CalendarClock,
   CheckCheck, Pause, ArrowRight, type LucideIcon, SlidersHorizontal,
-  Plus, Eye, ArrowLeft
+  Plus, Eye, ArrowLeft, User, Share2
 } from 'lucide-react';
 import { useBookmarks } from '@/context/BookmarkContext';
 import { getUserBookmarks } from '@/services/bookmarkService';
@@ -762,7 +762,26 @@ export default function BookmarksNew() {
               </div>
             </div>
 
-            <div className="relative flex items-center gap-2.5 shrink-0">
+            <div className="relative flex flex-wrap items-center gap-2.5 shrink-0">
+              <Link
+                to={targetProfile?.username ? `/rated/${targetProfile.username}` : `/rated/${effectiveUserId}`}
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-black transition-all border border-amber-500/30 shadow-lg"
+              >
+                <Star className="w-4 h-4" />
+                <span>Оценки</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  const link = `${window.location.origin}/bookmarks/${targetProfile?.username || effectiveUserId}`;
+                  navigator.clipboard?.writeText(link);
+                  toast.success('Ссылка на закладки скопирована');
+                }}
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-black transition-all border border-white/15 shadow-lg"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Поделиться</span>
+              </button>
               <Link
                 to={targetProfile?.username ? `/${targetProfile.username}` : `/profile/${effectiveUserId}`}
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-black transition-all border border-white/15 shadow-lg"
@@ -786,7 +805,23 @@ export default function BookmarksNew() {
               </p>
             </div>
 
-            <div className="relative flex items-center gap-2.5 shrink-0">
+            <div className="relative flex flex-wrap items-center gap-2.5 shrink-0">
+              <Link
+                to="/rated"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-black transition-all border border-amber-500/30"
+              >
+                <Star className="w-4 h-4" />
+                <span>Оценённые</span>
+              </Link>
+              {currentUserId && (
+                <Link
+                  to={`/profile/${currentUserId}`}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-black transition-all border border-white/15"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Мой профиль</span>
+                </Link>
+              )}
               <ImportBookmarksDialog />
             </div>
           </div>

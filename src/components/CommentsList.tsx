@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
@@ -11,11 +12,13 @@ interface Comment {
   id: string;
   content: string;
   created_at: string;
+  user_id?: string;
   profiles: {
     id: string;
     username: string;
+    display_name?: string | null;
     avatar_url: string | null;
-  };
+  } | null;
 }
 
 const CommentsList = ({ movieId }: { movieId: number }) => {
@@ -37,6 +40,7 @@ const CommentsList = ({ movieId }: { movieId: number }) => {
           profiles (
             id,
             username,
+            display_name,
             avatar_url
           )
         `)
@@ -114,29 +118,51 @@ const CommentsList = ({ movieId }: { movieId: number }) => {
               No comments yet. Be the first to share your thoughts!
             </p>
           ) : (
-            comments.map((comment) => (
-              <div key={comment.id} className="flex gap-3">
-                <Avatar>
-                  <AvatarImage src={comment.profiles.avatar_url || undefined} />
-                  <AvatarFallback>
-                    {comment.profiles.username[0].toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-sm">
-                      {comment.profiles.username}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
+            comments.map((comment) => {
+              const handle = comment.profiles?.username || comment.profiles?.id || comment.user_id;
+              const profileTo = comment.profiles?.username
+                ? `/${comment.profiles.username}`
+                : handle
+                ? `/profile/${handle}`
+                : '#';
+              const displayName = comment.profiles?.display_name || comment.profiles?.username || 'Пользователь';
+              return (
+              <div key={comment.id} className="flex gap-3 p-3 rounded-xl bg-muted/20 hover:bg-muted/35 transition-colors">
+                <Link to={profileTo} className="shrink-0">
+                  <Avatar className="hover:ring-2 ring-primary transition-all">
+                    <AvatarImage src={comment.profiles?.avatar_url || undefined} />
+                    <AvatarFallback>
+                      {displayName[0].toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <Link to={profileTo} className="font-semibold text-sm hover:text-primary hover:underline">
+                      {displayName}
+                    </Link>
+                    {handle && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Link to={`/bookmarks/${handle}`} className="hover:text-emerald-400 transition-colors">
+                          Закладки
+                        </Link>
+                        <span>·</span>
+                        <Link to={`/rated/${handle}`} className="hover:text-amber-400 transition-colors">
+                          Оценки
+                        </Link>
+                      </div>
+                    )}
+                    <span className="text-xs text-muted-foreground ml-auto">
                       {formatDistanceToNow(new Date(comment.created_at), {
                         addSuffix: true,
                       })}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{comment.content}</p>
+                  <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words">{comment.content}</p>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </CardContent>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   Star,
   Film,
@@ -10,38 +10,26 @@ import {
   Layers,
   ArrowUpDown,
   LogIn,
+  User,
+  Bookmark,
+  Share2,
 } from 'lucide-react';
 import { useBookmarks } from '@/context/BookmarkContext';
 import { useAppContext } from '@/context/AppContext';
 import supabase from '@/lib/supabase';
-import { getMovieDetails, getSeriesDetails, getMoviePosterUrl } from '@/utils/tmdbApi';
-import { fetchRawg, RAWG_API_KEY } from '@/utils/rawgApi';
+import { loadUserRatedItems, RatedItem } from '@/services/ratedService';
 import PosterImage from '@/components/PosterImage';
 import ContentActionsButton from '@/components/ContentActionsButton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ContentType, CONTENT_STATUS_CONFIG, ContentStatus } from '@/types/anime';
+import { ContentType, CONTENT_STATUS_CONFIG } from '@/types/anime';
+import { toast } from 'sonner';
 
 type CategoryFilter = 'all' | 'movie' | 'series' | 'game' | 'anime';
 type SortMode = 'rating_desc' | 'rating_asc' | 'recent' | 'title';
-
-export interface RatedItem {
-  key: string;
-  contentId: string;
-  contentType: ContentType;
-  title: string;
-  posterUrl?: string | null;
-  userRating: number;
-  externalRating?: number;
-  releaseYear?: string;
-  genre?: string;
-  status?: ContentStatus;
-  notes?: string;
-  updatedAt: string;
-  source: 'bookmark' | 'community' | 'legacy';
-}
 
 const CATEGORY_META: Array<{
   key: Exclude<CategoryFilter, 'all'>;
@@ -99,18 +87,83 @@ function ratingBadgeStyle(rating: number): string {
 }
 
 export default function Rated() {
-  const { user, loading: authLoading } = useAppContext();
+  const { targetUserId } = useParams<{ targetUserId?: string }>();
+  const [searchParams] = useSearchParams();
+  const queryUserId = searchParams.get('user') || targetUserId || null;
+
+  const { user, profile: myProfile, loading: authLoading } = useAppContext();
   const { bookmarks, loading: bookmarksLoading } = useBookmarks();
 
+  const [resolvedTarget, setResolvedTarget] = useState<{
+    id: string;
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null>(null);
+  const [targetNotFound, setTargetNotFound] = useState(false);
+  const [resolvingTarget, setResolvingTarget] = useState(Boolean(queryUserId));
+
+  const isOtherUser = Boolean(
+    queryUserId &&
+      queryUserId !== user?.id &&
+      (!myProfile?.username || queryUserId.toLowerCase() !== myProfile.username.toLowerCase())
+  );
+
   const [extraItems, setExtraItems] = useState<RatedItem[]>([]);
-  const [loadingExtra, setLoadingExtra] = useState(false);
+  const [loadingRemote, setLoadingRemote] = useState(false);
 
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [sortBy, setSortBy] = useState<SortMode>('rating_desc');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Базовые оценённые из закладок (мгновенно из BookmarkContext)
-  const bookmarkRated = useMemo<RatedItem[]>(() => {
+  // Определяем целевого пользователя, если открыт /rated/:username или /rated/:id
+  useEffect(() => {
+    if (!queryUserId) {
+      setResolvedTarget(null);
+      setTargetNotFound(false);
+      setResolvingTarget(false);
+      return;
+    }
+
+    let active = true;
+    setResolvingTarget(true);
+    setTargetNotFound(false);
+
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(queryUserId);
+    let q = supabase.from('profiles').select('id, username, display_name, avatar_url');
+    if (isUUID) {
+      q = q.eq('id', queryUserId);
+    } else {
+      q = q.or(`username.ilike.${queryUserId},custom_slug.eq.${queryUserId}`);
+    }
+
+    q.maybeSingle().then(({ data }) => {
+      if (!active) return;
+      if (!data) {
+        setResolvedTarget(null);
+        setTargetNotFound(true);
+      } else {
+        setResolvedTarget(data);
+        if (data.username && typeof window !== 'undefined') {
+          const targetPath = `/rated/${data.username}`;
+          if (window.location.pathname !== targetPath && (isUUID || window.location.pathname.includes(data.id))) {
+            window.history.replaceState(null, '', targetPath);
+          }
+        }
+      }
+      setResolvingTarget(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [queryUserId]);
+
+  const effectiveUserId = isOtherUser ? resolvedTarget?.id || null : user?.id || null;
+
+  // Свои оценённые из закладок (мгновенно из BookmarkContext)
+  const myBookmarkRated = useMemo<RatedItem[]>(() => {
+    if (isOtherUser) return [];
     return bookmarks
       .filter((b) => typeof b.userRating === 'number' && b.userRating > 0)
       .map((b) => ({
@@ -128,204 +181,44 @@ export default function Rated() {
         updatedAt: b.updatedAt || b.createdAt || '',
         source: 'bookmark' as const,
       }));
-  }, [bookmarks]);
+  }, [bookmarks, isOtherUser]);
 
-  // Догружаем оценки из community_ratings и таблиц user_movies / user_series / user_games,
-  // если пользователь оценивал что-то без добавления в закладки
+  // Загружаем оценки целевого пользователя (или доп. оценки для своего)
   useEffect(() => {
-    if (!user?.id) {
+    if (!effectiveUserId) {
       setExtraItems([]);
       return;
     }
 
     let cancelled = false;
-    const bookmarkKeys = new Set(bookmarkRated.map((i) => i.key));
+    setLoadingRemote(true);
 
-    const loadExtraRatings = async () => {
-      setLoadingExtra(true);
-      try {
-        const [commRes, legacyMoviesRes, legacySeriesRes, legacyGamesRes] = await Promise.allSettled([
-          supabase
-            .from('community_ratings')
-            .select('content_id, content_type, rating, updated_at, created_at')
-            .eq('user_id', user.id)
-            .gt('rating', 0),
-          supabase
-            .from('user_movies')
-            .select('movie_id, title, poster_path, release_date, rating, updated_at, created_at')
-            .eq('user_id', user.id)
-            .gt('rating', 0),
-          supabase
-            .from('user_series')
-            .select('series_id, title, poster_path, release_date, rating, updated_at, created_at')
-            .eq('user_id', user.id)
-            .gt('rating', 0),
-          supabase
-            .from('user_games')
-            .select('game_id, title, background_image, released, rating, updated_at, created_at')
-            .eq('user_id', user.id)
-            .gt('rating', 0),
-        ]);
-
-        const collected = new Map<string, RatedItem>();
-
-        const addLegacy = (item: RatedItem) => {
-          if (bookmarkKeys.has(item.key) || collected.has(item.key)) return;
-          collected.set(item.key, item);
-        };
-
-        if (legacyMoviesRes.status === 'fulfilled' && !legacyMoviesRes.value.error) {
-          for (const m of (legacyMoviesRes.value.data || []) as any[]) {
-            addLegacy({
-              key: `movie:${m.movie_id}`,
-              contentId: String(m.movie_id),
-              contentType: 'movie',
-              title: m.title || `Фильм #${m.movie_id}`,
-              posterUrl: m.poster_path
-                ? m.poster_path.startsWith('http')
-                  ? m.poster_path
-                  : getMoviePosterUrl(m.poster_path, 'w342')
-                : null,
-              userRating: Number(m.rating),
-              releaseYear: m.release_date?.split('-')[0],
-              updatedAt: m.updated_at || m.created_at || '',
-              source: 'legacy',
-            });
-          }
-        }
-
-        if (legacySeriesRes.status === 'fulfilled' && !legacySeriesRes.value.error) {
-          for (const s of (legacySeriesRes.value.data || []) as any[]) {
-            addLegacy({
-              key: `series:${s.series_id}`,
-              contentId: String(s.series_id),
-              contentType: 'series',
-              title: s.title || `Сериал #${s.series_id}`,
-              posterUrl: s.poster_path
-                ? s.poster_path.startsWith('http')
-                  ? s.poster_path
-                  : getMoviePosterUrl(s.poster_path, 'w342')
-                : null,
-              userRating: Number(s.rating),
-              releaseYear: s.release_date?.split('-')[0],
-              updatedAt: s.updated_at || s.created_at || '',
-              source: 'legacy',
-            });
-          }
-        }
-
-        if (legacyGamesRes.status === 'fulfilled' && !legacyGamesRes.value.error) {
-          for (const g of (legacyGamesRes.value.data || []) as any[]) {
-            addLegacy({
-              key: `game:${g.game_id}`,
-              contentId: String(g.game_id),
-              contentType: 'game',
-              title: g.title || `Игра #${g.game_id}`,
-              posterUrl: g.background_image || null,
-              userRating: Number(g.rating),
-              releaseYear: g.released?.split('-')[0],
-              updatedAt: g.updated_at || g.created_at || '',
-              source: 'legacy',
-            });
-          }
-        }
-
-        // Обогащаем записи из community_ratings, если их нет ни в закладках, ни в legacy
-        if (commRes.status === 'fulfilled' && !commRes.value.error) {
-          const rows = ((commRes.value.data || []) as any[]).filter((r) => {
-            const k = `${r.content_type}:${r.content_id}`;
-            return !bookmarkKeys.has(k) && !collected.has(k);
-          });
-
-          const enriched = await Promise.allSettled(
-            rows.slice(0, 40).map(async (r): Promise<RatedItem> => {
-              const type = (r.content_type || 'movie') as ContentType;
-              const id = String(r.content_id);
-              const base: RatedItem = {
-                key: `${type}:${id}`,
-                contentId: id,
-                contentType: type,
-                title: `${type === 'game' ? 'Игра' : type === 'series' ? 'Сериал' : 'Фильм'} #${id}`,
-                posterUrl: null,
-                userRating: Number(r.rating),
-                updatedAt: r.updated_at || r.created_at || '',
-                source: 'community',
-              };
-
-              try {
-                if (type === 'movie' || type === 'anime') {
-                  const d = await getMovieDetails(Number(id));
-                  return {
-                    ...base,
-                    title: d.title || base.title,
-                    posterUrl: d.poster_path ? getMoviePosterUrl(d.poster_path, 'w342') : null,
-                    releaseYear: d.release_date?.split('-')[0],
-                    externalRating: d.vote_average ? Math.round(d.vote_average * 10) / 10 : undefined,
-                  };
-                }
-                if (type === 'series') {
-                  const d = await getSeriesDetails(Number(id));
-                  return {
-                    ...base,
-                    title: d.title || base.title,
-                    posterUrl: d.poster_path ? getMoviePosterUrl(d.poster_path, 'w342') : null,
-                    releaseYear: d.release_date?.split('-')[0],
-                    externalRating: d.vote_average ? Math.round(d.vote_average * 10) / 10 : undefined,
-                  };
-                }
-                if (type === 'game') {
-                  const d = await fetchRawg(`https://api.rawg.io/api/games/${id}?key=${RAWG_API_KEY}`);
-                  return {
-                    ...base,
-                    title: d.name || base.title,
-                    posterUrl: d.background_image || null,
-                    releaseYear: d.released?.split('-')[0],
-                    externalRating: d.rating ? Math.round(d.rating * 10) / 10 : undefined,
-                  };
-                }
-              } catch {
-                // fallback to base title
-              }
-              return base;
-            })
-          );
-
-          for (const res of enriched) {
-            if (res.status === 'fulfilled') {
-              collected.set(res.value.key, res.value);
-            }
-          }
-        }
-
+    loadUserRatedItems(effectiveUserId, isOtherUser ? [] : myBookmarkRated)
+      .then((items) => {
         if (!cancelled) {
-          setExtraItems(Array.from(collected.values()));
+          setExtraItems(items);
         }
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) {
-          setLoadingExtra(false);
+          setLoadingRemote(false);
         }
-      }
-    };
+      });
 
-    loadExtraRatings();
     return () => {
       cancelled = true;
     };
-  }, [user?.id, bookmarkRated]);
+  }, [effectiveUserId, isOtherUser, myBookmarkRated]);
 
-  // Объединяем все оценённые позиции без дублей
   const allRated = useMemo<RatedItem[]>(() => {
+    if (isOtherUser) return extraItems;
     const map = new Map<string, RatedItem>();
-    for (const item of bookmarkRated) {
-      map.set(item.key, item);
-    }
+    for (const item of myBookmarkRated) map.set(item.key, item);
     for (const item of extraItems) {
-      if (!map.has(item.key)) {
-        map.set(item.key, item);
-      }
+      if (!map.has(item.key)) map.set(item.key, item);
     }
     return Array.from(map.values());
-  }, [bookmarkRated, extraItems]);
+  }, [isOtherUser, myBookmarkRated, extraItems]);
 
   const countsByType = useMemo(() => {
     const counts: Record<CategoryFilter, number> = {
@@ -374,9 +267,20 @@ export default function Rated() {
     });
   }, [allRated, category, searchQuery, sortBy]);
 
-  const loading = authLoading || (!!user && bookmarksLoading && allRated.length === 0);
+  const handle = isOtherUser
+    ? resolvedTarget?.username || resolvedTarget?.id
+    : myProfile?.username || user?.id;
+  const profilePath = handle ? (resolvedTarget?.username || (!isOtherUser && myProfile?.username) ? `/${handle}` : `/profile/${handle}`) : '/';
+  const bookmarksPath = handle ? `/bookmarks/${handle}` : '/bookmarks';
+  const shareUrl = typeof window !== 'undefined' && handle ? `${window.location.origin}/rated/${handle}` : '';
 
-  if (!authLoading && !user) {
+  const loading =
+    (!isOtherUser && authLoading) ||
+    resolvingTarget ||
+    (loadingRemote && allRated.length === 0) ||
+    (!isOtherUser && !!user && bookmarksLoading && allRated.length === 0);
+
+  if (!isOtherUser && !authLoading && !user) {
     return (
       <div className="container mx-auto px-4 py-16">
         <Card className="max-w-md mx-auto p-8 text-center">
@@ -398,24 +302,60 @@ export default function Rated() {
     );
   }
 
+  if (isOtherUser && !resolvingTarget && targetNotFound) {
+    return (
+      <div className="container mx-auto px-4 py-16">
+        <Card className="max-w-md mx-auto p-8 text-center">
+          <h1 className="text-2xl font-bold mb-2">Пользователь не найден</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Не удалось найти оценки пользователя «{queryUserId}».
+          </p>
+          <Button asChild variant="secondary">
+            <Link to="/">На главную</Link>
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8 space-y-7">
-        {/* Заголовок */}
-        <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-amber-500/15 via-primary/10 to-background p-6 md:p-8">
+        {/* Заголовок + удобные переходники */}
+        <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-amber-500/15 via-primary/10 to-background p-6 md:p-8 space-y-5">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 mb-3">
-                <Star className="w-3.5 h-3.5 fill-amber-400" />
-                Личные оценки
+            <div className="flex items-center gap-4 min-w-0">
+              {isOtherUser && resolvedTarget && (
+                <Link to={profilePath} className="shrink-0">
+                  <Avatar className="w-16 h-16 md:w-20 md:h-20 border-2 border-amber-400/40">
+                    <AvatarImage src={resolvedTarget.avatar_url || undefined} />
+                    <AvatarFallback className="text-xl font-bold">
+                      {(resolvedTarget.username || 'U')[0].toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+              )}
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 mb-3">
+                  <Star className="w-3.5 h-3.5 fill-amber-400" />
+                  {isOtherUser
+                    ? `Оценки пользователя @${resolvedTarget?.username || 'user'}`
+                    : 'Личные оценки'}
+                </div>
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight truncate">
+                  {isOtherUser
+                    ? resolvedTarget?.display_name || resolvedTarget?.username || 'Оценённые'
+                    : 'Оценённые'}
+                </h1>
+                <p className="text-muted-foreground mt-1 text-sm md:text-base">
+                  {isOtherUser
+                    ? 'Все оценки пользователя по категориям: фильмы, сериалы, игры и аниме'
+                    : 'Всё, что вы оценили — по категориям: фильмы, сериалы, игры и аниме'}
+                </p>
               </div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Оценённые</h1>
-              <p className="text-muted-foreground mt-1 text-sm md:text-base">
-                Всё, что вы оценили — по категориям: фильмы, сериалы, игры и аниме
-              </p>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap shrink-0">
               <div className="px-4 py-2.5 rounded-2xl bg-card/80 border border-border backdrop-blur-sm">
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Всего оценок</p>
                 <p className="text-2xl font-bold tabular-nums">{allRated.length}</p>
@@ -428,6 +368,39 @@ export default function Rated() {
               )}
             </div>
           </div>
+
+          {/* Удобные переходники между Профилем / Закладками / Оценками */}
+          {handle && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
+              <Button asChild variant="secondary" size="sm" className="rounded-full gap-1.5">
+                <Link to={profilePath}>
+                  <User className="w-3.5 h-3.5" />
+                  {isOtherUser ? 'Профиль' : 'Мой профиль'}
+                </Link>
+              </Button>
+              <Button asChild variant="secondary" size="sm" className="rounded-full gap-1.5">
+                <Link to={bookmarksPath}>
+                  <Bookmark className="w-3.5 h-3.5 text-emerald-400" />
+                  {isOtherUser ? 'Закладки пользователя' : 'Мои закладки'}
+                </Link>
+              </Button>
+              {shareUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full gap-1.5"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(shareUrl);
+                    toast.success('Ссылка на оценки скопирована');
+                  }}
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  Поделиться оценками
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Фильтры по категориям + поиск + сортировка */}
@@ -512,27 +485,34 @@ export default function Rated() {
           <Card className="p-12 text-center border-dashed">
             <Star className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
             <h2 className="text-xl font-semibold mb-1">
-              {allRated.length === 0 ? 'Пока нет оценённых тайтлов' : 'В этой категории ничего не найдено'}
+              {allRated.length === 0
+                ? isOtherUser
+                  ? 'У пользователя пока нет оценённых тайтлов'
+                  : 'Пока нет оценённых тайтлов'
+                : 'В этой категории ничего не найдено'}
             </h2>
             <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
               {allRated.length === 0
-                ? 'Ставьте оценки фильмам, сериалам и играм через кнопку действий или рейтинг — они автоматически появятся здесь.'
+                ? isOtherUser
+                  ? 'Когда пользователь оценит фильмы, сериалы или игры, они появятся здесь.'
+                  : 'Ставьте оценки фильмам, сериалам и играм через кнопку действий или рейтинг — они автоматически появятся здесь.'
                 : 'Попробуйте выбрать другую категорию или изменить поисковый запрос.'}
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button asChild variant="secondary">
-                <Link to="/movies">К фильмам</Link>
-              </Button>
-              <Button asChild variant="secondary">
-                <Link to="/series">К сериалам</Link>
-              </Button>
-              <Button asChild variant="secondary">
-                <Link to="/games">К играм</Link>
-              </Button>
-            </div>
+            {!isOtherUser && (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button asChild variant="secondary">
+                  <Link to="/movies">К фильмам</Link>
+                </Button>
+                <Button asChild variant="secondary">
+                  <Link to="/series">К сериалам</Link>
+                </Button>
+                <Button asChild variant="secondary">
+                  <Link to="/games">К играм</Link>
+                </Button>
+              </div>
+            )}
           </Card>
         ) : category === 'all' ? (
-          /* Когда выбрано «Все» — группируем по категориям (Фильмы, Сериалы, Игры, Аниме) */
           <div className="space-y-10">
             {CATEGORY_META.map((cat) => {
               const items = filteredAndSorted.filter((item) => item.contentType === cat.key);
@@ -570,7 +550,7 @@ export default function Rated() {
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {items.map((item) => (
-                      <RatedCard key={item.key} item={item} />
+                      <RatedCard key={item.key} item={item} readOnly={isOtherUser} />
                     ))}
                   </div>
                 </section>
@@ -578,15 +558,14 @@ export default function Rated() {
             })}
           </div>
         ) : (
-          /* Конкретная выбранная категория */
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {filteredAndSorted.map((item) => (
-              <RatedCard key={item.key} item={item} />
+              <RatedCard key={item.key} item={item} readOnly={isOtherUser} />
             ))}
           </div>
         )}
 
-        {loadingExtra && (
+        {loadingRemote && allRated.length > 0 && (
           <p className="text-xs text-muted-foreground text-center">
             Синхронизация дополнительных оценок...
           </p>
@@ -596,7 +575,7 @@ export default function Rated() {
   );
 }
 
-function RatedCard({ item }: { item: RatedItem }) {
+function RatedCard({ item, readOnly }: { item: RatedItem; readOnly: boolean }) {
   const catLabel =
     CATEGORY_META.find((c) => c.key === item.contentType)?.singular || item.contentType;
   const statusLabel = item.status ? CONTENT_STATUS_CONFIG[item.status]?.label : null;
@@ -611,26 +590,25 @@ function RatedCard({ item }: { item: RatedItem }) {
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
 
-          {/* Бейдж категории слева сверху */}
           <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-black/70 text-white backdrop-blur-md border border-white/10">
             {catLabel}
           </span>
 
-          {/* Кнопка действий (можно быстро поменять оценку или статус) */}
-          <div className="absolute top-2 right-2 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
-            <ContentActionsButton
-              contentId={item.contentId}
-              contentType={item.contentType}
-              top50MediaType={getTop50MediaType(item.contentType)}
-              title={item.title}
-              posterUrl={item.posterUrl || undefined}
-              externalRating={item.externalRating}
-              releaseYear={item.releaseYear}
-              genre={item.genre}
-            />
-          </div>
+          {!readOnly && (
+            <div className="absolute top-2 right-2 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
+              <ContentActionsButton
+                contentId={item.contentId}
+                contentType={item.contentType}
+                top50MediaType={getTop50MediaType(item.contentType)}
+                title={item.title}
+                posterUrl={item.posterUrl || undefined}
+                externalRating={item.externalRating}
+                releaseYear={item.releaseYear}
+                genre={item.genre}
+              />
+            </div>
+          )}
 
-          {/* Ваша оценка — главный акцентный бейдж */}
           <span
             className={`absolute bottom-2 right-2 z-10 ${ratingBadgeStyle(
               item.userRating

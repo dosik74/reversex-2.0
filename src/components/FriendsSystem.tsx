@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Check, X, MessageSquare, Search, UserPlus, Share2 } from "lucide-react";
+import { Check, X, MessageSquare, Search, UserPlus, Share2, Bookmark, Star } from "lucide-react";
 
 interface ProfileMini {
   id: string;
@@ -282,40 +282,56 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
     toast.success(`Ссылка на профиль @${username} скопирована!`);
   };
 
-  const renderFriendRow = (friend: ProfileMini) => (
-    <div
-      key={friend.id}
-      className="flex items-center justify-between p-4 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
-    >
-      <Link to={`/profile/${friend.id}`} className="flex items-center gap-3 flex-1">
-        <Avatar className="w-12 h-12">
-          <AvatarImage src={friend.avatar_url || undefined} />
-          <AvatarFallback>{(friend.username?.[0] ?? "U").toUpperCase()}</AvatarFallback>
-        </Avatar>
-        <div>
-          <p className="font-medium hover:underline cursor-pointer">{friend.display_name || friend.username}</p>
-          <p className="text-xs text-muted-foreground">@{friend.username}</p>
-        </div>
-      </Link>
+  const renderFriendRow = (friend: ProfileMini) => {
+    const handle = friend.username || friend.id;
+    const profileTo = friend.username ? `/${friend.username}` : `/profile/${friend.id}`;
+    return (
+      <div
+        key={friend.id}
+        className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
+      >
+        <Link to={profileTo} className="flex items-center gap-3 flex-1 min-w-0">
+          <Avatar className="w-12 h-12 shrink-0">
+            <AvatarImage src={friend.avatar_url || undefined} />
+            <AvatarFallback>{(friend.username?.[0] ?? "U").toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="font-medium hover:underline cursor-pointer truncate">{friend.display_name || friend.username}</p>
+            <p className="text-xs text-muted-foreground truncate">@{friend.username}</p>
+          </div>
+        </Link>
 
-      <div className="flex gap-2">
-        {currentUserId && (
-          <>
-            <Button size="sm" variant="outline" onClick={() => onMessage?.(friend)}>
-              <MessageSquare className="w-4 h-4" />
-            </Button>
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={() => handleCopyProfileLink(friend.id, friend.username)}
-            >
-              <Share2 className="w-4 h-4" />
-            </Button>
-          </>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm" variant="outline" className="gap-1.5 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
+            <Link to={`/bookmarks/${handle}`}>
+              <Bookmark className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Закладки</span>
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline" className="gap-1.5 text-amber-400 border-amber-500/30 hover:bg-amber-500/10">
+            <Link to={`/rated/${handle}`}>
+              <Star className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Оценки</span>
+            </Link>
+          </Button>
+          {currentUserId && (
+            <>
+              <Button size="sm" variant="outline" onClick={() => onMessage?.(friend)}>
+                <MessageSquare className="w-4 h-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleCopyProfileLink(friend.id, friend.username)}
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderIncomingRow = (row: FriendshipRow) => {
     const other = row.user ?? null;
@@ -439,26 +455,44 @@ const FriendsSystem = ({ userId, currentUserId, onMessage }: FriendsSystemProps)
 
             {searchResults.length > 0 && (
               <div className="space-y-2">
-                {searchResults.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/20"
-                  >
-                    <Link to={`/profile/${user.id}`} className="flex items-center gap-3 flex-1">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={user.avatar_url || undefined} />
-                        <AvatarFallback>{(user.username?.[0] ?? "U").toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{user.display_name || user.username}</p>
-                        <p className="text-xs text-muted-foreground">@{user.username}</p>
+                {searchResults.map((user) => {
+                  const handle = user.username || user.id;
+                  const profileTo = user.username ? `/${user.username}` : `/profile/${user.id}`;
+                  return (
+                    <div
+                      key={user.id}
+                      className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-secondary/20"
+                    >
+                      <Link to={profileTo} className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar className="w-10 h-10 shrink-0">
+                          <AvatarImage src={user.avatar_url || undefined} />
+                          <AvatarFallback>{(user.username?.[0] ?? "U").toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{user.display_name || user.username}</p>
+                          <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                        </div>
+                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Button asChild size="sm" variant="outline" className="h-8 px-2.5 text-xs text-emerald-400 border-emerald-500/30">
+                          <Link to={`/bookmarks/${handle}`}>
+                            <Bookmark className="w-3.5 h-3.5 mr-1" />
+                            Закладки
+                          </Link>
+                        </Button>
+                        <Button asChild size="sm" variant="outline" className="h-8 px-2.5 text-xs text-amber-400 border-amber-500/30">
+                          <Link to={`/rated/${handle}`}>
+                            <Star className="w-3.5 h-3.5 mr-1" />
+                            Оценки
+                          </Link>
+                        </Button>
+                        <Button size="sm" onClick={() => handleAddFriend(user.id)}>
+                          <UserPlus className="w-4 h-4" />
+                        </Button>
                       </div>
-                    </Link>
-                    <Button size="sm" onClick={() => handleAddFriend(user.id)}>
-                      <UserPlus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>

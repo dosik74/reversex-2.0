@@ -7,6 +7,7 @@ import { useIMDbRating } from "@/hooks/useIMDbRating";
 import CommunityRating from "@/components/CommunityRating";
 import ContentActionsButton from "@/components/ContentActionsButton";
 import BackButton from "@/components/BackButton";
+import CommentsList from "@/components/CommentsList";
 
 interface MovieDetails {
   id: number;
@@ -405,6 +406,13 @@ const MovieDetail = () => {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Комментарии */}
+            {movieId && (
+              <div className="animate-fade-up" style={{ animationDelay: '0.45s' }}>
+                <CommentsList movieId={movieId} />
+              </div>
             )}
           </div>
 

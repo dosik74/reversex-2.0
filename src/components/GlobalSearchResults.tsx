@@ -440,35 +440,61 @@ export default function GlobalSearchResults({
             {(effectiveCategory === 'all'
               ? results.profiles.slice(0, PREVIEW_ENTITY_COUNT)
               : results.profiles
-            ).map((user) => (
-              <Link key={user.id} to={user.to} className="group">
-                <Card className="p-3.5 h-full flex items-center gap-3.5 hover:border-primary/50 transition-all">
-                  <Avatar className="h-12 w-12 shrink-0">
-                    <AvatarImage src={user.avatarUrl || undefined} />
-                    <AvatarFallback>
-                      {(user.displayName || user.username || 'U')[0].toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                        {user.displayName || user.username || 'Пользователь'}
-                      </p>
-                      <Badge variant="outline" className="text-[10px] shrink-0">
-                        Ур. {user.level}
-                      </Badge>
+            ).map((user) => {
+              const userHandle = user.username || user.id;
+              return (
+                <Card key={user.id} className="p-3.5 h-full flex flex-col justify-between gap-3 hover:border-primary/50 transition-all">
+                  <Link to={user.to} className="group flex items-center gap-3.5 min-w-0">
+                    <Avatar className="h-12 w-12 shrink-0">
+                      <AvatarImage src={user.avatarUrl || undefined} />
+                      <AvatarFallback>
+                        {(user.displayName || user.username || 'U')[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                          {user.displayName || user.username || 'Пользователь'}
+                        </p>
+                        <Badge variant="outline" className="text-[10px] shrink-0">
+                          Ур. {user.level}
+                        </Badge>
+                      </div>
+                      {user.username && (
+                        <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                      )}
+                      {user.bio && (
+                        <p className="text-xs text-muted-foreground/80 truncate mt-0.5">{user.bio}</p>
+                      )}
                     </div>
-                    {user.username && (
-                      <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
-                    )}
-                    {user.bio && (
-                      <p className="text-xs text-muted-foreground/80 truncate mt-0.5">{user.bio}</p>
-                    )}
+                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
+                  </Link>
+
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/60">
+                    <Link
+                      to={user.to}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted/70 hover:bg-primary/15 hover:text-primary transition-colors"
+                    >
+                      Профиль
+                    </Link>
+                    <Link
+                      to={`/bookmarks/${userHandle}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                    >
+                      <Bookmark className="w-3 h-3" />
+                      Закладки
+                    </Link>
+                    <Link
+                      to={`/rated/${userHandle}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                    >
+                      <Star className="w-3 h-3" />
+                      Оценки
+                    </Link>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
                 </Card>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

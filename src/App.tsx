@@ -218,6 +218,7 @@ const App = () => {
                     <Route path="/id/:slug" element={<Profile />} />
                     <Route path="/bookmarks" element={<BookmarksNew />} />
                     <Route path="/rated" element={<Rated />} />
+                    <Route path="/rated/:targetUserId" element={<Rated />} />
                     <Route path="/friends" element={<FriendsPage />} />
                     <Route path="/bookmarks/:targetUserId" element={<BookmarksNew />} />
                     <Route path="/qr-scan" element={<QrScanPage />} />

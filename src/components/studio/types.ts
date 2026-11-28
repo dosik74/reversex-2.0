@@ -65,6 +65,8 @@ export interface PageBg {
 }
 
 export interface StudioMedia {
+  id?: string;
+  contentType?: string;
   title: string;
   year: number;
   cat: string;
@@ -72,19 +74,53 @@ export interface StudioMedia {
   poster: string;
   genre: string;
   color: string;
+  userRating?: number;
+  externalRating?: number;
+}
+
+export interface StudioRatedItem {
+  id: string;
+  contentType: string;
+  title: string;
+  poster: string;
+  year: string;
+  cat: string;
+  userRating: number;
+}
+
+export interface StudioTitleComment {
+  id: string;
+  movieId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface StudioWallComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  authorId: string;
+  authorUsername: string;
+  authorDisplayName: string | null;
+  authorAvatar: string | null;
 }
 
 export interface StudioProfile {
+  id: string;
   username: string;
   display_name: string;
   avatar_url: string;
   bio: string;
   level: number;
   xp: number;
-  stats: { bookmarks: number; followers: number; following: number; comments: number };
+  stats: { bookmarks: number; followers: number; following: number; comments: number; rated: number };
+  statusCounts: Record<string, number>;
   friendsCount: number;
   media: StudioMedia[];
-  topLists: Array<{ title: string; poster: string; items: Array<{ id: string; title: string; poster: string }> }>;
+  rated: StudioRatedItem[];
+  titleComments: StudioTitleComment[];
+  wallComments: StudioWallComment[];
+  topLists: Array<{ title: string; mediaType?: string; poster: string; items: Array<{ id: string; title: string; poster: string }> }>;
 }
 
 export interface StudioData {
