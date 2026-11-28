@@ -4,7 +4,7 @@ export const themes = {
   graphite: { label: 'Графит', background: '#181a1e', accent: '#c5cbd6' },
 };
 export type Appearance = { theme: keyof typeof themes; compact: boolean; tinted: boolean };
-export const defaultAppearance: Appearance = { theme: 'plum', compact: false, tinted: true };
+export const defaultAppearance: Appearance = { theme: 'graphite', compact: false, tinted: true };
 export function appearance(input: Partial<Appearance> | null): Appearance {
   return {
     theme: input?.theme && Object.prototype.hasOwnProperty.call(themes, input.theme) ? input.theme : defaultAppearance.theme,
@@ -15,11 +15,12 @@ type SeasonImage = { label: string; cells: { number: number; score: number | nul
 
 export async function downloadChart(title: string, source: string, settings: Appearance, seasons: SeasonImage[]) {
   const palette = themes[settings.theme];
-  const cols = settings.compact ? 12 : 9;
-  const width = 1080, margin = 48, gap = 8;
-  const cellWidth = (width - 2*margin - (cols-1)*gap)/cols;
-  const cellHeight = settings.compact ? 62 : 76;
-  const height = 148 + seasons.reduce((n,s) => n + 58 + Math.ceil(s.cells.length / cols)*(cellHeight+gap), 0);
+  const rows = [...new Set(seasons.flatMap(season => season.cells.map(cell => cell.number)))].sort((a,b) => a-b);
+  const margin = 36, gap = 8, axis = 66;
+  const cellWidth = settings.compact ? 88 : 120;
+  const cellHeight = settings.compact ? 44 : 60;
+  const width = Math.max(480, 2 * margin + axis + seasons.length * (cellWidth + gap));
+  const height = 176 + rows.length * (cellHeight + gap) + margin;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -35,22 +36,25 @@ export async function downloadChart(title: string, source: string, settings: App
   text('ReverseX',margin,41,19,palette.accent,true);
   text(title,margin,85,36,'#ffffff',true,width-2*margin);
   text('Оценки серий · '+source,margin,116,20,'#c5c5cc');
-  let y = 144;
-  for (const season of seasons) {
-    text(season.label,margin,y+22,22,'#fff',true);
-    y += 40;
-    season.cells.forEach((cell,i) => {
-      const x = margin+(i%cols)*(cellWidth+gap), top=y+Math.floor(i/cols)*(cellHeight+gap);
-      ctx.fillStyle = settings.tinted && cell.score != null ? cell.color+'33' : '#ffffff0d';
-      ctx.beginPath(); ctx.roundRect(x,top,cellWidth,cellHeight,9); ctx.fill();
-      text('Серия '+cell.number,x+10,top+19,13,'#c6c6ce');
-      text(cell.score?.toFixed(1) ?? '—',x+10,top+cellHeight-13,26,cell.score == null ? '#85858f' : '#fff',true);
-      if (cell.score != null) {
-        ctx.fillStyle = cell.color;
-        ctx.fillRect(x+10,top+cellHeight-6,(cellWidth-20)*cell.score/10,3);
-      }
-    });
-    y += Math.ceil(season.cells.length/cols)*(cellHeight+gap)+18;
+  ctx.textAlign = 'center';
+  text('Серия', margin + axis / 2, 158, 15, '#bbbdc4');
+  rows.forEach((number, index) => {
+    text(String(number), margin + axis / 2, 176 + index * (cellHeight + gap) + cellHeight / 2 + 6, 18, '#bbbdc4');
+  });
+  for (const [column, season] of seasons.entries()) {
+    const x = margin + axis + column * (cellWidth + gap);
+    text(season.label, x + cellWidth / 2, 158, 15, '#bbbdc4', false, cellWidth);
+    for (const cell of season.cells) {
+      const top = 176 + rows.indexOf(cell.number) * (cellHeight + gap);
+      const filled = settings.tinted && cell.score != null;
+      ctx.fillStyle = filled ? cell.color : '#ffffff0d';
+      ctx.beginPath();
+      ctx.roundRect(x, top, cellWidth, cellHeight, 6);
+      ctx.fill();
+      const ink = cell.score == null ? '#92939b' : !filled ? cell.color :
+        cell.score >= 9 && cell.score < 9.7 ? '#ffffff' : '#101317';
+      text(cell.score?.toFixed(1) ?? '—', x + cellWidth / 2, top + cellHeight / 2 + 9, 28, ink, true);
+    }
   }
   const blob = await new Promise<Blob|null>(resolve => canvas.toBlob(resolve,'image/png'));
   if (!blob) throw new Error('PNG unavailable');

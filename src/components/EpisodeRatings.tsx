@@ -26,9 +26,9 @@ type Entry = Episode & { season_number: number; air_date?: string; runtime?: num
 interface GridScore { id: number; average: number | null; mine: number | null }
 
 const bands = [
-  { min: 9.7, color: '#45c8fc' }, { min: 9, color: '#167545' },
-  { min: 8, color: '#36ce83' }, { min: 7, color: '#ffd453' },
-  { min: 6, color: '#ff984a' }, { min: 4, color: '#f06a68' }, { min: 0, color: '#ad85c9' },
+  { min: 9.7, color: '#45c8fc', label: 'Шедевр' }, { min: 9, color: '#167545', label: 'Отлично' },
+  { min: 8, color: '#36ce83', label: 'Очень хорошо' }, { min: 7, color: '#ffd453', label: 'Хорошо' },
+  { min: 6, color: '#ff984a', label: 'Средне' }, { min: 4, color: '#f06a68', label: 'Слабо' }, { min: 0, color: '#ad85c9', label: 'Плохо' },
 ];
 function shade(score: number) {
   return bands.find(b => score >= b.min) ?? bands[bands.length - 1];
@@ -139,13 +139,12 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
   return <section ref={root} data-compact={settings.compact} data-tinted={settings.tinted}
     style={{background:themes[settings.theme].background,'--chart-accent':themes[settings.theme].accent,scrollMarginTop:'6rem'} as CSSProperties}
     className="rx-chart min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#141419] text-white">
-    <header style={{background:`linear-gradient(105deg,${themes[settings.theme].accent}20,transparent 65%)`}} className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-gradient-to-r from-violet-500/10 to-transparent px-4 py-4 sm:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        {poster && <img src={poster} alt="" className="h-12 w-8 rounded object-cover" />}
-        <div className="min-w-0"><p className="truncate text-xs text-neutral-400">{title}</p>
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Оценки серий</h2>
-        </div>
-      </div>
+    <div className="rx-layout">
+      <header className="rx-series">
+        {poster && <img className="rx-poster" src={poster} alt="" />}
+        <div><h2>Оценки серий</h2><p>{title}</p></div>
+      </header>
+      <div className="rx-content">
       <div className="flex flex-wrap items-center gap-2">
       <select aria-label="Источник оценок" value={source} onChange={e => {
         setSource(e.target.value as Source);
@@ -161,8 +160,7 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
       <button className="rx-tool" disabled={busy || !pageReady} onClick={()=>share('link')} title="Скопировать ссылку на этот вид"><Link2 size={16}/>Ссылка</button>
       <button className="rx-tool" disabled={busy || !pageReady} onClick={()=>share('png')} title="Скачать отображаемые серии в PNG"><Download size={16}/>{busy ? '…' : 'PNG'}</button>
       </div>
-    </header>
-    <div className="px-4 pb-5 sm:px-6">
+
         {customizing && <div className="rx-controls">
           <label>Палитра<select value={settings.theme} onChange={e=>customize({theme:e.target.value as Appearance['theme']})}>
             {Object.entries(themes).map(([key,t])=><option key={key} value={key}>{t.label}</option>)}</select></label>
@@ -171,8 +169,8 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
         </div>}
         {feedback && <p role="status" className="mt-2 text-sm">{feedback}</p>}
         {manualLink && <input aria-label="Ссылка на оценки" readOnly className="w-full bg-black/30 p-2" value={manualLink} onFocus={e=>e.target.select()}/>}
-        <div className="my-4 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-300">
-          {bands.map(b => <span key={b.min} className="flex items-center gap-1"><i className="h-2 w-2 rounded-full" style={{background:b.color}}/>{b.min === 0 ? '<4' : b.min + '+'}</span>)}
+        <div className="rx-legend">
+          {bands.map(b => <span key={b.min}><i style={{background:b.color}}/>{b.label} <small>{b.min === 0 ? '<4' : b.min + '+'}</small></span>)}
         </div>
         {seasons.isLoading && <p role="status">Загружаем сезоны…</p>}
         {seasons.isError && <button onClick={() => seasons.refetch()}>Повторить загрузку сезонов</button>}
@@ -180,23 +178,25 @@ export default function EpisodeRatings({ seriesId, title, poster }: { seriesId: 
         {lists.some(q => q.isLoading) && <p role="status">Загружаем серии…</p>}
         {lists.some(q => q.isError) && <button onClick={() => lists.filter(q => q.isError).forEach(q => q.refetch())}>Повторить загрузку серий</button>}
         {scores.isError && source !== 'imdb' && <button onClick={() => scores.refetch()}>Не удалось загрузить оценки. Повторить</button>}
-        {lists.map((list, i) => {
-          const episodes = list.data?.filter(ep => visible.includes(ep.episode_number));
-          if (!episodes?.length) return null;
-          const season = columns[i].season_number;
-          return <div key={season} className="mt-5">
-            <h3 className="mb-2 flex items-center gap-3 text-sm font-semibold">
-              {season ? `Сезон ${season}` : 'Спецвыпуски'}<span aria-hidden="true" className="h-px flex-1 bg-white/10" />
-            </h3>
-            <div className="rx-cells grid grid-cols-[repeat(auto-fill,minmax(4.25rem,1fr))] gap-1.5 sm:grid-cols-[repeat(auto-fill,minmax(5rem,1fr))]">
-              {episodes.map(ep => <ScoreCell key={ep.id} episode={ep} seriesId={seriesId} source={source}
-                loading={!snapshot && scores.isLoading} value={chosenScore(ep)}
-                onOpen={button => { trigger.current = button; setActive(ep); }} />)}
-            </div>
-          </div>;
-        })}
+        {visible.length > 0 && <div className="rx-scroll">
+          <table className="rx-matrix" aria-label={title + ' — оценки серий'}>
+            <thead><tr><th scope="col">Серия</th>{columns.map(season =>
+              <th scope="col" key={season.season_number}>{season.season_number ? 'Сезон ' + season.season_number : 'Спец.'}</th>
+            )}</tr></thead>
+            <tbody>{visible.map(number => <tr key={number}>
+              <th scope="row">{number}</th>
+              {columns.map((season, i) => {
+                const ep = lists[i].data?.find(item => item.episode_number === number);
+                return <td key={season.season_number}>{ep && <ScoreCell episode={ep} seriesId={seriesId} source={source}
+                  loading={!snapshot && scores.isLoading} value={chosenScore(ep)}
+                  onOpen={button => { trigger.current = button; setActive(ep); }} />}</td>;
+              })}
+            </tr>)}</tbody>
+          </table>
+        </div>}
         {!snapshot && (seasons.data?.length ?? 0) > 5 && <Pager page={seasonPage} size={5} total={seasons.data.length} label="Сезоны" change={page => { setSeasonPage(page); setRowPage(0); }}/>}
         {!snapshot && numbers.length > 25 && <Pager page={rowPage} size={25} total={numbers.length} label="Серии" change={setRowPage}/>}
+    </div>
     </div>
     <Dialog open={!!active} onOpenChange={open => { if (!open) setActive(null); }}>
       {active && <DialogContent onCloseAutoFocus={e => { e.preventDefault(); trigger.current?.focus(); }}
@@ -238,12 +238,9 @@ function ScoreCell({ episode, seriesId, source, value, loading, onOpen }: { epis
   const pending = source === 'imdb' ? imdb.isLoading : loading;
   const caption = score != null ? score.toFixed(1) : pending ? '…' : '—';
   return <button ref={ref} title={episode.name} aria-label={`Сезон ${episode.season_number}, серия ${episode.episode_number}. ${episode.name}. ${score != null ? caption : pending ? 'Загрузка' : 'Нет оценки'}`}
-    onClick={e => onOpen(e.currentTarget)} data-scored={score != null} style={score != null ? {'--score-color':shade(score).color} as CSSProperties : undefined} className="rx-cell group rounded-lg border border-white/[0.07] bg-white/[0.035] px-2.5 py-2 text-left tabular-nums transition hover:border-violet-400/60 hover:bg-white/[0.08] focus-visible:outline-violet-400">
-    <span className="block text-[10px] leading-tight text-neutral-400">Серия {episode.episode_number}</span>
-    <strong className={`block text-xl leading-snug ${score == null ? 'text-neutral-500' : 'text-white'}`}>{caption}</strong>
-    <span aria-hidden="true" className="mt-1 block h-[3px] overflow-hidden rounded-full bg-white/10">
-      {score != null && <span className="block h-full rounded-full" style={{width: `${score*10}%`, background: shade(score).color}} />}
-    </span>
+    onClick={e => onOpen(e.currentTarget)} data-scored={score != null}
+    style={score != null ? {'--score-color': shade(score).color, '--score-ink': shade(score).min === 9 ? '#fff' : '#101317'} as CSSProperties : undefined}
+    className="rx-cell">{caption}
   </button>;
 }
 
