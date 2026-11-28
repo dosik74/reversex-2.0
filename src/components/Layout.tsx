@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone, FlaskConical, Users, History } from "lucide-react";
+import { Film, Home, Tv, Gamepad, Music, Book, Bookmark, Bell, MessageSquare, User, LogOut, Settings, Crown, ChevronRight, ChevronLeft, Lightbulb, Sun, Moon, Smartphone, FlaskConical, Users, History, Star } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -255,6 +255,12 @@ const Layout = () => {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
+                        <Link to="/rated" className="flex items-center gap-2">
+                          <Star className="w-4 h-4 text-amber-400" />
+                          Оценённые
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link to="/qr-scan" className="flex items-center gap-2">
                           <Smartphone className="w-4 h-4" />
                           Привязать устройство
@@ -415,6 +421,12 @@ const Layout = () => {
                     <Link to={profile?.username ? `/${profile.username}` : `/profile/${session.user.id}`} className="flex items-center gap-2">
                       <User className="w-4 h-4" />
                       Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/rated" className="flex items-center gap-2">
+                      <Star className="w-4 h-4 text-amber-400" />
+                      Оценённые
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

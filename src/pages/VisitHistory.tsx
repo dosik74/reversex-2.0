@@ -7,7 +7,7 @@ export const historyPath = '/activity/history';
 type Visit = { path: string; title: string; time: number };
 const sections: Record<string,string> = {
   '/':'Главная', '/movies':'Фильмы', '/explore-movies':'Каталог фильмов', '/series':'Сериалы',
-  '/games':'Игры', '/bookmarks':'Закладки', '/friends':'Друзья', '/settings':'Настройки',
+  '/games':'Игры', '/bookmarks':'Закладки', '/rated':'Оценённые', '/friends':'Друзья', '/settings':'Настройки',
   '/music':'Музыка', '/books':'Книги', '/ws':'Watch', '/recommendations':'Рекомендации',
   '/tier-lists':'Тир-листы', '/admin':'Управление сайтом', '/tusau':'Тұсау',
 };
